@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>過去・未来の状況 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section"><h2 class="sidebar-title">ショートカット</h2><ul class="app-list"></ul></div>
+        </aside>
+
+        <main class="main-content">
+            <div style="margin-bottom: 24px;">
+                <a href="/status" class="btn-cancel" style="text-decoration: none;">← 本日の状況に戻る</a>
+            </div>
+
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
+                <div class="column-header"><h2 class="section-title">過去・未来の「出勤状況」</h2></div>
+                <div style="overflow-x: auto;"><table class="active-table">
+                    <thead><tr><th>対象日</th><th>名前</th><th>種類</th><th>出勤予定</th><th>退勤予定</th><th>備考</th><th>操作</th></tr></thead>
+                    <tbody id="archive-attendance-body"></tbody>
+                </table></div>
+            </section>
+
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
+                <div class="column-header"><h2 class="section-title">過去・未来の「来客状況」</h2></div>
+                <div style="overflow-x: auto;"><table class="active-table">
+                    <thead><tr><th>対象日</th><th>来客所属</th><th>人数</th><th>代表者名</th><th>内容</th><th>対応者</th><th>場所</th><th>来校予定</th><th>備考</th><th>操作</th></tr></thead>
+                    <tbody id="archive-visitor-body"></tbody>
+                </table></div>
+            </section>
+
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
+                <div class="column-header"><h2 class="section-title">過去・未来の「出張状況」</h2></div>
+                <div style="overflow-x: auto;"><table class="active-table">
+                    <thead><tr><th>対象日</th><th>名前</th><th>内容</th><th>場所</th><th>出発時間</th><th>備考</th><th>操作</th></tr></thead>
+                    <tbody id="archive-trip-body"></tbody>
+                </table></div>
+            </section>
+        </main>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+</body>
+</html>

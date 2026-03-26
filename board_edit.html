@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>掲示板編集 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">ショートカット</h2>
+                <ul class="app-list"><li><a href="/" class="app-link"><span class="app-icon">🏠</span><span class="app-name">ホームに戻る</span></a></li></ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="editor-header-actions" style="border-bottom: none; justify-content: flex-end;">
+                <div class="editor-buttons"><button id="btn-publish" class="btn-submit">公開する</button></div>
+            </div>
+
+            <div class="notion-editor-container">
+                <div id="cover-image-area" style="display: none;">
+                    <button id="btn-add-cover"></button><input type="file" id="edit-eyecatch-file"><img id="cover-image-preview"><button id="btn-remove-cover"></button>
+                </div>
+
+                <input type="text" id="edit-title" class="notion-title-input" placeholder="共有掲示のタイトル">
+                <div class="notion-meta-row">
+                    <input type="text" id="edit-author" class="notion-meta-input" placeholder="部署">
+                    <input type="text" id="edit-date" class="notion-meta-input" placeholder="掲載期間 (例: 2026/04/05まで)">
+                </div>
+                <div id="edit-content" class="notion-rich-textarea" contenteditable="true" data-placeholder="「/」でメニューを表示、または入力を開始..."></div>
+            </div>
+
+            <div id="slash-menu" class="slash-menu hidden">
+                <div class="slash-menu-item" data-command="h2">見出し (大)</div>
+                <div class="slash-menu-item" data-command="h3">見出し (小)</div>
+                <div class="slash-menu-item" data-command="insertUnorderedList">箇条書きリスト</div>
+                <div class="slash-menu-item" data-command="insertOrderedList">番号付きリスト</div>
+                <div class="slash-menu-item" data-command="insertHorizontalRule">水平線</div>
+                <div class="slash-menu-item" data-command="image">📷 画像を挿入</div>
+            </div>
+            <div id="floating-toolbar" class="floating-toolbar hidden">
+                <button data-command="bold"><b>B</b></button><button data-command="italic"><i>I</i></button><input type="color" id="floating-color" title="文字色">
+            </div>
+            <input type="file" id="hidden-img-upload" accept="image/png, image/jpeg" style="display: none;">
+        </main>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+</body>
+</html>

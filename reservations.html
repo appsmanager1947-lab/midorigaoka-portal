@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会議室等予約 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">ショートカット</h2>
+                <ul class="app-list"></ul> </div>
+        </aside>
+
+        <main class="main-content">
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
+                <div class="column-header">
+                    <h2 class="section-title">会議室等予約一覧</h2>
+                    <button id="add-reservation-btn" class="add-button">＋ 新規予約</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="active-table">
+                        <thead>
+                            <tr><th>使用用途</th><th>使用場所</th><th>日付</th><th>開始時間</th><th>終了時間</th><th>使用者</th><th>操作</th></tr>
+                        </thead>
+                        <tbody id="reservations-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
+                <div class="column-header">
+                    <h2 class="section-title">特別教室等予約一覧</h2>
+                    <button id="add-special-room-btn" class="add-button">＋ 新規予約</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="active-table">
+                        <thead>
+                            <tr><th>使用用途</th><th>使用場所</th><th>日付</th><th>開始時間</th><th>終了時間</th><th>使用者</th><th>操作</th></tr>
+                        </thead>
+                        <tbody id="special-rooms-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="reservation-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">会議室等を予約</h3>
+            <div class="form-group"><label>使用用途</label><input type="text" id="res-purpose" class="modal-input" placeholder="例：学年会議、保護者面談など"></div>
+            <div class="form-group"><label>使用場所</label>
+                <select id="res-location" class="modal-input" style="background-color: #fff; cursor: pointer;">
+                    <option value="ＡＢ会議室">ＡＢ会議室</option><option value="Ａ応接室">Ａ応接室</option><option value="Ｂ応接室">Ｂ応接室</option><option value="進路指導室">進路指導室</option><option value="生徒会室">生徒会室</option>
+                </select>
+            </div>
+            <div class="form-group"><label>日付</label><input type="date" id="res-date" class="modal-input"></div>
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;"><label>開始時間</label><input type="time" id="res-start" class="modal-input"></div>
+                <div class="form-group" style="flex: 1;"><label>終了時間</label><input type="time" id="res-end" class="modal-input"></div>
+            </div>
+            <div class="form-group"><label>使用者</label><input type="text" id="res-user" class="modal-input" placeholder="例：山田太郎"></div>
+            <div class="modal-actions"><button id="res-cancel" class="btn-cancel">キャンセル</button><button id="res-submit" class="btn-submit">予約する</button></div>
+        </div>
+    </div>
+
+    <div id="special-room-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">特別教室等を予約</h3>
+            <div class="form-group"><label>使用用途</label><input type="text" id="sp-purpose" class="modal-input" placeholder="例：授業、補習など"></div>
+            <div class="form-group"><label>使用場所</label>
+                <select id="sp-location" class="modal-input" style="background-color: #fff; cursor: pointer;">
+                    <option value="視聴覚室">視聴覚室</option><option value="音楽室">音楽室</option><option value="調理室">調理室</option>
+                    <option value="美術室">美術室</option><option value="図書室">図書室</option><option value="ＰＣ教室">ＰＣ教室</option>
+                    <option value="理科実験室">理科実験室</option>
+                    <option value="体育室">体育室</option><option value="体育館">体育館</option>
+                    <option value="学習室Ｓ">学習室Ｓ</option><option value="学習室Ｌ">学習室Ｌ</option>
+                    <option value="ブラウジングルーム">ブラウジングルーム</option><option value="エンジェルルーム">エンジェルルーム</option>
+                    <option value="１１号教室">１１号教室</option><option value="１２号教室">１２号教室</option><option value="２２号教室">２２号教室</option>
+                    <option value="２３号教室">２３号教室</option><option value="３１号教室">３１号教室</option><option value="３２号教室">３２号教室</option>
+                    <option value="３５号教室">３５号教室</option><option value="３６号教室">３６号教室</option>
+                </select>
+            </div>
+            <div class="form-group"><label>日付</label><input type="date" id="sp-date" class="modal-input"></div>
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;"><label>開始時間</label><input type="time" id="sp-start" class="modal-input"></div>
+                <div class="form-group" style="flex: 1;"><label>終了時間</label><input type="time" id="sp-end" class="modal-input"></div>
+            </div>
+            <div class="form-group"><label>使用者</label><input type="text" id="sp-user" class="modal-input" placeholder="例：山田太郎"></div>
+            <div class="modal-actions"><button id="sp-cancel" class="btn-cancel">キャンセル</button><button id="sp-submit" class="btn-submit">予約する</button></div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+</body>
+</html>

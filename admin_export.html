@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データ管理（アーカイブ）｜ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        .admin-box { background: #fff; border: 1px solid #E6E4DF; border-radius: 8px; padding: 24px; max-width: 600px; margin: 40px auto; }
+        .admin-row { margin-bottom: 20px; }
+        .admin-row label { display: block; font-weight: bold; margin-bottom: 8px; color: #4A4643; }
+        .admin-select, .admin-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        .warning-text { color: #d9534f; font-size: 13px; margin-top: 8px; line-height: 1.4; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1 class="logo">⚙️ データ管理（アーカイブ）</h1>
+        </div>
+        <div class="header-right">
+            <a href="/" class="btn-cancel" style="text-decoration: none;">ポータルに戻る</a>
+        </div>
+    </header>
+
+    <div class="main-content" style="padding: 20px;">
+        <div class="admin-box">
+            <h2 style="margin-top:0; border-bottom: 2px solid #E6E4DF; padding-bottom: 10px; color: #2c6e49;">古いデータの書き出しと削除</h2>
+            <p style="color: #666; font-size: 14px; margin-bottom: 24px;">指定した期間のデータをExcel（CSV）形式でダウンロードし、クラウドから一括削除します。</p>
+
+            <div class="admin-row">
+                <label>対象のデータ</label>
+                <select id="export-collection" class="admin-select">
+                    <option value="notices">本日の連絡事項</option>
+                    <option value="attendances">勤務・出欠状況</option>
+                    <option value="visitors">来客予定</option>
+                    <option value="trips">出張予定</option>
+                </select>
+            </div>
+
+            <div class="admin-row" style="display: flex; gap: 16px;">
+                <div style="flex: 1;">
+                    <label>開始日</label>
+                    <input type="date" id="export-start" class="admin-input">
+                </div>
+                <div style="flex: 1;">
+                    <label>終了日</label>
+                    <input type="date" id="export-end" class="admin-input">
+                </div>
+            </div>
+
+            <div class="admin-row" style="margin-top: 32px; display: flex; gap: 16px;">
+                <button id="btn-export" class="btn-submit" style="flex: 1; padding: 12px; font-size: 16px; background-color: #0066cc;">📥 Excel (CSV) をダウンロード</button>
+                <button id="btn-delete" class="btn-cancel" style="flex: 1; padding: 12px; font-size: 16px; color: #d9534f; border-color: #d9534f;" disabled>🗑️ クラウドから削除する</button>
+            </div>
+            <p class="warning-text">※安全のため、必ず「ダウンロード」を行ってファイルの中身を確認してから「削除」ボタンを押してください。<br>※削除したデータは元に戻せません。</p>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/admin_export.js"></script>
+</body>
+</html>

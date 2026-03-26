@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コラム一覧 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">ショートカット</h2>
+                <ul class="app-list">
+                    <li><a href="/" class="app-link"><span class="app-icon">🏠</span><span class="app-name">ホームに戻る</span></a></li>
+                    <li><a href="#" class="app-link"><span class="app-icon">📅</span><span class="app-name">勤怠管理</span></a></li>
+                    <li><a href="#" class="app-link"><span class="app-icon">📚</span><span class="app-name">教務システム</span></a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <section class="column-section" style="margin-top: 0;">
+                <div class="column-header">
+                    <h2 class="section-title">コラム一覧</h2>
+                    <div class="column-actions">
+                        <a href="/column_edit" class="add-button" style="text-decoration: none; display: inline-block;">＋ 新規</a>
+                    </div>
+                </div>
+                <div class="column-grid" id="all-columns-container">
+                    </div>
+            </section>
+        </main>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+</body>
+</html>

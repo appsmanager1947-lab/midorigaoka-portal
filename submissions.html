@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>サブミッションズリスト | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">ショートカット</h2>
+                <ul class="app-list">
+                    <li><a href="/" class="app-link"><span class="app-icon">🏠</span><span class="app-name">ホームに戻る</span></a></li>
+                    <li><a href="/columns" class="app-link"><span class="app-icon">📰</span><span class="app-name">コラム一覧</span></a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <section class="column-section" style="margin-top: 0;">
+                <div class="column-header">
+                    <h2 class="section-title">すべてのサブミッション</h2>
+                    <button id="add-btn" class="add-button">＋ 新規</button>
+                </div>
+                <div style="overflow-x: auto; margin-bottom: 40px;">
+                    <table class="active-table">
+                        <thead>
+                            <tr>
+                                <th>内容</th>
+                                <th>部署</th>
+                                <th>締切</th>
+                                <th>URL</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-submissions-body">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">リストに追加</h3>
+            <div class="form-group">
+                <label for="item-title">内容</label>
+                <input type="text" id="item-title" class="modal-input" placeholder="例：実習スケジュールの調整">
+            </div>
+            <div class="form-group">
+                <label for="item-dept">部署</label>
+                <input type="text" id="item-dept" class="modal-input" list="dept-options" placeholder="選択または入力してください">
+                <datalist id="dept-options">
+                    <option value="教職員"></option>
+                    <option value="進路指導部"></option>
+                    <option value="教務部"></option>
+                    <option value="生徒指導部"></option>
+                    <option value="入試対策部"></option>
+                    <option value="総務部"></option>
+                    <option value="生徒会"></option>
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label for="item-date">締切</label>
+                <input type="date" id="item-date" class="modal-input">
+            </div>
+            <div class="form-group">
+                <label for="item-url">URL (任意)</label>
+                <input type="text" id="item-url" class="modal-input" placeholder="https://...">
+            </div>
+            <div class="modal-actions">
+                <button id="modal-cancel" class="btn-cancel">キャンセル</button>
+                <button id="modal-submit" class="btn-submit">登録</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+</body>
+</html>

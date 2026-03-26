@@ -1,0 +1,21 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/", "destination": "/index.html" },
+      { "source": "/columns", "destination": "/columns.html" },
+      { "source": "/column_edit", "destination": "/column_edit.html" },
+      { "source": "/column_detail", "destination": "/column_detail.html" },
+      { "source": "/submissions", "destination": "/submissions.html" },
+      { "source": "/boards", "destination": "/boards.html" },
+      { "source": "/board_edit", "destination": "/board_edit.html" },
+      { "source": "/reservations", "destination": "/reservations.html" },
+      { "source": "/status", "destination": "/status.html" },
+      { "source": "/status_archive", "destination": "/status_archive.html" },
+      { "source": "/timetable", "destination": "/timetable.html" },
+      { "source": "/notices", "destination": "/notices.html" },
+      { "source": "/admin_export", "destination": "/admin_export.html" }
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コラム詳細 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">ショートカット</h2>
+                <ul class="app-list">
+                    <li><a href="/" class="app-link"><span class="app-icon">🏠</span><span class="app-name">ホームに戻る</span></a></li>
+                    <li><a href="/columns" class="app-link"><span class="app-icon">📰</span><span class="app-name">コラム一覧</span></a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div style="background-color: #FFFFFF; padding: 0; border-radius: 8px; border: 1px solid #E6E4DF; overflow: hidden;">
+                
+                <img id="detail-eyecatch" src="" style="width: 100%; height: 280px; object-fit: cover; display: none; border-bottom: 1px solid #E6E4DF;">
+
+                <div style="padding: 32px 40px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                        <h1 id="detail-title" style="font-size: 32px; font-weight: bold; color: #4A4643; margin: 0; line-height: 1.4;">読み込み中...</h1>
+                        <div id="detail-actions" style="display: none; white-space: nowrap;">
+                            <button id="btn-detail-edit" class="btn-cancel" style="margin-right: 8px;">✏️ 編集</button>
+                            <button id="btn-detail-delete" class="btn-cancel" style="color: #d9534f; border-color: #d9534f;">× 削除</button>
+                        </div>
+                    </div>
+                    
+                    <div class="column-tags" style="margin-bottom: 24px; border-bottom: 1px solid #E6E4DF; padding-bottom: 16px;">
+                        </div>
+                    
+                    <div id="detail-content" class="rich-textarea" style="border: none; padding: 0; min-height: auto;"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+</body>
+</html>

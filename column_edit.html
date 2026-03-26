@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コラム編集 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h2 class="sidebar-title">ショートカット</h2>
+                <ul class="app-list">
+                    <li><a href="/" class="app-link"><span class="app-icon">🏠</span><span class="app-name">ホームに戻る</span></a></li>
+                    <li><a href="/columns" class="app-link"><span class="app-icon">📰</span><span class="app-name">コラム一覧</span></a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="editor-header-actions" style="border-bottom: none; justify-content: flex-end;">
+                <div class="editor-buttons">
+                    <div class="dropdown">
+                        <button id="btn-save-draft" class="btn-cancel">下書きを保存</button>
+                        <button class="btn-cancel dropdown-toggle">▼</button>
+                        <div class="dropdown-content">
+                            <a href="#" id="btn-open-drafts">下書きを編集 (一覧を開く)</a>
+                        </div>
+                    </div>
+                    <button id="btn-publish" class="btn-submit">公開する</button>
+                </div>
+            </div>
+
+            <div class="notion-editor-container">
+                <div class="cover-image-area" id="cover-image-area">
+                    <button id="btn-add-cover" style="background: transparent; border: none; color: #888; cursor: pointer; padding: 4px 0; margin-bottom: 16px; font-size: 14px; display: flex; align-items: center;">
+                    🖼️ アイキャッチ画像を追加 
+                    <span style="font-size: 12px; color: #aaa; margin-left: 12px; font-weight: normal;">
+                        (推奨サイズ: 1200×300px ※どんなサイズの写真でも自動で綺麗にトリミングされます)
+                    </span>
+                </button>
+                    <input type="file" id="edit-eyecatch-file" accept="image/png, image/jpeg" style="display: none;">
+                    <img id="cover-image-preview" src="" style="display: none;">
+                    <button id="btn-remove-cover" class="btn-cover-remove" style="display: none;">✕ 削除</button>
+                </div>
+
+                <input type="text" id="edit-title" class="notion-title-input" placeholder="無題のコラム">
+                
+                <div class="notion-meta-row">
+                    <input type="text" id="edit-author" class="notion-meta-input" placeholder="部署 / 作成者 / タグ (空白で複数指定)">
+                    <input type="date" id="edit-date" class="notion-meta-input">
+                </div>
+
+                <div id="edit-content" class="notion-rich-textarea" contenteditable="true" data-placeholder="「/」でメニューを表示、または入力を開始..."></div>
+            </div>
+
+            <div id="slash-menu" class="slash-menu hidden">
+                <div class="slash-menu-item" data-command="h2">見出し (大)</div>
+                <div class="slash-menu-item" data-command="h3">見出し (小)</div>
+                <div class="slash-menu-item" data-command="insertUnorderedList">箇条書きリスト</div>
+                <div class="slash-menu-item" data-command="insertOrderedList">番号付きリスト</div>
+                <div class="slash-menu-item" data-command="insertHorizontalRule">水平線</div>
+                <div class="slash-menu-item" data-command="image">📷 画像を挿入</div>
+            </div>
+
+            <div id="floating-toolbar" class="floating-toolbar hidden">
+                <button data-command="bold"><b>B</b></button>
+                <button data-command="italic"><i>I</i></button>
+                <input type="color" id="floating-color" title="文字色">
+            </div>
+
+            <input type="file" id="hidden-img-upload" accept="image/png, image/jpeg" style="display: none;">
+        </main>
+    </div>
+
+    <div id="draft-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">下書き一覧</h3>
+            <ul id="draft-list-container" class="draft-list"></ul>
+            <div class="modal-actions">
+                <button id="close-draft-modal" class="btn-cancel">閉じる</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+</body>
+</html>

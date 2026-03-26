@@ -1,0 +1,833 @@
+:root {
+    --accent-color: #0AA294; /* メインカラー（青緑） */
+    --accent-warm: #E29578; /* 温かみを足すアクセント（テラコッタ系） */
+    --bg-main: #FCFBF8; /* ほんのり温かいクリーム白（メインコンテンツ背景） */
+    
+    /* サイドバー関連の色を指定カラー（#0AA294）に寄せた淡い色に変更 */
+    --bg-sidebar: #E8F4F3; /* サイドバー背景：指定カラーの極薄い色 */
+    --border-color: #D1EAE7; /* 境界線：背景より少し濃い同系色 */
+    --hover-bg: #D6EFEA; /* ホバー背景：少し目立たせる同系色 */
+    
+    --text-main: #4A4643; /* 柔らかいチャコールグレー */
+    --text-muted: #6B8885; /* サブテキストも少し青緑を含んだグレーに変更 */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* 全体レイアウト */
+.layout-wrapper {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* サイドバー */
+.sidebar {
+    width: 250px;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    padding: 24px 20px;
+}
+
+.logo-icon {
+    font-size: 24px;
+    margin-right: 12px;
+}
+
+.header-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.school-name {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.header-text h1 {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.sidebar-section {
+    padding: 0 16px;
+}
+
+.sidebar-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding-left: 8px;
+}
+
+.app-list {
+    list-style: none;
+}
+
+.app-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-main);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.app-link:hover {
+    background-color: var(--hover-bg);
+    color: var(--accent-color);
+}
+
+.app-icon {
+    margin-right: 12px;
+    font-size: 16px;
+}
+
+/* メインコンテンツ */
+.main-content {
+    flex: 1;
+    padding: 40px 60px;
+    overflow-y: auto;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text-main);
+}
+
+/* 連絡事項カード */
+.announcements {
+    margin-bottom: 48px;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.card {
+    background-color: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-top: 3px solid var(--accent-color);
+    padding: 24px 16px;
+    text-align: center;
+    border-radius: 6px;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:nth-child(2) { border-top-color: #63B3A5; }
+.card:nth-child(3) { border-top-color: #E29578; }
+.card:nth-child(4) { border-top-color: #E9C46A; }
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(10, 162, 148, 0.08);
+}
+
+/* アクティブリスト */
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.add-button {
+    background-color: var(--accent-color);
+    color: #FFF;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(10, 162, 148, 0.2);
+    transition: all 0.2s;
+}
+
+.add-button:hover {
+    background-color: #088c80;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(10, 162, 148, 0.3);
+}
+
+.table-scroll-container {
+    max-height: 350px;
+    overflow-y: auto;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.active-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background-color: #FFFFFF;
+}
+
+.active-table th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    /* メインエリアのテーブルヘッダーは白背景に統一 */
+    background-color: #FFFFFF; 
+    z-index: 1;
+}
+
+.active-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #F0F0F0;
+}
+
+.active-table tbody tr:hover {
+    background-color: rgba(10, 162, 148, 0.04);
+}
+
+.link-btn {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.link-btn:hover {
+    text-decoration: underline;
+}
+
+.delete-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: #A0A0A0;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.delete-btn:hover {
+    background-color: #FFF0F0;
+    border-color: #FFA4A4;
+    color: #E03E3E;
+}
+
+/* ポップアップ（モーダル） */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(60, 56, 54, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity 0.2s;
+}
+
+.modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-content {
+    background-color: #FFFFFF;
+    padding: 30px;
+    border-radius: 12px;
+    width: 420px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    color: var(--text-main);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #E0E0E0;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modal-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(10, 162, 148, 0.1);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 32px;
+}
+
+.btn-cancel, .btn-submit {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+    border: none;
+    transition: all 0.2s;
+}
+
+.btn-cancel {
+    background-color: #F5F5F5;
+    color: var(--text-main);
+}
+
+.btn-cancel:hover {
+    background-color: #E0E0E0;
+}
+
+.btn-submit {
+    background-color: var(--accent-color);
+    color: #fff;
+}
+
+.btn-submit:hover {
+    background-color: #088c80;
+}
+
+/* スマホ対応 */
+@media (max-width: 768px) {
+    .layout-wrapper { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); padding: 12px; }
+    .sidebar-header { padding: 10px; }
+    .app-list { display: flex; overflow-x: auto; margin-top: 10px; }
+    .app-link { white-space: nowrap; margin-right: 12px; }
+    .main-content { padding: 20px; }
+    .card-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* =========================================
+   コラムリストセクションのスタイル
+   ========================================= */
+.column-section {
+    margin-top: 56px;
+}
+
+.column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.column-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.btn-show-all {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s;
+    background-color: #FFFFFF;
+}
+
+.btn-show-all:hover {
+    background-color: var(--bg-sidebar);
+    color: var(--accent-color);
+    border-color: var(--border-color);
+}
+
+/* グリッドを2列にしてコンパクトに配置 */
+.column-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 16px;
+}
+
+/* カードを横長スタイルに変更 */
+.column-card {
+    background-color: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: row; /* 横並び */
+    align-items: center;
+    padding: 12px; /* カード全体の余白をコンパクトに */
+}
+
+.column-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(10, 162, 148, 0.08);
+}
+
+/* 画像を左側に固定（1:1の比率） */
+.column-img {
+    width: 80px; 
+    height: 80px;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 6px;
+    background-color: var(--bg-sidebar);
+    flex-shrink: 0;
+}
+
+/* テキストエリアを右側に配置 */
+.column-content {
+    padding-left: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.column-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-main);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* タグのスタイル */
+.column-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.column-tag {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent-color);
+    background-color: var(--bg-sidebar);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* スマホ対応 */
+@media (max-width: 768px) {
+    .column-grid {
+        grid-template-columns: 1fr; /* スマホでは1列にして横長を維持 */
+    }
+}
+
+/* =========================================
+   削除ボタン（コラムカード用）
+   ========================================= */
+.column-card {
+    position: relative; /* ×ボタンの基準位置とするため追加 */
+}
+
+.delete-col-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #D1EAE7; /* 薄く表示 */
+    font-size: 16px;
+    cursor: pointer;
+    opacity: 0; /* 通常時は非表示 */
+    transition: all 0.2s;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* カードホバー時に×ボタンをフワッと表示 */
+.column-card:hover .delete-col-btn {
+    opacity: 1;
+}
+
+.delete-col-btn:hover {
+    background-color: #FFF0F0;
+    color: #E03E3E;
+}
+
+/* =========================================
+   エディタ画面のスタイル
+   ========================================= */
+.editor-header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.editor-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.editor-container {
+    background-color: #FFFFFF;
+    padding: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.editor-row {
+    display: flex;
+    gap: 16px;
+}
+
+.rich-textarea {
+    width: 100%;
+    min-height: 300px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 0 0 6px 6px;
+    font-size: 15px;
+    outline: none;
+    overflow-y: auto;
+    background-color: #fff;
+    line-height: 1.6;
+}
+
+.rich-textarea img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 8px 0;
+}
+
+.rich-textarea:empty:before {
+    content: attr(placeholder);
+    color: var(--text-muted);
+}
+
+.editor-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: var(--bg-sidebar);
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+}
+
+.editor-toolbar button {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-main);
+}
+
+.editor-toolbar button:hover {
+    background-color: var(--hover-bg);
+}
+
+/* =========================================
+   下書きドロップダウン（ホバーで表示）
+   ========================================= */
+.dropdown {
+    display: flex;
+    position: relative;
+}
+
+.dropdown-toggle {
+    padding: 10px 8px;
+    border-left: 1px solid #ccc;
+    border-radius: 0 6px 6px 0;
+    margin-left: -1px;
+    cursor: default;
+}
+
+#btn-save-draft {
+    border-radius: 6px 0 0 6px;
+}
+
+/* 通常時は非表示 */
+.dropdown-content {
+    display: none; 
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background-color: #fff;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+/* 親要素（.dropdown）にマウスが乗った時だけ表示 */
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a {
+    color: var(--text-main);
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 13px;
+}
+
+.dropdown-content a:hover {
+    background-color: var(--hover-bg);
+}
+
+.draft-list {
+    list-style: none;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.draft-list li {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.draft-list li:hover {
+    background-color: rgba(10, 162, 148, 0.05);
+}
+
+.draft-list .draft-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* =========================================
+   編集ボタン（コラムカード用）
+   ========================================= */
+.edit-col-btn {
+    position: absolute;
+    top: 36px; /* ×ボタンの下に配置 */
+    right: 8px;
+    background: none;
+    border: none;
+    color: #A0C4C0; /* 薄い青緑色 */
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0; /* 通常時は非表示 */
+    transition: all 0.2s;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* カードホバー時に表示 */
+.column-card:hover .edit-col-btn {
+    opacity: 1;
+}
+
+.edit-col-btn:hover {
+    background-color: var(--hover-bg);
+    color: var(--accent-color);
+}
+
+/* =========================================
+   Notion風エディタのスタイル
+   ========================================= */
+.notion-editor-container {
+    max-width: 800px; /* 読みやすい幅に制限 */
+    margin: 0 auto;
+    padding: 20px 40px 100px;
+    background-color: transparent;
+}
+
+/* カバー画像（アイキャッチ） */
+.cover-image-area {
+    width: 100%;
+    min-height: 60px;
+    margin-bottom: 24px;
+    position: relative;
+    border-radius: 8px;
+}
+.cover-image-area:hover .btn-cover { opacity: 1; }
+.btn-cover {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 14px; cursor: pointer; padding: 8px 12px;
+    opacity: 0.5; transition: opacity 0.2s;
+}
+.btn-cover:hover { background-color: var(--hover-bg); border-radius: 6px; }
+#cover-image-preview { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; }
+.btn-cover-remove {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(0,0,0,0.5); color: #fff; border: none;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer;
+}
+
+/* タイトルとメタデータ */
+.notion-title-input {
+    width: 100%; border: none; outline: none; background: transparent;
+    font-size: 40px; font-weight: 700; color: var(--text-main);
+    margin-bottom: 16px; font-family: inherit;
+}
+.notion-title-input::placeholder { color: #D4D4D4; }
+
+.notion-meta-row { display: flex; gap: 16px; margin-bottom: 32px; }
+.notion-meta-input {
+    border: none; outline: none; background: transparent;
+    font-size: 14px; color: var(--text-muted);
+    padding: 4px 0; border-bottom: 1px solid transparent; transition: border-color 0.2s;
+}
+.notion-meta-input:focus { border-bottom: 1px solid var(--border-color); }
+
+/* 本文エリア */
+.notion-rich-textarea {
+    width: 100%; min-height: 400px; outline: none; font-size: 16px;
+    line-height: 1.8; color: var(--text-main);
+}
+.notion-rich-textarea:empty::before {
+    content: attr(data-placeholder); color: #D4D4D4; pointer-events: none;
+}
+.notion-rich-textarea img { max-width: 100%; border-radius: 6px; margin: 16px 0; }
+.notion-rich-textarea h2 { font-size: 24px; margin: 24px 0 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;}
+.notion-rich-textarea h3 { font-size: 18px; margin: 20px 0 10px; }
+.notion-rich-textarea ul { margin: 10px 0 10px 24px; }
+
+/* フローティングメニュー & スラッシュメニュー */
+.floating-toolbar, .slash-menu {
+    position: absolute; background: #fff; border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 6px; z-index: 1000;
+}
+.floating-toolbar { display: flex; padding: 4px; gap: 4px; transform: translateY(-120%); }
+.floating-toolbar button {
+    background: transparent; border: none; padding: 6px 10px; border-radius: 4px;
+    cursor: pointer; color: var(--text-main); font-size: 14px;
+}
+.floating-toolbar button:hover { background: var(--hover-bg); }
+#floating-color { width: 24px; height: 24px; border: none; cursor: pointer; padding: 0; background: transparent; align-self: center;}
+
+.slash-menu { flex-direction: column; min-width: 180px; padding: 6px 0; }
+.slash-menu-item {
+    padding: 8px 16px; font-size: 14px; color: var(--text-main); cursor: pointer;
+}
+.slash-menu-item:hover { background-color: rgba(10, 162, 148, 0.08); color: var(--accent-color); }
+.hidden { display: none !important; }
+
+/* ==========================================
+   ★追加: モーダル（ポップアップ）のスクロール対応
+   ========================================== */
+.modal-content {
+    max-height: 85vh !important; /* 画面の高さの85%を最大サイズに制限 */
+    overflow-y: auto !important; /* はみ出した部分は縦スクロールバーを出す */
+}
+
+/* ==========================================
+   ★追加: エディタ内のテーブル（表）のスタイル
+   ========================================== */
+.rich-textarea table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background-color: #fff;
+}
+.rich-textarea th, .rich-textarea td {
+    border: 1px solid #E6E4DF;
+    padding: 8px 12px;
+    min-width: 50px;
+    vertical-align: top;
+    line-height: 1.5;
+}
+/* 表の中の段落の余白をなくす */
+.rich-textarea td p {
+    margin: 0;
+}
+
+/* ==========================================
+   ★追加: 連絡事項（タイムライン）のスタイル
+   ========================================== */
+.date-controller {
+    display: flex; justify-content: center; align-items: center; gap: 16px;
+    background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #E6E4DF; margin-bottom: 24px;
+}
+.date-btn {
+    background: #F7F7F5; border: 1px solid #E6E4DF; padding: 8px 16px; border-radius: 4px;
+    cursor: pointer; color: #4A4643; font-weight: bold; transition: background 0.2s;
+}
+.date-btn:hover { background: #E6E4DF; }
+
+.notice-input-area {
+    background: #fff; padding: 24px; border-radius: 8px; border: 1px solid #E6E4DF; margin-bottom: 40px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.notice-card {
+    background: #fff; border: 1px solid #E6E4DF; border-radius: 8px; padding: 20px; margin-bottom: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.notice-header {
+    display: flex; align-items: center; border-bottom: 1px solid #f0f0f0; padding-bottom: 12px; margin-bottom: 16px;
+}
+.notice-author { font-weight: bold; color: #2c6e49; font-size: 15px; margin-right: 16px; }
+.notice-time { font-size: 13px; color: #888; flex: 1; }

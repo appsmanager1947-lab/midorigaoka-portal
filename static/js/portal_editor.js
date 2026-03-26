@@ -316,11 +316,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } 
                 else if (command === 'insertCheckbox') {
-                    const cbHtml = '<div style="display:flex; align-items:center; gap:8px; margin:3px 0; padding:2px 0;">' +
+                    const uid = 'cb-' + Date.now();
+                    const cbHtml = '<div class="checkbox-row" style="display:flex; align-items:center; gap:8px; margin:3px 0; padding:2px 0;">' +
                         '<input type="checkbox" style="cursor:pointer; width:15px; height:15px; flex-shrink:0; accent-color:#2c8c5a;" ' +
                         'onchange="var s=this.nextElementSibling; s.style.textDecoration=this.checked?\'line-through\':\'none\'; s.style.color=this.checked?\'#aaa\':\'inherit\';">' +
-                        '<span style="flex:1;">チェック項目</span></div>';
+                        `<span id="${uid}" style="flex:1;"></span></div>`;
                     document.execCommand('insertHTML', false, cbHtml);
+                    const span = document.getElementById(uid);
+                    if (span) {
+                        span.removeAttribute('id');
+                        const r = document.createRange();
+                        r.setStart(span, 0);
+                        r.collapse(true);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(r);
+                    }
                 }
                 else if (command === 'insertHorizontalRule') {
                     document.execCommand('insertHTML', false, '<hr><p><br></p>');
@@ -333,6 +344,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (editContent && slashMenu) {
             editContent.addEventListener('keydown', (e) => {
+                // checkbox-row 内で Enter → チェックボックス行の外に新しい段落を作成
+                if (e.key === 'Enter' && !e.shiftKey && !isSlashMenuOpen) {
+                    const sel = window.getSelection();
+                    if (sel.rangeCount > 0) {
+                        let node = sel.anchorNode;
+                        while (node && node !== editContent) {
+                            if (node.nodeType === 1 && node.classList && node.classList.contains('checkbox-row')) {
+                                e.preventDefault();
+                                const p = document.createElement('p');
+                                p.innerHTML = '<br>';
+                                node.parentNode.insertBefore(p, node.nextSibling);
+                                const r = document.createRange();
+                                r.setStart(p, 0);
+                                r.collapse(true);
+                                sel.removeAllRanges();
+                                sel.addRange(r);
+                                return;
+                            }
+                            node = node.parentNode;
+                        }
+                    }
+                }
                 if (isSlashMenuOpen) {
                     const items = slashMenu.querySelectorAll('.slash-menu-item');
                     if (e.key === 'ArrowDown') {

@@ -121,8 +121,12 @@
         <div class="modal-content">
             <h3 id="ev-modal-title" class="modal-title">行事を追加</h3>
             <div class="form-group">
-                <label>日付（必須）</label>
-                <input type="date" id="ev-date" class="modal-input">
+                <label>期間（終了日は省略可・単日なら開始日のみ）</label>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <input type="date" id="ev-date-from" class="modal-input" style="flex:1; min-width:130px; margin:0;">
+                    <span style="color:#888; white-space:nowrap; font-size:14px;">〜</span>
+                    <input type="date" id="ev-date-to" class="modal-input" style="flex:1; min-width:130px; margin:0;">
+                </div>
             </div>
             <div class="form-group">
                 <label>行事名（必須）</label>
@@ -177,7 +181,7 @@
                 <p id="csv-count" style="font-size:13px;color:#555;margin:0 0 8px;"></p>
                 <div style="max-height:280px;overflow-y:auto;border:1px solid #E6E4DF;border-radius:4px;">
                     <table id="csv-preview-table">
-                        <thead><tr><th>日付</th><th>行事名</th><th>対象</th><th>備考</th></tr></thead>
+                        <thead><tr><th>開始日</th><th>終了日</th><th>行事名</th><th>対象</th><th>備考</th></tr></thead>
                         <tbody id="csv-tbody"></tbody>
                     </table>
                 </div>
@@ -259,11 +263,19 @@
                 grid.appendChild(th);
             });
 
-            // 行事マップを構築
+            // 行事マップを構築（期間対応：dateFrom〜dateTo の各日に展開）
             const evMap = {};
             allEvents.forEach(ev => {
-                if (!evMap[ev.date]) evMap[ev.date] = [];
-                evMap[ev.date].push(ev);
+                const from = ev.dateFrom || ev.date;
+                const to   = ev.dateTo   || from;
+                let d = new Date(from + 'T00:00:00');
+                const toD = new Date(to + 'T00:00:00');
+                while (d <= toD) {
+                    const ds = toDs(d);
+                    if (!evMap[ds]) evMap[ds] = [];
+                    evMap[ds].push(ev);
+                    d.setDate(d.getDate() + 1);
+                }
             });
 
             const firstDay    = new Date(curYear, curMonth, 1);
@@ -353,8 +365,11 @@
         // 詳細ポップアップ
         // ────────────────────────────────────────
         function showPopup(ev, e) {
+            const from = ev.dateFrom || ev.date;
+            const to   = ev.dateTo   || from;
+            const dateStr = (to && to !== from) ? `${from} 〜 ${to}` : from;
             document.getElementById('popup-title').textContent  = ev.title;
-            document.getElementById('popup-date').textContent   = `日付：${ev.date}`;
+            document.getElementById('popup-date').textContent   = `日付：${dateStr}`;
             document.getElementById('popup-target').textContent = ev.target ? `対象：${ev.target}` : '';
             document.getElementById('popup-note').textContent   = ev.note   ? `備考：${ev.note}`   : '';
 
@@ -382,8 +397,7 @@
                 db.collection('annual_events').onSnapshot(snap => {
                     allEvents = [];
                     snap.forEach(doc => allEvents.push({ id: doc.id, ...doc.data() }));
-                    // date 昇順でソート
-                    allEvents.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+                    allEvents.sort((a, b) => (a.dateFrom || a.date || '').localeCompare(b.dateFrom || b.date || ''));
                     renderCalendar();
                 });
             }
@@ -414,7 +428,8 @@
         document.getElementById('add-btn').addEventListener('click', () => {
             editId = null;
             document.getElementById('ev-modal-title').textContent = '行事を追加';
-            document.getElementById('ev-date').value   = '';
+            document.getElementById('ev-date-from').value = '';
+            document.getElementById('ev-date-to').value   = '';
             document.getElementById('ev-title').value  = '';
             document.getElementById('ev-target').value = '';
             document.getElementById('ev-note').value   = '';
@@ -426,7 +441,8 @@
         function openEditModal(ev) {
             editId = ev.id;
             document.getElementById('ev-modal-title').textContent = '行事を編集';
-            document.getElementById('ev-date').value   = ev.date   || '';
+            document.getElementById('ev-date-from').value = ev.dateFrom || ev.date || '';
+            document.getElementById('ev-date-to').value   = (ev.dateTo && ev.dateTo !== (ev.dateFrom || ev.date)) ? ev.dateTo : '';
             document.getElementById('ev-title').value  = ev.title  || '';
             document.getElementById('ev-target').value = ev.target || '';
             document.getElementById('ev-note').value   = ev.note   || '';
@@ -445,18 +461,19 @@
         document.getElementById('ev-cancel').addEventListener('click', () => evModal.classList.add('hidden'));
 
         document.getElementById('ev-submit').addEventListener('click', () => {
-            const date   = document.getElementById('ev-date').value;
+            const dateFrom = document.getElementById('ev-date-from').value;
+            const dateTo   = document.getElementById('ev-date-to').value || dateFrom;
             const title  = document.getElementById('ev-title').value.trim();
             const target = document.getElementById('ev-target').value;
             const note   = document.getElementById('ev-note').value.trim();
             const color  = document.getElementById('ev-color').value;
 
-            if (!date || !title) { alert('日付と行事名は必須です。'); return; }
+            if (!dateFrom || !title) { alert('開始日と行事名は必須です。'); return; }
 
             const btn = document.getElementById('ev-submit');
             btn.disabled = true; btn.textContent = '保存中...';
 
-            const data = { date, title, target, note, color };
+            const data = { dateFrom, dateTo, date: dateFrom, title, target, note, color };
             const col  = db.collection('annual_events');
             const done = () => { btn.disabled = false; btn.textContent = editId ? '更新' : '追加'; evModal.classList.add('hidden'); };
             const fail = () => { btn.disabled = false; btn.textContent = 'エラー'; };
@@ -492,7 +509,7 @@
 
         // テンプレートDL
         document.getElementById('csv-template-btn').addEventListener('click', () => {
-            const content = '\uFEFF日付,行事名,対象,備考\n';
+            const content = '\uFEFF日付,終了日付,行事名,対象,備考\n2026-04-08,2026-04-09,新入生オリエンテーション,全校,1泊2日\n2026-04-10,,授業開始,全校,\n';
             const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
             const url  = URL.createObjectURL(blob);
             const a    = document.createElement('a');
@@ -554,13 +571,24 @@
                 const tbody = document.getElementById('csv-tbody');
                 tbody.innerHTML = '';
 
+                // ヘッダーで列数を判定（5列 = 終了日付あり、4列 = 旧フォーマット）
+                const headerCols = parseCSVLine(lines[0] || '');
+                const hasDateTo = headerCols.length >= 5;
+
                 for (let i = 1; i < lines.length; i++) {
                     const cols = parseCSVLine(lines[i]);
-                    const [date, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||''];
-                    if (!date || !title) continue;
-                    csvRows.push({ date, title, target, note });
+                    let dateFrom, dateTo, title, target, note;
+                    if (hasDateTo) {
+                        [dateFrom, dateTo, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||'', cols[4]||''];
+                    } else {
+                        [dateFrom, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||''];
+                        dateTo = '';
+                    }
+                    if (!dateTo) dateTo = dateFrom;
+                    if (!dateFrom || !title) continue;
+                    csvRows.push({ dateFrom, dateTo, title, target, note });
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${date}</td><td>${title}</td><td>${target}</td><td>${note}</td>`;
+                    tr.innerHTML = `<td>${dateFrom}</td><td>${dateTo !== dateFrom ? dateTo : ''}</td><td>${title}</td><td>${target}</td><td>${note}</td>`;
                     tbody.appendChild(tr);
                 }
 
@@ -581,47 +609,92 @@
             reader.readAsText(file, 'UTF-8');
         });
 
-        // 一括登録
+        // スマート同期：差分のみ追加・更新・削除
         document.getElementById('csv-register').addEventListener('click', async () => {
             if (!csvRows.length) return;
-            const btn   = document.getElementById('csv-register');
-            const total = csvRows.length;
+            const btn = document.getElementById('csv-register');
             btn.disabled = true;
-            showLoading(`登録中... 0 / ${total} 件`);
+            showLoading('現在のデータと照合中...');
 
             try {
-                const col       = db.collection('annual_events');
-                const BATCH_MAX = 400;
-                let done = 0;
+                const col = db.collection('annual_events');
 
-                for (let i = 0; i < total; i += BATCH_MAX) {
-                    const batch = db.batch();
-                    csvRows.slice(i, i + BATCH_MAX).forEach(row => {
-                        batch.set(col.doc(), {
-                            date:      row.date,
-                            title:     row.title,
-                            target:    row.target,
-                            note:      row.note,
-                            color:     TARGET_COLORS[row.target] || '#F0F0F0',
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    });
-                    await batch.commit();
-                    done = Math.min(i + BATCH_MAX, total);
-                    updateLoadingText(`登録中... ${done} / ${total} 件`);
+                // 既存データのキーマップを構築
+                const existingMap = {};
+                allEvents.forEach(ev => {
+                    const from = ev.dateFrom || ev.date;
+                    const to   = ev.dateTo   || from;
+                    const key  = `${from}|${to}|${ev.title}`;
+                    existingMap[key] = ev;
+                });
+
+                // CSVのキーセット
+                const csvKeySet = new Set(csvRows.map(r => `${r.dateFrom}|${r.dateTo}|${r.title}`));
+
+                // 操作を分類
+                const toAdd = [], toUpdate = [], toDelete = [];
+                let unchanged = 0;
+
+                csvRows.forEach(row => {
+                    const key = `${row.dateFrom}|${row.dateTo}|${row.title}`;
+                    const ex  = existingMap[key];
+                    if (ex) {
+                        const exFrom = ex.dateFrom || ex.date;
+                        const exTo   = ex.dateTo   || exFrom;
+                        const same   = exFrom === row.dateFrom &&
+                                       exTo   === row.dateTo   &&
+                                       (ex.target||'') === (row.target||'') &&
+                                       (ex.note  ||'') === (row.note  ||'');
+                        if (same) { unchanged++; }
+                        else {
+                            const newColor = (ex.target||'') !== (row.target||'')
+                                ? (TARGET_COLORS[row.target] || '#F0F0F0')
+                                : (ex.color || TARGET_COLORS[row.target] || '#F0F0F0');
+                            toUpdate.push({ id: ex.id, data: { dateFrom: row.dateFrom, dateTo: row.dateTo, date: row.dateFrom, title: row.title, target: row.target, note: row.note, color: newColor } });
+                        }
+                    } else {
+                        toAdd.push(row);
+                    }
+                });
+
+                allEvents.forEach(ev => {
+                    const from = ev.dateFrom || ev.date;
+                    const to   = ev.dateTo   || from;
+                    const key  = `${from}|${to}|${ev.title}`;
+                    if (!csvKeySet.has(key)) toDelete.push(ev.id);
+                });
+
+                if (toAdd.length === 0 && toUpdate.length === 0 && toDelete.length === 0) {
+                    showDone(`変更なし（${unchanged} 件はそのまま）`);
+                    setTimeout(() => { hideLoading(); csvModal.classList.add('hidden'); btn.disabled = false; }, 1800);
+                    return;
                 }
 
-                showDone(`${total} 件を登録しました`);
-                setTimeout(() => {
-                    hideLoading();
-                    csvModal.classList.add('hidden');
-                    btn.disabled = false;
-                }, 1800);
+                updateLoadingText(`処理中... 追加:${toAdd.length} 更新:${toUpdate.length} 削除:${toDelete.length}`);
+
+                const ops = [];
+                toAdd.forEach(row => ops.push({ type:'set', ref: col.doc(), data: { dateFrom: row.dateFrom, dateTo: row.dateTo, date: row.dateFrom, title: row.title, target: row.target, note: row.note, color: TARGET_COLORS[row.target]||'#F0F0F0', createdAt: firebase.firestore.FieldValue.serverTimestamp() } }));
+                toUpdate.forEach(({ id, data }) => ops.push({ type:'update', ref: col.doc(id), data }));
+                toDelete.forEach(id => ops.push({ type:'delete', ref: col.doc(id) }));
+
+                const BATCH_MAX = 400;
+                for (let i = 0; i < ops.length; i += BATCH_MAX) {
+                    const batch = db.batch();
+                    ops.slice(i, i + BATCH_MAX).forEach(op => {
+                        if (op.type === 'set')    batch.set(op.ref, op.data);
+                        else if (op.type === 'update') batch.update(op.ref, op.data);
+                        else if (op.type === 'delete') batch.delete(op.ref);
+                    });
+                    await batch.commit();
+                }
+
+                showDone(`完了：追加 ${toAdd.length} ・更新 ${toUpdate.length} ・削除 ${toDelete.length} ・変更なし ${unchanged}`);
+                setTimeout(() => { hideLoading(); csvModal.classList.add('hidden'); btn.disabled = false; }, 2200);
 
             } catch (err) {
                 hideLoading();
                 btn.disabled = false;
-                alert('登録中にエラーが発生しました。\n' + (err.message || err));
+                alert('エラーが発生しました。\n' + (err.message || err));
             }
         });
     })();

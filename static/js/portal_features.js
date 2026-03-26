@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `
             <div class="column-card" data-id="${col.id}">
                 <button class="delete-col-btn" title="削除">×</button>
-                <button class="edit-col-btn" title="編集">✏️</button>
+                <button class="edit-col-btn" title="編集"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
                 <img src="${imgSrc}" alt="サムネイル" class="column-img">
                 <div class="column-content">
                     <div class="column-title">${col.title}</div>
@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     editOverlay = `
                         <div style="position:absolute; top:5px; left:7px; font-size:16px; color:#bbb; user-select:none; pointer-events:none; line-height:1;">⠿</div>
                         <div style="position:absolute; top:-10px; right:-8px; display:flex; background:#fff; border:1px solid #E6E4DF; border-radius:4px; padding:2px; box-shadow:0 2px 4px rgba(0,0,0,0.1); z-index:10;">
-                            <button class="edit-webapp-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:13px; padding:1px 4px;">✏️</button>
+                            <button class="edit-webapp-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:13px; padding:1px 4px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
                             <button class="delete-webapp-btn" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:15px; font-weight:bold; padding:1px 4px;">×</button>
                         </div>
                     `;
@@ -571,7 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         row.innerHTML = `
                             <span style="color:#bbb; font-size:20px; user-select:none; flex:0 0 auto; pointer-events:none;">⠿</span>
                             <span style="flex:1; font-size:14px; color:#4A4643; opacity:0.7;">${item.title}</span>
-                            <button class="edit-dash-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px; padding:2px 6px;">✏️</button>
+                            <button class="edit-dash-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px; padding:2px 6px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
                             <button class="delete-dash-btn" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:18px; font-weight:bold; padding:2px 6px;">×</button>
                         `;
                     } else {
@@ -1161,7 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="notice-header">
                     <span class="notice-author">👤 ${notice.author}</span>
                     <span class="notice-time">🕒 ${notice.time}</span>
-                    <button class="edit-notice-btn" data-id="${notice.id}" style="background:transparent; color:#0066cc; border:none; font-size:16px; cursor:pointer; margin-right:8px;" title="編集">✏️</button>
+                    <button class="edit-notice-btn" data-id="${notice.id}" style="background:transparent; color:#0066cc; border:none; font-size:16px; cursor:pointer; margin-right:8px;" title="編集"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
                     <button class="delete-notice-btn" data-id="${notice.id}" style="background:transparent; color:#d9534f; border:none; font-size:18px; cursor:pointer;" title="削除">×</button>
                 </div>
                 <div class="rich-textarea" style="border:none; padding:0; min-height:auto;">${notice.content}</div>

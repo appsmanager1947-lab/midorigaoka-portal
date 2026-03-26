@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.dataset.id = app.id;
                     actionsHtml = `
                         <div style="display:flex; gap:4px; align-items:center;">
-                            <button class="edit-app-item-btn" data-id="${app.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px; padding:2px;">✏️</button>
+                            <button class="edit-app-item-btn" data-id="${app.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px; padding:2px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
                             <button class="delete-app-btn" data-id="${app.id}" title="削除" style="background: transparent; color: #d9534f; border: none; font-size: 16px; cursor: pointer; padding: 2px; font-weight: bold;">×</button>
                         </div>
                     `;

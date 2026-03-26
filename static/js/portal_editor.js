@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ② 画像を Blob(ファイル実体) に変換する関数
-        function compressImageToBlob(file, maxWidth, callback) {
+        function compressImageToBlob(file, maxWidth, quality, callback) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const img = new Image();
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
                     canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                    canvas.toBlob((blob) => { callback(blob); }, 'image/jpeg', 0.8);
+                    canvas.toBlob((blob) => { callback(blob); }, 'image/jpeg', quality);
                 };
                 img.src = event.target.result;
             };
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     coverPreview.style.display = 'block';
                     btnAddCover.style.display = 'none';
 
-                    compressImageToBlob(e.target.files[0], 1200, async (blob) => {
+                    compressImageToBlob(e.target.files[0], 900, 0.72, async (blob) => {
                         try {
                             const fileName = 'covers/' + Date.now() + '.jpg';
                             const storageRef = storage.ref().child(fileName);
@@ -127,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { cmd: 'h3', text: '📝 見出し２' },
                 { cmd: 'insertUnorderedList', text: '⚫ 箇条書き' },
                 { cmd: 'insertOrderedList', text: '🔢 番号箇条書き' },
+                { cmd: 'insertCheckbox', text: '☑ チェックボックス' },
                 { cmd: 'insertHorizontalRule', text: '➖ 水平線' },
                 { cmd: 'insertCustomLink', text: '🔗 リンクの挿入' },
                 { cmd: 'image', text: '🖼️ 画像の挿入' },
@@ -314,9 +315,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         sel.addRange(r);
                     }
                 } 
+                else if (command === 'insertCheckbox') {
+                    const cbHtml = '<div style="display:flex; align-items:center; gap:8px; margin:3px 0; padding:2px 0;">' +
+                        '<input type="checkbox" style="cursor:pointer; width:15px; height:15px; flex-shrink:0; accent-color:#2c8c5a;" ' +
+                        'onchange="var s=this.nextElementSibling; s.style.textDecoration=this.checked?\'line-through\':\'none\'; s.style.color=this.checked?\'#aaa\':\'inherit\';">' +
+                        '<span style="flex:1;">チェック項目</span></div>';
+                    document.execCommand('insertHTML', false, cbHtml);
+                }
                 else if (command === 'insertHorizontalRule') {
                     document.execCommand('insertHTML', false, '<hr><p><br></p>');
-                } 
+                }
                 else {
                     document.execCommand(command, false, null);
                 }
@@ -406,7 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const tempId = 'img-' + Date.now();
                     document.execCommand('insertHTML', false, `<img id="${tempId}" src="https://placehold.co/400x300?text=Uploading..." style="max-width:100%; opacity:0.5;">`);
 
-                    compressImageToBlob(e.target.files[0], 1000, async (blob) => {
+                    compressImageToBlob(e.target.files[0], 800, 0.70, async (blob) => {
                         try {
                             const fileName = 'inline/' + Date.now() + '.jpg';
                             const storageRef = storage.ref().child(fileName);
@@ -562,14 +570,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     db.collection(collectionName).doc(editingColId).update(saveData).then(() => {
                         afterPublish();
                         alert(isBoardMode ? '掲示を更新しました！' : 'コラムを更新しました！');
-                        window.location.href = isBoardMode ? '/boards.html' : '/columns.html';
+                        window.location.href = isBoardMode ? './boards.html' : './columns.html';
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                 } else {
                     db.collection(collectionName).add(saveData).then((ref) => {
                         editingColId = ref.id;
                         afterPublish();
                         alert(isBoardMode ? '掲示を公開しました！' : 'コラムを公開しました！');
-                        window.location.href = isBoardMode ? '/boards.html' : '/columns.html';
+                        window.location.href = isBoardMode ? './boards.html' : './columns.html';
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                 }
             });

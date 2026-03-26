@@ -85,19 +85,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 const iconHtml = app.icon ? `<img src="${app.icon}" style="width: 20px; height: 20px; object-fit: cover; border-radius: 4px; margin-right: 8px;">` : `<span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; background-color: #4A4643; color: white; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 8px;">${app.title ? app.title.charAt(0).toUpperCase() : '?'}</span>`;
                 const pointerEvents = isAppEditMode ? 'pointer-events: none; opacity: 0.5;' : '';
                 const linkHtml = `<a href="${isAppEditMode ? 'javascript:void(0)' : app.url}" class="app-link" ${isAppEditMode ? '' : 'target="_blank"'} style="flex: 1; ${pointerEvents}">${iconHtml}<span class="app-name">${app.title}</span></a>`;
-                
+
                 let actionsHtml = '';
                 if (isAppEditMode) {
+                    li.setAttribute('draggable', 'true');
+                    li.dataset.id = app.id;
                     actionsHtml = `
                         <div style="display:flex; gap:4px; align-items:center;">
-                            <button class="up-app-btn" data-id="${app.id}" title="上へ" style="background:transparent; border:none; cursor:pointer; font-size:14px; padding:2px;">↑</button>
-                            <button class="down-app-btn" data-id="${app.id}" title="下へ" style="background:transparent; border:none; cursor:pointer; font-size:14px; padding:2px;">↓</button>
                             <button class="edit-app-item-btn" data-id="${app.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px; padding:2px;">✏️</button>
                             <button class="delete-app-btn" data-id="${app.id}" title="削除" style="background: transparent; color: #d9534f; border: none; font-size: 16px; cursor: pointer; padding: 2px; font-weight: bold;">×</button>
                         </div>
                     `;
                 }
-                li.innerHTML = linkHtml + actionsHtml; appList.appendChild(li);
+                li.innerHTML = linkHtml + actionsHtml;
+                if (isAppEditMode) {
+                    const handle = document.createElement('span');
+                    handle.textContent = '⠿';
+                    handle.style.cssText = 'color:#bbb; font-size:18px; padding:0 6px 0 2px; cursor:grab; user-select:none; flex:0 0 auto;';
+                    li.insertBefore(handle, li.firstChild);
+                }
+                appList.appendChild(li);
             });
         }
 
@@ -124,6 +131,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
 
         editAppBtn.addEventListener('click', () => { isAppEditMode = !isAppEditMode; editAppBtn.textContent = isAppEditMode ? '完了' : '編集'; editAppBtn.style.color = isAppEditMode ? '#d9534f' : '#aaa'; editAppBtn.style.textDecoration = isAppEditMode ? 'none' : 'underline'; renderApps(); });
+
+        // ドラッグ＆ドロップで並び替え
+        let _dndSrcId = null;
+        appList.addEventListener('dragstart', (e) => {
+            if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
+            const item = e.target.closest('li.custom-app-item');
+            if (!item) return;
+            _dndSrcId = item.dataset.id;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => { item.style.opacity = '0.4'; }, 0);
+        });
+        appList.addEventListener('dragend', () => {
+            appList.querySelectorAll('li.custom-app-item').forEach(li => { li.style.opacity = ''; li.style.boxShadow = ''; });
+        });
+        appList.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const item = e.target.closest('li.custom-app-item');
+            if (!item || item.dataset.id === _dndSrcId) return;
+            appList.querySelectorAll('li.custom-app-item').forEach(li => { li.style.boxShadow = ''; });
+            const rect = item.getBoundingClientRect();
+            item.style.boxShadow = e.clientY < rect.top + rect.height / 2 ? 'inset 0 2px 0 #0066cc' : 'inset 0 -2px 0 #0066cc';
+            e.dataTransfer.dropEffect = 'move';
+        });
+        appList.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            appList.querySelectorAll('li.custom-app-item').forEach(li => { li.style.boxShadow = ''; });
+            const targetItem = e.target.closest('li.custom-app-item');
+            if (!targetItem || !_dndSrcId || targetItem.dataset.id === _dndSrcId) return;
+            const srcIdx = customApps.findIndex(a => a.id === _dndSrcId);
+            const rect = targetItem.getBoundingClientRect();
+            const insertBefore = e.clientY < rect.top + rect.height / 2;
+            const arr = [...customApps];
+            const [moved] = arr.splice(srcIdx, 1);
+            let insertIdx = arr.findIndex(a => a.id === targetItem.dataset.id);
+            if (!insertBefore) insertIdx++;
+            arr.splice(insertIdx, 0, moved);
+            const batch = db.batch();
+            arr.forEach((app, idx) => { batch.update(db.collection('shortcuts').doc(app.id), { order: idx }); });
+            await batch.commit();
+        });
         
         appList.addEventListener('click', async (e) => {
             const appId = e.target.getAttribute('data-id');
@@ -142,21 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('app-submit').textContent = '更新';
                     document.querySelector('#app-modal-overlay .modal-title').textContent = 'ショートカットを編集';
                     appModal.classList.remove('hidden');
-                }
-            }
-            if (e.target.classList.contains('up-app-btn') || e.target.classList.contains('down-app-btn')) {
-                const idx = customApps.findIndex(a => a.id === appId);
-                const isUp = e.target.classList.contains('up-app-btn');
-                if (isUp && idx > 0) {
-                    const batch = db.batch();
-                    batch.update(db.collection('shortcuts').doc(customApps[idx].id), { order: idx - 1 });
-                    batch.update(db.collection('shortcuts').doc(customApps[idx - 1].id), { order: idx });
-                    await batch.commit();
-                } else if (!isUp && idx < customApps.length - 1) {
-                    const batch = db.batch();
-                    batch.update(db.collection('shortcuts').doc(customApps[idx].id), { order: idx + 1 });
-                    batch.update(db.collection('shortcuts').doc(customApps[idx + 1].id), { order: idx });
-                    await batch.commit();
                 }
             }
         });

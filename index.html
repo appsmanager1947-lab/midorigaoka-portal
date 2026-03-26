@@ -21,6 +21,13 @@
                 <ul class="app-list">
                 </ul>
             </div>
+            <div class="sidebar-section" id="events-widget-section">
+                <h2 class="sidebar-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>行事予定</span>
+                    <a href="./annual_events.html" style="font-size:11px; color:#2c8c5a; text-decoration:none; font-weight:normal;">年間予定</a>
+                </h2>
+                <ul id="events-widget-list" style="list-style:none; padding:0; margin:0;"></ul>
+            </div>
         </aside>
 
         <main class="main-content">
@@ -29,16 +36,16 @@
                     <h2 class="section-title" style="margin: 0;">■本日の連絡事項</h2>
                 </div>
                 
-                <a href="/notices.html?category=all" class="card" style="display: block; text-align: center; padding: 16px; margin-bottom: 16px; text-decoration: none; color: #4A4643; font-weight: bold; border: 2px solid #E6E4DF; background-color: #F7F7F5; border-radius: 8px; transition: all 0.2s;" onmouseover="this.style.backgroundColor='#E6E4DF'; this.style.borderColor='#dcd9d3';" onmouseout="this.style.backgroundColor='#F7F7F5'; this.style.borderColor='#E6E4DF';">
+                <a href="./notices.html?category=all" class="card" style="display: block; text-align: center; padding: 16px; margin-bottom: 16px; text-decoration: none; color: #4A4643; font-weight: bold; border: 2px solid #E6E4DF; background-color: #F7F7F5; border-radius: 8px; transition: all 0.2s;" onmouseover="this.style.backgroundColor='#E6E4DF'; this.style.borderColor='#dcd9d3';" onmouseout="this.style.backgroundColor='#F7F7F5'; this.style.borderColor='#E6E4DF';">
                     📄 連絡事項を一括確認
                 </a>
 
                 <div class="card-grid" style="display: flex; flex-wrap: nowrap; gap: 12px; overflow-x: auto;">
-                    <a href="/notices.html?category=全教職員" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #FADBD8;">全教職員</a>
-                    <a href="/notices.html?category=中学" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #D6EAF8;">中学</a>
-                    <a href="/notices.html?category=高１" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #D5F5E3;">高１</a>
-                    <a href="/notices.html?category=高２" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #FCF3CF;">高２</a>
-                    <a href="/notices.html?category=高３" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #E8DAEF;">高３</a>
+                    <a href="./notices.html?category=全教職員" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #FADBD8;">全教職員</a>
+                    <a href="./notices.html?category=中学" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #D6EAF8;">中学</a>
+                    <a href="./notices.html?category=高１" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #D5F5E3;">高１</a>
+                    <a href="./notices.html?category=高２" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #FCF3CF;">高２</a>
+                    <a href="./notices.html?category=高３" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 4px; text-decoration: none; color: inherit; font-weight: bold; display: block; border-top: 4px solid #E8DAEF;">高３</a>
                 </div>
             </section>
             
@@ -46,7 +53,7 @@
                 <div class="list-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <h2 class="section-title" style="margin: 0;">■サブミッションズリスト</h2>
                     <div>
-                        <a href="/submissions.html" class="btn-cancel" style="margin-right: 8px; text-decoration: none; display: inline-block;">すべて表示</a>
+                        <a href="./submissions.html" class="btn-cancel" style="margin-right: 8px; text-decoration: none; display: inline-block;">すべて表示</a>
                         <button id="add-btn" class="add-button">＋ 新規</button>
                     </div>
                 </div>
@@ -71,8 +78,8 @@
                 <div class="list-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <h2 class="section-title" style="margin: 0;">■共有掲示板</h2>
                     <div>
-                        <a href="/boards.html" class="btn-cancel" style="margin-right: 8px; text-decoration: none; display: inline-block;">すべて表示</a>
-                        <a href="/board_edit.html" class="add-button" style="text-decoration: none; display: inline-block;">＋ 新規</a>
+                        <a href="./boards.html" class="btn-cancel" style="margin-right: 8px; text-decoration: none; display: inline-block;">すべて表示</a>
+                        <a href="./board_edit.html" class="add-button" style="text-decoration: none; display: inline-block;">＋ 新規</a>
                     </div>
                 </div>
                 <div class="table-scroll-container" style="max-height: 230px; overflow-y: auto;">
@@ -96,9 +103,11 @@
                     <h2 class="section-title" style="margin: 0;">■アーカイブ</h2>
                 </div>
                 <div class="card-grid" style="display: flex; flex-wrap: nowrap; gap: 12px; overflow-x: auto;">
-                    <a href="/reservations.html" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 8px; cursor: pointer; text-decoration: none; color: inherit; display: block; border-top: 4px solid #D1F2EB;">会議室等予約</a>
-                    <a href="/timetable.html" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 8px; cursor: pointer; text-decoration: none; color: inherit; display: block; border-top: 4px solid #FAD7A0;">各クラス時間割</a>
-                    <a href="/status.html" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 8px; cursor: pointer; text-decoration: none; color: inherit; display: block; border-top: 4px solid #AED6F1;">勤務・出張・来客</a>
+                    <a href="./reservations.html" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 8px; cursor: pointer; text-decoration: none; color: inherit; display: block; border-top: 4px solid #D1F2EB;">会議室等予約</a>
+                    <a href="./timetable.html" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 8px; cursor: pointer; text-decoration: none; color: inherit; display: block; border-top: 4px solid #FAD7A0;">各クラス時間割</a>
+                    <a href="./status.html" class="card" style="flex: 1; min-width: 0; text-align: center; padding: 16px 8px; cursor: pointer; text-decoration: none; color: inherit; display: block; border-top: 4px solid #AED6F1;">勤務・出張・来客</a>
+                    <a href="./schedule_changes.html" class="card" style="flex:1; min-width:0; text-align:center; padding:16px 8px; text-decoration:none; color:inherit; display:block; border-top: 4px solid #F9E4B7;">時間割変更</a>
+                    <a href="./annual_events.html" class="card" style="flex:1; min-width:0; text-align:center; padding:16px 8px; text-decoration:none; color:inherit; display:block; border-top: 4px solid #D7BDE2;">年間行事予定</a>
                 </div>
             </section>
 
@@ -106,8 +115,8 @@
                 <div class="column-header">
                     <h2 class="section-title">■コラムリスト</h2>
                     <div class="column-actions">
-                        <a href="/columns.html" class="btn-cancel" style="margin-right: 8px; text-decoration: none; display: inline-block;">すべて表示</a>
-                        <a href="/column_edit.html" class="add-button" style="text-decoration: none; display: inline-block;">＋ 新規</a>
+                        <a href="./columns.html" class="btn-cancel" style="margin-right: 8px; text-decoration: none; display: inline-block;">すべて表示</a>
+                        <a href="./column_edit.html" class="add-button" style="text-decoration: none; display: inline-block;">＋ 新規</a>
                     </div>
                 </div>
                 <div class="column-grid" id="column-list-container">

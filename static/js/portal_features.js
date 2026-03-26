@@ -369,10 +369,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let editActionsHtml = '';
                 if (config.isEditMode) {
+                    card.setAttribute('draggable', 'true');
+                    card.dataset.id = item.id;
+                    card.style.cursor = 'grab';
                     editActionsHtml = `
+                        <div style="position:absolute; top:6px; left:8px; font-size:20px; color:#bbb; user-select:none; pointer-events:none; line-height:1;">⠿</div>
                         <div style="position: absolute; top: -12px; right: -8px; display:flex; gap:2px; background:#fff; border:1px solid #E6E4DF; border-radius:4px; padding:2px; box-shadow:0 2px 4px rgba(0,0,0,0.1); z-index:10;">
-                            <button class="${config.upBtnClass}" data-id="${item.id}" title="前へ" style="background:transparent; border:none; cursor:pointer; font-size:14px;">◀</button>
-                            <button class="${config.downBtnClass}" data-id="${item.id}" title="次へ" style="background:transparent; border:none; cursor:pointer; font-size:14px;">▶</button>
                             <button class="${config.editBtnClass}" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px;">✏️</button>
                             <button class="${config.deleteBtnClass}" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:16px; font-weight:bold;">×</button>
                         </div>
@@ -462,21 +464,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     webappModal.classList.remove('hidden');
                 }
             }
-            if (e.target.classList.contains('up-webapp-btn') || e.target.classList.contains('down-webapp-btn')) {
-                const idx = webappItems.findIndex(i => i.id === id);
-                const isUp = e.target.classList.contains('up-webapp-btn');
-                if (isUp && idx > 0) {
-                    const batch = db.batch();
-                    batch.update(db.collection('webapps').doc(webappItems[idx].id), { order: idx - 1 });
-                    batch.update(db.collection('webapps').doc(webappItems[idx - 1].id), { order: idx });
-                    await batch.commit();
-                } else if (!isUp && idx < webappItems.length - 1) {
-                    const batch = db.batch();
-                    batch.update(db.collection('webapps').doc(webappItems[idx].id), { order: idx + 1 });
-                    batch.update(db.collection('webapps').doc(webappItems[idx + 1].id), { order: idx });
-                    await batch.commit();
-                }
-            }
+        });
+
+        // webappGrid ドラッグ＆ドロップ並び替え
+        let _webDndSrcId = null;
+        webappGrid.addEventListener('dragstart', (e) => {
+            if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
+            const card = e.target.closest('[draggable]');
+            if (!card || !card.dataset.id) return;
+            _webDndSrcId = card.dataset.id;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => { card.style.opacity = '0.4'; }, 0);
+        });
+        webappGrid.addEventListener('dragend', () => {
+            webappGrid.querySelectorAll('[draggable]').forEach(c => { c.style.opacity = ''; c.style.outline = ''; });
+        });
+        webappGrid.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const card = e.target.closest('[draggable]');
+            if (!card) return;
+            webappGrid.querySelectorAll('[draggable]').forEach(c => { c.style.outline = ''; });
+            if (card.dataset.id !== _webDndSrcId) card.style.outline = '2px solid #0066cc';
+            e.dataTransfer.dropEffect = 'move';
+        });
+        webappGrid.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            webappGrid.querySelectorAll('[draggable]').forEach(c => { c.style.opacity = ''; c.style.outline = ''; });
+            const targetCard = e.target.closest('[draggable]');
+            if (!targetCard || !_webDndSrcId || targetCard.dataset.id === _webDndSrcId) return;
+            const srcIdx = webappItems.findIndex(i => i.id === _webDndSrcId);
+            const tgtIdx = webappItems.findIndex(i => i.id === targetCard.dataset.id);
+            if (srcIdx === -1 || tgtIdx === -1) return;
+            const arr = [...webappItems];
+            const [moved] = arr.splice(srcIdx, 1);
+            arr.splice(tgtIdx, 0, moved);
+            const batch = db.batch();
+            arr.forEach((item, idx) => { batch.update(db.collection('webapps').doc(item.id), { order: idx }); });
+            await batch.commit();
         });
 
         const webappModal = document.createElement('div');
@@ -615,21 +639,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     dashModal.classList.remove('hidden');
                 }
             }
-            if (e.target.classList.contains('up-dash-btn') || e.target.classList.contains('down-dash-btn')) {
-                const idx = dashboardItems.findIndex(i => i.id === id);
-                const isUp = e.target.classList.contains('up-dash-btn');
-                if (isUp && idx > 0) {
-                    const batch = db.batch();
-                    batch.update(db.collection('dashboards').doc(dashboardItems[idx].id), { order: idx - 1 });
-                    batch.update(db.collection('dashboards').doc(dashboardItems[idx - 1].id), { order: idx });
-                    await batch.commit();
-                } else if (!isUp && idx < dashboardItems.length - 1) {
-                    const batch = db.batch();
-                    batch.update(db.collection('dashboards').doc(dashboardItems[idx].id), { order: idx + 1 });
-                    batch.update(db.collection('dashboards').doc(dashboardItems[idx + 1].id), { order: idx });
-                    await batch.commit();
-                }
-            }
+        });
+
+        // dashboardGrid ドラッグ＆ドロップ並び替え
+        let _dashDndSrcId = null;
+        dashboardGrid.addEventListener('dragstart', (e) => {
+            if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
+            const card = e.target.closest('[draggable]');
+            if (!card || !card.dataset.id) return;
+            _dashDndSrcId = card.dataset.id;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => { card.style.opacity = '0.4'; }, 0);
+        });
+        dashboardGrid.addEventListener('dragend', () => {
+            dashboardGrid.querySelectorAll('[draggable]').forEach(c => { c.style.opacity = ''; c.style.outline = ''; });
+        });
+        dashboardGrid.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const card = e.target.closest('[draggable]');
+            if (!card) return;
+            dashboardGrid.querySelectorAll('[draggable]').forEach(c => { c.style.outline = ''; });
+            if (card.dataset.id !== _dashDndSrcId) card.style.outline = '2px solid #0066cc';
+            e.dataTransfer.dropEffect = 'move';
+        });
+        dashboardGrid.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dashboardGrid.querySelectorAll('[draggable]').forEach(c => { c.style.opacity = ''; c.style.outline = ''; });
+            const targetCard = e.target.closest('[draggable]');
+            if (!targetCard || !_dashDndSrcId || targetCard.dataset.id === _dashDndSrcId) return;
+            const srcIdx = dashboardItems.findIndex(i => i.id === _dashDndSrcId);
+            const tgtIdx = dashboardItems.findIndex(i => i.id === targetCard.dataset.id);
+            if (srcIdx === -1 || tgtIdx === -1) return;
+            const arr = [...dashboardItems];
+            const [moved] = arr.splice(srcIdx, 1);
+            arr.splice(tgtIdx, 0, moved);
+            const batch = db.batch();
+            arr.forEach((item, idx) => { batch.update(db.collection('dashboards').doc(item.id), { order: idx }); });
+            await batch.commit();
         });
 
         const dashModal = document.createElement('div');

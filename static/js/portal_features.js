@@ -295,22 +295,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let webappItems = [];
         let isWebappEditMode = false;
         let editingWebappId = null;
-        let currentWebappFilter = ''; // ★フィルター用の変数
-
-        // ★フィルター用のセレクトボックスをUIに追加
-        let webappFilterDiv = document.getElementById('webapp-filter-container');
-        if (!webappFilterDiv) {
-            webappFilterDiv = document.createElement('div');
-            webappFilterDiv.id = 'webapp-filter-container';
-            webappFilterDiv.style.cssText = 'margin-bottom: 12px; text-align: right;';
-            webappFilterDiv.innerHTML = `<select id="webapp-filter" style="padding: 6px 12px; border-radius: 4px; border: 1px solid #E6E4DF; background: #fff; cursor: pointer; color: #4A4643;"><option value="">🏷️ すべてのタグ</option></select>`;
-            webappGrid.parentNode.insertBefore(webappFilterDiv, webappGrid);
-            
-            document.getElementById('webapp-filter').addEventListener('change', (e) => {
-                currentWebappFilter = e.target.value;
-                renderWebapps();
-            });
-        }
+        const WEBAPP_TAG_COLORS = {
+            '教職員': '#FADBD8', '全校': '#FADBD8',
+            '進路指導部': '#D6EAF8', '中学': '#D6EAF8',
+            '教務部': '#D5F5E3', '高１': '#D5F5E3',
+            '生徒指導部': '#FCF3CF', '高２': '#FCF3CF',
+            '入試対策部': '#E8DAEF', '高３': '#E8DAEF',
+            '総務部': '#F0F0F0', 'その他': '#F0F0F0',
+            '生徒会': '#FAE5D3', '独自アプリ': '#D1F2EB'
+        };
 
         const webappDetailModal = document.createElement('div');
         webappDetailModal.className = 'modal-overlay hidden';
@@ -331,64 +324,50 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('detail-webapp-close').addEventListener('click', () => webappDetailModal.classList.add('hidden'));
         webappDetailModal.addEventListener('click', (e) => { if (e.target === webappDetailModal) webappDetailModal.classList.add('hidden'); });
 
-        function renderLinkGrid(config) {
-            const grid = document.getElementById(config.gridId);
-            grid.innerHTML = '';
+        function renderWebapps() {
+            webappGrid.innerHTML = '';
+            webappGrid.style.display = 'grid';
+            webappGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(116px, 1fr))';
+            webappGrid.style.gap = '12px';
 
-            const tags = [...new Set(config.items.map(i => i.tag).filter(t => t))];
-            const selectEl = document.getElementById(config.filterId);
-            selectEl.innerHTML = `<option value="">🏷️ すべてのタグ</option>` + tags.map(t => `<option value="${t}">${t}</option>`).join('');
-            selectEl.value = config.currentFilter;
+            if (webappItems.length === 0) {
+                webappGrid.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px; grid-column:1/-1;">登録されたアプリはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
+                return;
+            }
 
-            const displayItems = config.currentFilter ? config.items.filter(i => i.tag === config.currentFilter) : config.items;
-
-            displayItems.forEach(item => {
+            webappItems.forEach(item => {
                 const card = document.createElement('div');
-                card.style.cssText = `position: relative; padding: 16px; background: #fff; border: 1px solid #E6E4DF; border-radius: 8px; display: flex; flex-direction: column; justify-content: space-between; min-height: 80px; transition: box-shadow 0.2s; cursor: ${config.isEditMode ? 'default' : 'pointer'};`;
+                const tagColor = WEBAPP_TAG_COLORS[item.tag] || '#EBEBEB';
+                card.dataset.id = item.id;
+                card.style.cssText = `position:relative; background:#fff; border:${isWebappEditMode ? '2px dashed #0066cc' : '1px solid #E6E4DF'}; border-radius:12px; padding:16px 10px 12px; display:flex; flex-direction:column; align-items:center; text-align:center; cursor:${isWebappEditMode ? 'grab' : 'pointer'}; transition:box-shadow 0.2s, transform 0.2s; user-select:none;`;
 
-                let contentHtml;
-                if (config.hasDetailModal) {
-                    const opacityStyle = config.isEditMode ? 'opacity: 0.5;' : '';
-                    contentHtml = `
-                        <div class="webapp-card-content" data-id="${item.id}" style="height: 100%; ${opacityStyle}">
-                            <div style="font-weight: bold; font-size: 14px; color: #4A4643; margin-bottom: 12px; line-height: 1.4;">${item.title}</div>
-                            <div style="font-size: 11px; color: #666; background: #F7F7F5; border: 1px solid #E6E4DF; display: inline-block; padding: 2px 8px; border-radius: 12px;">${item.tag}</div>
-                        </div>
-                    `;
-                } else {
-                    const linkPointerEvents = config.isEditMode ? 'pointer-events: none; opacity: 0.5;' : '';
-                    const hrefAttr = config.isEditMode ? 'javascript:void(0)' : item.url;
-                    const targetAttr = config.isEditMode ? '' : 'target="_blank"';
-                    contentHtml = `
-                        <a href="${hrefAttr}" ${targetAttr} style="text-decoration: none; color: inherit; display: block; height: 100%; ${linkPointerEvents}">
-                            <div style="font-weight: bold; font-size: 14px; color: #4A4643; margin-bottom: 12px; line-height: 1.4;">${item.title}</div>
-                            <div style="font-size: 11px; color: #666; background: #F7F7F5; border: 1px solid #E6E4DF; display: inline-block; padding: 2px 8px; border-radius: 12px;">${item.tag}</div>
-                        </a>
-                    `;
+                if (!isWebappEditMode) {
+                    card.onmouseover = () => { card.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)'; card.style.transform = 'translateY(-2px)'; };
+                    card.onmouseout = () => { card.style.boxShadow = ''; card.style.transform = ''; };
                 }
 
-                let editActionsHtml = '';
-                if (config.isEditMode) {
+                const iconLetter = item.title ? item.title.charAt(0).toUpperCase() : '?';
+                let editOverlay = '';
+                if (isWebappEditMode) {
                     card.setAttribute('draggable', 'true');
-                    card.dataset.id = item.id;
-                    card.style.cursor = 'grab';
-                    editActionsHtml = `
-                        <div style="position:absolute; top:6px; left:8px; font-size:20px; color:#bbb; user-select:none; pointer-events:none; line-height:1;">⠿</div>
-                        <div style="position: absolute; top: -12px; right: -8px; display:flex; gap:2px; background:#fff; border:1px solid #E6E4DF; border-radius:4px; padding:2px; box-shadow:0 2px 4px rgba(0,0,0,0.1); z-index:10;">
-                            <button class="${config.editBtnClass}" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px;">✏️</button>
-                            <button class="${config.deleteBtnClass}" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:16px; font-weight:bold;">×</button>
+                    editOverlay = `
+                        <div style="position:absolute; top:5px; left:7px; font-size:16px; color:#bbb; user-select:none; pointer-events:none; line-height:1;">⠿</div>
+                        <div style="position:absolute; top:-10px; right:-8px; display:flex; background:#fff; border:1px solid #E6E4DF; border-radius:4px; padding:2px; box-shadow:0 2px 4px rgba(0,0,0,0.1); z-index:10;">
+                            <button class="edit-webapp-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:13px; padding:1px 4px;">✏️</button>
+                            <button class="delete-webapp-btn" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:15px; font-weight:bold; padding:1px 4px;">×</button>
                         </div>
                     `;
-                    card.style.border = '1px dashed #0066cc';
                 }
 
-                card.innerHTML = contentHtml + editActionsHtml;
-                card.onmouseover = () => { if (!config.isEditMode) card.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'; };
-                card.onmouseout = () => { if (!config.isEditMode) card.style.boxShadow = 'none'; };
+                card.innerHTML = `
+                    ${editOverlay}
+                    <div style="width:56px; height:56px; border-radius:14px; background:${tagColor}; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:bold; color:#4A4643; margin-bottom:10px; border:1px solid rgba(0,0,0,0.07); flex-shrink:0; ${isWebappEditMode ? 'opacity:0.65;' : ''}">${iconLetter}</div>
+                    <div style="font-size:12px; font-weight:bold; color:#4A4643; line-height:1.4; width:100%; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin-bottom:5px; ${isWebappEditMode ? 'opacity:0.65;' : ''}">${item.title}</div>
+                    <div style="font-size:10px; color:#555; background:${tagColor}; padding:2px 7px; border-radius:10px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.tag || ''}</div>
+                `;
 
-                if (config.hasDetailModal) {
-                    card.querySelector('.webapp-card-content').addEventListener('click', () => {
-                        if (config.isEditMode) return;
+                if (!isWebappEditMode) {
+                    card.addEventListener('click', () => {
                         document.getElementById('detail-webapp-title').textContent = item.title;
                         document.getElementById('detail-webapp-tag').textContent = item.tag;
                         document.getElementById('detail-webapp-desc').textContent = item.description || '説明文はありません。';
@@ -397,23 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
 
-                grid.appendChild(card);
-            });
-        }
-
-        function renderWebapps() {
-            renderLinkGrid({
-                gridId: 'webapp-grid',
-                filterId: 'webapp-filter',
-                collectionName: 'webapps',
-                items: webappItems,
-                isEditMode: isWebappEditMode,
-                hasDetailModal: true,
-                currentFilter: currentWebappFilter,
-                upBtnClass: 'up-webapp-btn',
-                downBtnClass: 'down-webapp-btn',
-                editBtnClass: 'edit-webapp-item-btn',
-                deleteBtnClass: 'delete-webapp-btn',
+                webappGrid.appendChild(card);
             });
         }
 
@@ -434,12 +397,6 @@ document.addEventListener('DOMContentLoaded', () => {
             editWebappBtn.textContent = isWebappEditMode ? '完了' : '編集';
             editWebappBtn.style.color = isWebappEditMode ? '#0066cc' : '#aaa';
             editWebappBtn.style.textDecoration = isWebappEditMode ? 'none' : 'underline';
-            
-            // 編集モード中はフィルターを強制解除して全体を表示する
-            if (isWebappEditMode) {
-                currentWebappFilter = '';
-                document.getElementById('webapp-filter').value = '';
-            }
             renderWebapps();
         });
 

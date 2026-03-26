@@ -25,10 +25,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.addEventListener('mousemove', (e) => {
             if (layoutSidebar.style.display === 'none') {
-                if (e.clientX <= 20) openBtn.style.left = '16px'; 
-                else if (e.clientX > 80) openBtn.style.left = '-50px'; 
+                if (e.clientX <= 20) openBtn.style.left = '16px';
+                else if (e.clientX > 80) openBtn.style.left = '-50px';
             }
         });
+
+        // ──────────────────────────────
+        // ホームに戻るボタン（ホーム以外のページで表示）
+        // ──────────────────────────────
+        const _cp = window.location.pathname;
+        const _isHome = _cp === '/' || _cp.endsWith('/index.html');
+        if (!_isHome) {
+            const homeBtn = document.createElement('a');
+            homeBtn.href = './index.html';
+            homeBtn.innerHTML = '&#8592; ホームに戻る';
+            homeBtn.style.cssText = [
+                'display:block', 'padding:9px 16px', 'font-size:13px',
+                'color:#4A4643', 'text-decoration:none',
+                'border-bottom:1px solid #E6E4DF',
+                'transition:background 0.15s'
+            ].join(';');
+            homeBtn.onmouseover = () => homeBtn.style.backgroundColor = '#dff0ea';
+            homeBtn.onmouseout  = () => homeBtn.style.backgroundColor = '';
+            const firstSec = layoutSidebar.querySelector('.sidebar-section');
+            if (firstSec) layoutSidebar.insertBefore(homeBtn, firstSec);
+        }
     }
 
     // ------------------------------------------
@@ -54,10 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
             appList.innerHTML = '';
             const currentPath = window.location.pathname;
 
-            if (currentPath !== '/') appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/" class="app-link"><span class="app-icon">🏠</span><span class="app-name">ホームに戻る</span></a>`}));
-            if (currentPath.includes('column')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/columns.html" class="app-link"><span class="app-icon">📰</span><span class="app-name">コラム一覧</span></a>`}));
-            if (currentPath.includes('board_edit')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/boards.html" class="app-link"><span class="app-icon">📋</span><span class="app-name">掲示板一覧</span></a>`}));
-            if (currentPath !== '/' || customApps.length > 0) appList.appendChild(Object.assign(document.createElement('div'), {style: 'height: 1px; background-color: #E6E4DF; margin: 8px 0;'}));
+            const hasContext = currentPath.includes('column') || currentPath.includes('board_edit');
+            if (currentPath.includes('column')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="./columns.html" class="app-link"><span class="app-icon">📰</span><span class="app-name">コラム一覧</span></a>`}));
+            if (currentPath.includes('board_edit')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="./boards.html" class="app-link"><span class="app-icon">📋</span><span class="app-name">掲示板一覧</span></a>`}));
+            if (hasContext && customApps.length > 0) appList.appendChild(Object.assign(document.createElement('div'), {style: 'height: 1px; background-color: #E6E4DF; margin: 8px 0;'}));
 
             customApps.forEach(app => {
                 const li = document.createElement('li'); li.className = 'custom-app-item'; li.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
@@ -104,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         editAppBtn.addEventListener('click', () => { isAppEditMode = !isAppEditMode; editAppBtn.textContent = isAppEditMode ? '完了' : '編集'; editAppBtn.style.color = isAppEditMode ? '#d9534f' : '#aaa'; editAppBtn.style.textDecoration = isAppEditMode ? 'none' : 'underline'; renderApps(); });
         
-        appList.addEventListener('click', (e) => {
+        appList.addEventListener('click', async (e) => {
             const appId = e.target.getAttribute('data-id');
             if (!appId) return;
 

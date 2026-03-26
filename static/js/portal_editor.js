@@ -562,14 +562,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     db.collection(collectionName).doc(editingColId).update(saveData).then(() => {
                         afterPublish();
                         alert(isBoardMode ? '掲示を更新しました！' : 'コラムを更新しました！');
-                        window.location.href = isBoardMode ? '/boards' : '/columns';
+                        window.location.href = isBoardMode ? '/boards.html' : '/columns.html';
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                 } else {
                     db.collection(collectionName).add(saveData).then((ref) => {
                         editingColId = ref.id;
                         afterPublish();
                         alert(isBoardMode ? '掲示を公開しました！' : 'コラムを公開しました！');
-                        window.location.href = isBoardMode ? '/boards' : '/columns';
+                        window.location.href = isBoardMode ? '/boards.html' : '/columns.html';
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                 }
             });

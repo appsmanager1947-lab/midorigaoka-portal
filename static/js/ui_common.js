@@ -55,8 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentPath = window.location.pathname;
 
             if (currentPath !== '/') appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/" class="app-link"><span class="app-icon">🏠</span><span class="app-name">ホームに戻る</span></a>`}));
-            if (currentPath.includes('column')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/columns" class="app-link"><span class="app-icon">📰</span><span class="app-name">コラム一覧</span></a>`}));
-            if (currentPath.includes('board_edit')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/boards" class="app-link"><span class="app-icon">📋</span><span class="app-name">掲示板一覧</span></a>`}));
+            if (currentPath.includes('column')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/columns.html" class="app-link"><span class="app-icon">📰</span><span class="app-name">コラム一覧</span></a>`}));
+            if (currentPath.includes('board_edit')) appList.appendChild(Object.assign(document.createElement('li'), {innerHTML: `<a href="/boards.html" class="app-link"><span class="app-icon">📋</span><span class="app-name">掲示板一覧</span></a>`}));
             if (currentPath !== '/' || customApps.length > 0) appList.appendChild(Object.assign(document.createElement('div'), {style: 'height: 1px; background-color: #E6E4DF; margin: 8px 0;'}));
 
             customApps.forEach(app => {

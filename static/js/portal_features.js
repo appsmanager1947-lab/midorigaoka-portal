@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             
             // ★ポイント：タイトルをクリックで直接「編集画面」へ飛ぶ
-            const titleHtml = `<a href="/board_edit?edit_id=${data.id}" style="color: #4A4643; text-decoration: underline; font-weight: bold;">${data.title}</a>`;
+            const titleHtml = `<a href="/board_edit.html?edit_id=${data.id}" style="color: #4A4643; text-decoration: underline; font-weight: bold;">${data.title}</a>`;
             let statusHtml = data.status === 'completed' ? `<span style="background-color: #e0e0e0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 8px;">終了済み</span>` : '';
             
             let deleteBtnHtml = showAll ? `<button class="delete-board-btn" data-id="${data.id}" style="background-color: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-left: 12px;">削除</button>` : '';
@@ -203,10 +203,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; 
             }
             if (e.target.classList.contains('edit-col-btn')) {
-                window.location.href = `/column_edit?edit_id=${colId}`;
+                window.location.href = `/column_edit.html?edit_id=${colId}`;
                 return;
             }
-            window.location.href = `/column_detail?id=${colId}`;
+            window.location.href = `/column_detail.html?id=${colId}`;
         });
     }
 
@@ -695,13 +695,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     detailActions.style.display = 'block';
 
                     document.getElementById('btn-detail-edit').addEventListener('click', () => {
-                        window.location.href = `/column_edit?edit_id=${colId}`;
+                        window.location.href = `/column_edit.html?edit_id=${colId}`;
                     });
 
                     document.getElementById('btn-detail-delete').addEventListener('click', () => {
                         if (confirm('このコラムを削除してもよろしいですか？')) {
                             db.collection('columns').doc(colId).delete().then(() => {
-                                window.location.href = '/columns';
+                                window.location.href = '/columns.html';
                             });
                         }
                     });

@@ -1348,14 +1348,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         dayEvs.forEach(ev => {
                             const evLine = document.createElement('div');
-                            // 背景色を登録色ベースで暗めに設定
-                            const hex = (ev.color && ev.color.startsWith('#') && ev.color !== '#F0F0F0') ? ev.color : '#D8D8D8';
-                            const r = parseInt(hex.slice(1,3),16);
-                            const g = parseInt(hex.slice(3,5),16);
-                            const b = parseInt(hex.slice(5,7),16);
-                            const f = 0.72; // 暗さ係数
-                            const bg = `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`;
-                            evLine.style.cssText = `font-size:11px; line-height:1.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${bg}; color:#fff; border-radius:3px; padding:0 5px; margin-bottom:2px;`;
+                            const bg = ev.color || '#F0F0F0';
+                            evLine.style.cssText = `font-size:11px; line-height:1.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${bg}; color:#333; border-radius:3px; padding:0 5px; margin-bottom:2px;`;
                             evLine.textContent = ev.title;
                             evLine.title = ev.title + (ev.target ? ` [${ev.target}]` : '') + (ev.note ? `　${ev.note}` : '');
                             evCol.appendChild(evLine);

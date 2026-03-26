@@ -560,36 +560,78 @@ document.addEventListener('DOMContentLoaded', () => {
         let dashboardItems = [];
         let isDashEditMode = false;
         let editingDashId = null;
-        let currentDashFilter = ''; // ★フィルター用変数
 
-        // ★フィルター用のセレクトボックスをUIに追加
-        let dashFilterDiv = document.getElementById('dash-filter-container');
-        if (!dashFilterDiv) {
-            dashFilterDiv = document.createElement('div');
-            dashFilterDiv.id = 'dash-filter-container';
-            dashFilterDiv.style.cssText = 'margin-bottom: 12px; text-align: right;';
-            dashFilterDiv.innerHTML = `<select id="dash-filter" style="padding: 6px 12px; border-radius: 4px; border: 1px solid #E6E4DF; background: #fff; cursor: pointer; color: #4A4643;"><option value="">🏷️ すべてのタグ</option></select>`;
-            dashboardGrid.parentNode.insertBefore(dashFilterDiv, dashboardGrid);
-            
-            document.getElementById('dash-filter').addEventListener('change', (e) => {
-                currentDashFilter = e.target.value;
-                renderDashboard();
-            });
-        }
+        dashboardGrid.style.display = 'block';
+
+        const DASH_TAG_COLORS = {
+            '教職員': '#FADBD8', '全校': '#FADBD8',
+            '進路指導部': '#D6EAF8', '中学': '#D6EAF8',
+            '教務部': '#D5F5E3', '高１': '#D5F5E3',
+            '生徒指導部': '#FCF3CF', '高２': '#FCF3CF',
+            '入試対策部': '#E8DAEF', '高３': '#E8DAEF',
+            '総務部': '#F0F0F0', 'その他': '#F0F0F0',
+            '生徒会': '#FAE5D3'
+        };
 
         function renderDashboard() {
-            renderLinkGrid({
-                gridId: 'dashboard-grid',
-                filterId: 'dash-filter',
-                collectionName: 'dashboards',
-                items: dashboardItems,
-                isEditMode: isDashEditMode,
-                hasDetailModal: false,
-                currentFilter: currentDashFilter,
-                upBtnClass: 'up-dash-btn',
-                downBtnClass: 'down-dash-btn',
-                editBtnClass: 'edit-dash-item-btn',
-                deleteBtnClass: 'delete-dash-btn',
+            dashboardGrid.innerHTML = '';
+
+            if (dashboardItems.length === 0) {
+                dashboardGrid.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px;">登録されたリンクはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
+                return;
+            }
+
+            // 通常・編集モード共通：タグ別グループリスト
+            const groups = {};
+            const tagOrder = [];
+            dashboardItems.forEach(item => {
+                const tag = item.tag || 'その他';
+                if (!groups[tag]) { groups[tag] = []; tagOrder.push(tag); }
+                groups[tag].push(item);
+            });
+
+            tagOrder.forEach(tag => {
+                const items = groups[tag];
+                const color = DASH_TAG_COLORS[tag] || '#F0F0F0';
+
+                const section = document.createElement('div');
+                section.style.cssText = `margin-bottom:16px; border:1px solid ${isDashEditMode ? '#0066cc' : '#E6E4DF'}; border-radius:8px; overflow:hidden;`;
+
+                const header = document.createElement('div');
+                header.style.cssText = `background:${color}; padding:7px 16px; font-size:12px; font-weight:bold; color:#4A4643; border-bottom:1px solid rgba(0,0,0,0.07); letter-spacing:0.04em;`;
+                header.textContent = tag;
+                section.appendChild(header);
+
+                items.forEach((item, idx) => {
+                    const row = document.createElement('div');
+                    const isLast = idx === items.length - 1;
+                    row.dataset.id = item.id;
+                    row.dataset.tag = tag;
+
+                    if (isDashEditMode) {
+                        row.setAttribute('draggable', 'true');
+                        row.style.cssText = `display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; ${isLast ? '' : 'border-bottom:1px solid #F0EEE9;'} cursor:grab;`;
+                        row.innerHTML = `
+                            <span style="color:#bbb; font-size:20px; user-select:none; flex:0 0 auto; pointer-events:none;">⠿</span>
+                            <span style="flex:1; font-size:14px; color:#4A4643; opacity:0.7;">${item.title}</span>
+                            <button class="edit-dash-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px; padding:2px 6px;">✏️</button>
+                            <button class="delete-dash-btn" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:18px; font-weight:bold; padding:2px 6px;">×</button>
+                        `;
+                    } else {
+                        row.style.cssText = `display:flex; align-items:center; padding:10px 16px; gap:12px; background:#fff; ${isLast ? '' : 'border-bottom:1px solid #F0EEE9;'} transition:background 0.15s;`;
+                        row.onmouseover = () => row.style.backgroundColor = '#F7F7F5';
+                        row.onmouseout = () => row.style.backgroundColor = '#fff';
+                        row.innerHTML = `
+                            <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
+                            <a href="${item.url}" target="_blank" style="font-size:12px; color:#2c8c5a; text-decoration:none; white-space:nowrap; padding:4px 10px; border:1px solid #c3e6d6; border-radius:4px; background:#f0faf5; transition:all 0.15s;"
+                               onmouseover="this.style.backgroundColor='#2c8c5a'; this.style.color='#fff';"
+                               onmouseout="this.style.backgroundColor='#f0faf5'; this.style.color='#2c8c5a';">開く ↗</a>
+                        `;
+                    }
+                    section.appendChild(row);
+                });
+
+                dashboardGrid.appendChild(section);
             });
         }
 
@@ -610,12 +652,6 @@ document.addEventListener('DOMContentLoaded', () => {
             editDashBtn.textContent = isDashEditMode ? '完了' : '編集';
             editDashBtn.style.color = isDashEditMode ? '#0066cc' : '#aaa';
             editDashBtn.style.textDecoration = isDashEditMode ? 'none' : 'underline';
-            
-            // 編集モード中はフィルターを強制解除して全体を表示する
-            if (isDashEditMode) {
-                currentDashFilter = '';
-                document.getElementById('dash-filter').value = '';
-            }
             renderDashboard();
         });
 
@@ -641,38 +677,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // dashboardGrid ドラッグ＆ドロップ並び替え
+        // ドラッグ＆ドロップ（同タグ内のみ並び替え）
         let _dashDndSrcId = null;
+        let _dashDndSrcTag = null;
         dashboardGrid.addEventListener('dragstart', (e) => {
             if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
-            const card = e.target.closest('[draggable]');
-            if (!card || !card.dataset.id) return;
-            _dashDndSrcId = card.dataset.id;
+            const row = e.target.closest('[draggable]');
+            if (!row || !row.dataset.id) return;
+            _dashDndSrcId = row.dataset.id;
+            _dashDndSrcTag = row.dataset.tag;
             e.dataTransfer.effectAllowed = 'move';
-            setTimeout(() => { card.style.opacity = '0.4'; }, 0);
+            setTimeout(() => { row.style.opacity = '0.4'; }, 0);
         });
         dashboardGrid.addEventListener('dragend', () => {
-            dashboardGrid.querySelectorAll('[draggable]').forEach(c => { c.style.opacity = ''; c.style.outline = ''; });
+            dashboardGrid.querySelectorAll('[draggable]').forEach(r => { r.style.opacity = ''; r.style.boxShadow = ''; });
         });
         dashboardGrid.addEventListener('dragover', (e) => {
             e.preventDefault();
-            const card = e.target.closest('[draggable]');
-            if (!card) return;
-            dashboardGrid.querySelectorAll('[draggable]').forEach(c => { c.style.outline = ''; });
-            if (card.dataset.id !== _dashDndSrcId) card.style.outline = '2px solid #0066cc';
+            const row = e.target.closest('[draggable]');
+            dashboardGrid.querySelectorAll('[draggable]').forEach(r => { r.style.boxShadow = ''; });
+            if (!row || row.dataset.id === _dashDndSrcId || row.dataset.tag !== _dashDndSrcTag) return;
+            const rect = row.getBoundingClientRect();
+            row.style.boxShadow = e.clientY < rect.top + rect.height / 2 ? 'inset 0 2px 0 #0066cc' : 'inset 0 -2px 0 #0066cc';
             e.dataTransfer.dropEffect = 'move';
         });
         dashboardGrid.addEventListener('drop', async (e) => {
             e.preventDefault();
-            dashboardGrid.querySelectorAll('[draggable]').forEach(c => { c.style.opacity = ''; c.style.outline = ''; });
-            const targetCard = e.target.closest('[draggable]');
-            if (!targetCard || !_dashDndSrcId || targetCard.dataset.id === _dashDndSrcId) return;
+            dashboardGrid.querySelectorAll('[draggable]').forEach(r => { r.style.opacity = ''; r.style.boxShadow = ''; });
+            const targetRow = e.target.closest('[draggable]');
+            if (!targetRow || !_dashDndSrcId || targetRow.dataset.id === _dashDndSrcId || targetRow.dataset.tag !== _dashDndSrcTag) return;
             const srcIdx = dashboardItems.findIndex(i => i.id === _dashDndSrcId);
-            const tgtIdx = dashboardItems.findIndex(i => i.id === targetCard.dataset.id);
-            if (srcIdx === -1 || tgtIdx === -1) return;
+            const rect = targetRow.getBoundingClientRect();
+            const insertBefore = e.clientY < rect.top + rect.height / 2;
             const arr = [...dashboardItems];
             const [moved] = arr.splice(srcIdx, 1);
-            arr.splice(tgtIdx, 0, moved);
+            let insertIdx = arr.findIndex(i => i.id === targetRow.dataset.id);
+            if (!insertBefore) insertIdx++;
+            arr.splice(insertIdx, 0, moved);
             const batch = db.batch();
             arr.forEach((item, idx) => { batch.update(db.collection('dashboards').doc(item.id), { order: idx }); });
             await batch.commit();

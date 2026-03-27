@@ -25,10 +25,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const displayData = showAll ? submissions : submissions.filter(s => s.status === 'active');
 
         // クラウド側で並び替えているためそのまま表示
+        if (displayData.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="5" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録されたサブミッションズはありません</td>`;
+            tbody.appendChild(tr);
+        } else {
         displayData.forEach(data => {
             const tr = document.createElement('tr');
             const linkHtml = data.url ? `<a href="${data.url}" class="link-btn" target="_blank">開く</a>` : `<span style="color:#ccc;">-</span>`;
-            
+
             let statusHtml = '';
             let actionHtml = '';
             let deleteBtnHtml = showAll ? `<button class="delete-submission-btn" data-id="${data.id}" style="background-color: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-left: 12px;">削除</button>` : '';
@@ -43,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.innerHTML = `<td>${data.title} ${statusHtml}</td><td>${data.dept}</td><td>${data.deadline}</td><td>${linkHtml}</td><td>${actionHtml}</td>`;
             tbody.appendChild(tr);
         });
+        }
     }
 
     // ★追加: リアルタイム監視 (作成日時の降順＝新しい順で取得)
@@ -118,21 +124,27 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '';
         const displayData = showAll ? boards : boards.filter(b => b.status === 'active');
 
+        if (displayData.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="4" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された掲示板はありません</td>`;
+            tbody.appendChild(tr);
+        } else {
         displayData.forEach(data => {
             const tr = document.createElement('tr');
-            
+
             // ★ポイント：タイトルをクリックで直接「編集画面」へ飛ぶ
             const titleHtml = `<a href="./board_edit.html?edit_id=${data.id}" style="color: #4A4643; text-decoration: underline; font-weight: bold;">${data.title}</a>`;
             let statusHtml = data.status === 'completed' ? `<span style="background-color: #e0e0e0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 8px;">終了済み</span>` : '';
-            
+
             let deleteBtnHtml = showAll ? `<button class="delete-board-btn" data-id="${data.id}" style="background-color: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-left: 12px;">削除</button>` : '';
-            let actionHtml = data.status === 'completed' 
-                ? `<span style="color:#ccc; font-size: 12px;">操作不可</span>` + deleteBtnHtml 
+            let actionHtml = data.status === 'completed'
+                ? `<span style="color:#ccc; font-size: 12px;">操作不可</span>` + deleteBtnHtml
                 : `<button class="complete-board-btn" data-id="${data.id}" style="background-color: transparent; color: #aaa; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">終了</button>` + deleteBtnHtml;
 
             tr.innerHTML = `<td>${titleHtml} ${statusHtml}</td><td>${data.dept}</td><td>${data.period}</td><td>${actionHtml}</td>`;
             tbody.appendChild(tr);
         });
+        }
     }
 
     // リアルタイム監視 (新しい順)
@@ -913,36 +925,54 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetAttBody) {
                 targetAttBody.innerHTML = '';
                 const filtered = isArchivePage ? attendances.filter(d => d.date !== todayStr) : attendances.filter(d => d.date === todayStr);
+                if (filtered.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された勤務・出張情報はありません</td>`;
+                    targetAttBody.appendChild(tr);
+                } else {
                 sortByDate(filtered).forEach(d => {
                     const tr = document.createElement('tr');
                     const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
                     tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.type}</span></td><td>${d.start}</td><td>${d.end}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="delete-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                     targetAttBody.appendChild(tr);
                 });
+                }
             }
 
             const targetVisBody = isArchivePage ? arcVisBody : visBody;
             if (targetVisBody) {
                 targetVisBody.innerHTML = '';
                 const filtered = isArchivePage ? visitors.filter(d => d.date !== todayStr) : visitors.filter(d => d.date === todayStr);
+                if (filtered.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された来客情報はありません</td>`;
+                    targetVisBody.appendChild(tr);
+                } else {
                 sortByDate(filtered).forEach(d => {
                     const tr = document.createElement('tr');
                     const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
                     tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="delete-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                     targetVisBody.appendChild(tr);
                 });
+                }
             }
 
             const targetTripBody = isArchivePage ? arcTripBody : tripBody;
             if (targetTripBody) {
                 targetTripBody.innerHTML = '';
                 const filtered = isArchivePage ? trips.filter(d => d.date !== todayStr) : trips.filter(d => d.date === todayStr);
+                if (filtered.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出張情報はありません</td>`;
+                    targetTripBody.appendChild(tr);
+                } else {
                 sortByDate(filtered).forEach(d => {
                     const tr = document.createElement('tr');
                     const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
                     tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                     targetTripBody.appendChild(tr);
                 });
+                }
             }
         }
 
@@ -1015,6 +1045,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function renderTimetable() {
             ttBody.innerHTML = '';
+            if (timetables.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="8" style="text-align:center;color:#aaa;padding:24px;font-size:14px;">登録された時間割はありません</td>`;
+                ttBody.appendChild(tr);
+                return;
+            }
             days.forEach(day => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<th class="tt-day-col">${day}</th>`;

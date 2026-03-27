@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isBoardMode = window.location.pathname.includes('board_edit');
         const urlParams = new URLSearchParams(window.location.search);
         const editIdParam = urlParams.get('edit_id');
+        let syncTagsFromValue = null;
 
         function getTodayStr() {
             const d = new Date();
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = doc.data();
                     editTitle.value = data.title;
                     if(editAuthor) editAuthor.value = isBoardMode ? data.dept : data.author;
+                    if (syncTagsFromValue) syncTagsFromValue();
                     if(editDate) editDate.value = isBoardMode ? data.period : data.date;
                     editContent.innerHTML = data.content;
                     if(btnPublish) btnPublish.textContent = "更新する";
@@ -52,6 +54,47 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             if (!isBoardMode && editDate && editDate.type === 'date') {
                 editDate.valueAsDate = new Date();
+            }
+        }
+
+        // ① タグチップ UI (column_edit のみ)
+        if (!isBoardMode) {
+            const tagWrap = document.getElementById('tag-chip-wrap');
+            const tagInput = document.getElementById('tag-text-input');
+            if (tagWrap && tagInput) {
+                function syncValueFromChips() {
+                    const chips = tagWrap.querySelectorAll('.tag-chip');
+                    editAuthor.value = Array.from(chips).map(c => c.dataset.tag).join(' ');
+                }
+                function addChip(text) {
+                    const chip = document.createElement('span');
+                    chip.className = 'tag-chip';
+                    chip.dataset.tag = text;
+                    chip.innerHTML = `${text}<button class="tag-chip-remove" type="button" aria-label="削除">×</button>`;
+                    chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
+                        chip.remove();
+                        syncValueFromChips();
+                    });
+                    tagWrap.insertBefore(chip, tagInput);
+                    syncValueFromChips();
+                }
+                syncTagsFromValue = function() {
+                    tagWrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+                    const val = editAuthor.value.trim();
+                    if (val) val.split(/\s+/).forEach(t => t && addChip(t));
+                };
+                tagInput.addEventListener('keydown', e => {
+                    if (e.isComposing) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const v = tagInput.value.trim();
+                        if (v) { addChip(v); tagInput.value = ''; }
+                    } else if (e.key === 'Backspace' && tagInput.value === '') {
+                        const chips = tagWrap.querySelectorAll('.tag-chip');
+                        if (chips.length > 0) { chips[chips.length - 1].remove(); syncValueFromChips(); }
+                    }
+                });
+                tagWrap.addEventListener('click', () => tagInput.focus());
             }
         }
 
@@ -121,24 +164,26 @@ document.addEventListener('DOMContentLoaded', () => {
         let isSlashMenuOpen = false;
 
         if (slashMenu) {
-            slashMenu.innerHTML = ''; 
+            slashMenu.innerHTML = '';
+            const _s = b => `<svg viewBox="0 0 16 16" width="15" height="15" style="flex-shrink:0;display:block;">${b}</svg>`;
+            const C = '#4A4643';
             const menuItems = [
-                { cmd: 'h2', text: '📝 見出し１' },
-                { cmd: 'h3', text: '📝 見出し２' },
-                { cmd: 'insertUnorderedList', text: '⚫ 箇条書き' },
-                { cmd: 'insertOrderedList', text: '🔢 番号箇条書き' },
-                { cmd: 'insertCheckbox', text: '☑ チェックボックス' },
-                { cmd: 'insertHorizontalRule', text: '➖ 水平線' },
-                { cmd: 'insertCustomLink', text: '🔗 リンクの挿入' },
-                { cmd: 'image', text: '🖼️ 画像の挿入' },
-                { cmd: 'insertTable', text: '📊 表の挿入' }
+                { cmd: 'h2', icon: _s(`<rect fill="${C}" x="1" y="1.5" width="14" height="4" rx="2"/><rect fill="${C}" x="1" y="8.5" width="11" height="2" rx="1"/><rect fill="${C}" x="1" y="12.5" width="7" height="2" rx="1"/>`), text: '見出し１' },
+                { cmd: 'h3', icon: _s(`<rect fill="${C}" x="1" y="1.5" width="14" height="2.5" rx="1.25"/><rect fill="${C}" x="1" y="6.5" width="11" height="2" rx="1"/><rect fill="${C}" x="1" y="10.5" width="8" height="2" rx="1"/><rect fill="${C}" x="1" y="14" width="5" height="1.5" rx=".75"/>`), text: '見出し２' },
+                { cmd: 'insertUnorderedList', icon: _s(`<circle fill="${C}" cx="3" cy="4" r="1.5"/><rect fill="${C}" x="6" y="3" width="9" height="2" rx="1"/><circle fill="${C}" cx="3" cy="8.5" r="1.5"/><rect fill="${C}" x="6" y="7.5" width="9" height="2" rx="1"/><circle fill="${C}" cx="3" cy="13" r="1.5"/><rect fill="${C}" x="6" y="12" width="9" height="2" rx="1"/>`), text: '箇条書き' },
+                { cmd: 'insertOrderedList', icon: _s(`<rect fill="${C}" x="1.5" y="2.5" width="2.5" height="3.5" rx=".75"/><rect fill="${C}" x="6" y="3" width="9" height="2" rx="1"/><path fill="${C}" d="M1.5 9c0-.8 2.5-.8 2.5 0s-2.5 2-2.5 2.5h2.5"/><rect fill="${C}" x="6" y="8.5" width="9" height="2" rx="1"/><path fill="${C}" d="M1.5 13.5h2.5v.8H2.5v.8h1.5v.9H1.5"/><rect fill="${C}" x="6" y="14" width="9" height="2" rx="1"/>`), text: '番号付き箇条書き' },
+                { cmd: 'insertCheckbox', icon: _s(`<rect fill="${C}" x="1.5" y="1.5" width="13" height="13" rx="2.5"/><path fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M4.5 8.5l2.5 2.5 4.5-4.5"/>`), text: 'チェックボックス' },
+                { cmd: 'insertHorizontalRule', icon: _s(`<rect fill="${C}" x="0" y="7" width="16" height="2" rx="1"/><rect fill="${C}" x="2" y="3.5" width="12" height="1" rx=".5" opacity=".35"/><rect fill="${C}" x="2" y="11.5" width="12" height="1" rx=".5" opacity=".35"/>`), text: '水平線' },
+                { cmd: 'insertCustomLink', icon: _s(`<path fill="none" stroke="${C}" stroke-width="1.8" stroke-linecap="round" d="M6 10.5a3.5 3.5 0 0 0 5 0l1.5-1.5a3.5 3.5 0 0 0-5-5L6 5.5M10 5.5a3.5 3.5 0 0 0-5 0L3.5 7a3.5 3.5 0 0 0 5 5l1.5-1.5"/>`), text: 'リンクを挿入' },
+                { cmd: 'image', icon: _s(`<rect fill="${C}" x="1" y="2" width="14" height="12" rx="2"/><circle fill="white" cx="5" cy="5.5" r="1.5"/><path fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M1 12l3.5-4 3 2.5 2-2 4.5 4"/>`), text: '画像を挿入' },
+                { cmd: 'insertTable', icon: _s(`<rect fill="${C}" x="1" y="1" width="14" height="14" rx="1.5"/><line stroke="white" stroke-width="1" x1="6.3" y1="1" x2="6.3" y2="15"/><line stroke="white" stroke-width="1" x1="10.7" y1="1" x2="10.7" y2="15"/><line stroke="white" stroke-width="1" x1="1" y1="6.3" x2="15" y2="6.3"/><line stroke="white" stroke-width="1" x1="1" y1="10.7" x2="15" y2="10.7"/>`), text: '表を挿入' },
             ];
             menuItems.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'slash-menu-item';
                 div.setAttribute('data-command', item.cmd);
-                div.innerHTML = item.text;
-                div.style.cssText = 'padding: 8px 12px; cursor: pointer; font-size: 14px; border-radius: 4px; transition: background 0.2s; color: #4A4643; display: flex; align-items: center; gap: 8px;';
+                div.innerHTML = `${item.icon}<span>${item.text}</span>`;
+                div.style.cssText = 'padding: 8px 12px; cursor: pointer; font-size: 14px; border-radius: 4px; transition: background 0.2s; color: #4A4643; display: flex; align-items: center; gap: 10px;';
                 slashMenu.appendChild(div);
             });
         }
@@ -344,25 +389,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (editContent && slashMenu) {
             editContent.addEventListener('keydown', (e) => {
-                // checkbox-row 内で Enter → チェックボックス行の外に新しい段落を作成
-                if (e.key === 'Enter' && !e.shiftKey && !isSlashMenuOpen) {
+                // checkbox-row 内で Enter → 空なら段落に抜ける、テキストありなら次のチェックボックス行を作成
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !isSlashMenuOpen) {
                     const sel = window.getSelection();
                     if (sel.rangeCount > 0) {
-                        let node = sel.anchorNode;
-                        while (node && node !== editContent) {
-                            if (node.nodeType === 1 && node.classList && node.classList.contains('checkbox-row')) {
-                                e.preventDefault();
+                        const anchor = sel.anchorNode;
+                        const el = anchor.nodeType === 3 ? anchor.parentElement : (anchor instanceof Element ? anchor : null);
+                        const checkboxRow = el ? el.closest('.checkbox-row') : null;
+                        if (checkboxRow) {
+                            e.preventDefault();
+                            const isEmpty = anchor.textContent.trim() === '';
+                            if (isEmpty) {
+                                // 空行 → 通常段落に抜ける
                                 const p = document.createElement('p');
                                 p.innerHTML = '<br>';
-                                node.parentNode.insertBefore(p, node.nextSibling);
+                                checkboxRow.parentNode.insertBefore(p, checkboxRow.nextSibling);
                                 const r = document.createRange();
                                 r.setStart(p, 0);
                                 r.collapse(true);
                                 sel.removeAllRanges();
                                 sel.addRange(r);
-                                return;
+                            } else {
+                                // テキストあり → 新しいチェックボックス行を作成
+                                const newRow = document.createElement('div');
+                                newRow.className = 'checkbox-row';
+                                newRow.style.cssText = 'display:flex; align-items:center; gap:8px; margin:3px 0; padding:2px 0;';
+                                const newCb = document.createElement('input');
+                                newCb.type = 'checkbox';
+                                newCb.style.cssText = 'cursor:pointer; width:15px; height:15px; flex-shrink:0; accent-color:#2c8c5a;';
+                                newCb.setAttribute('onchange', "var s=this.nextElementSibling; s.style.textDecoration=this.checked?'line-through':'none'; s.style.color=this.checked?'#aaa':'inherit';");
+                                const newSpan = document.createElement('span');
+                                newSpan.style.flex = '1';
+                                newRow.appendChild(newCb);
+                                newRow.appendChild(newSpan);
+                                checkboxRow.parentNode.insertBefore(newRow, checkboxRow.nextSibling);
+                                const r = document.createRange();
+                                r.setStart(newSpan, 0);
+                                r.collapse(true);
+                                sel.removeAllRanges();
+                                sel.addRange(r);
                             }
-                            node = node.parentNode;
+                            return;
                         }
                     }
                 }
@@ -523,6 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             li.querySelector('.draft-item-label').addEventListener('click', () => {
                                 editTitle.value = d.title === '（タイトルなし）' ? '' : d.title;
                                 if (editAuthor) editAuthor.value = d.author || '';
+                                if (syncTagsFromValue) syncTagsFromValue();
                                 if (editDate) editDate.value = d.date || '';
                                 editContent.innerHTML = d.content || '';
                                 currentEyecatchData = d.img || '';

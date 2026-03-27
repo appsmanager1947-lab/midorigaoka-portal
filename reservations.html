@@ -5,108 +5,979 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>会議室等予約 | 教職員用ポータルサイト</title>
     <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        /* このページ専用オーバーライド */
+        .main-content {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 14px 20px 0;
+        }
+
+        /* ページヘッダー */
+        .res-page-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        .res-page-header h2 {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .week-nav {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .week-nav-btn {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .week-nav-btn:hover { background: var(--hover-bg); }
+        #week-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            text-align: center;
+        }
+        #today-btn {
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--accent-color);
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        #today-btn:hover { background: #E8F4F3; }
+
+        /* タブ */
+        .tab-bar {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            padding: 8px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            font-family: inherit;
+        }
+        .tab-btn.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+
+        /* 凡例 */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: var(--text-main);
+        }
+        .legend-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* タイムラインラッパー（スクロール領域） */
+        .timeline-wrap {
+            flex: 1;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .timeline-inner {
+            min-width: calc(50px + 6 * 140px);
+        }
+
+        /* スティッキー曜日ヘッダー */
+        .timeline-header {
+            display: flex;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #fff;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .tl-gutter {
+            width: 50px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--border-color);
+        }
+        .day-header-cell {
+            flex: 1;
+            min-width: 140px;
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            border-left: 1px solid var(--border-color);
+        }
+        .day-header-cell.today-col {
+            color: var(--accent-color);
+            background: #F0F7F4;
+        }
+
+        /* タイムライン本体 */
+        .timeline-body {
+            display: flex;
+            height: 1120px;
+        }
+
+        /* 時間ラベル列 */
+        .time-col {
+            width: 50px;
+            flex-shrink: 0;
+            position: relative;
+            border-right: 1px solid var(--border-color);
+        }
+        .time-label {
+            position: absolute;
+            right: 6px;
+            font-size: 11px;
+            color: #999;
+            transform: translateY(-50%);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        /* 曜日列 */
+        .day-col {
+            flex: 1;
+            min-width: 140px;
+            position: relative;
+            border-left: 1px solid var(--border-color);
+            cursor: pointer;
+        }
+        .day-col.today-col {
+            background-color: #F0F7F4;
+        }
+
+        /* グリッド線 */
+        .grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 0;
+            pointer-events: none;
+        }
+        .grid-line.hour { border-top: 1px solid #ccc; }
+        .grid-line.half { border-top: 1px dashed #e0e0e0; }
+
+        /* 予約ブロック */
+        .res-block {
+            position: absolute;
+            border-radius: 4px;
+            padding: 3px 5px;
+            font-size: 11px;
+            overflow: hidden;
+            cursor: grab;
+            box-sizing: border-box;
+            z-index: 2;
+            user-select: none;
+        }
+        .res-block.dragging { opacity: 0.25; cursor: grabbing; }
+        .drag-ghost { cursor: grabbing !important; border-radius: 4px; overflow: hidden; }
+        .res-block-location {
+            font-size: 10px;
+            opacity: 0.75;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .res-block-purpose {
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .res-block-user {
+            font-size: 10px;
+            opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .res-block-time {
+            font-size: 10px;
+            opacity: 0.75;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        /* 現在時刻ライン */
+        .current-time-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(220, 53, 69, 0.8);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* 詳細ポップアップ */
+        .detail-popup {
+            position: fixed;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px 20px;
+            min-width: 220px;
+            max-width: 300px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 500;
+        }
+        .detail-popup h4 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text-main);
+            padding-right: 20px;
+        }
+        .detail-row {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        .detail-row span {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+        .detail-popup-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            cursor: pointer;
+            font-size: 20px;
+            color: #aaa;
+            background: none;
+            border: none;
+            line-height: 1;
+            padding: 0;
+        }
+        .detail-popup-close:hover { color: #666; }
+    </style>
 </head>
 <body>
-    <div class="layout-wrapper">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
-                <div class="header-text">
-                    <span class="school-name">緑ヶ丘女子高等学校</span>
-                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+<div class="layout-wrapper">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width:40px;height:40px;object-fit:contain;margin-right:12px;">
+            <div class="header-text">
+                <span class="school-name">緑ヶ丘女子高等学校</span>
+                <h1 style="margin:0;font-size:18px;">教職員ポータル</h1>
+            </div>
+        </div>
+        <div class="sidebar-section">
+            <h2 class="sidebar-title">ショートカット</h2>
+            <ul class="app-list"></ul>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <!-- ページヘッダー -->
+        <div class="res-page-header">
+            <h2 class="section-title" style="margin:0;font-size:16px;white-space:nowrap;flex-shrink:0;">会議室等予約</h2>
+            <div class="week-nav">
+                <button class="week-nav-btn" id="prev-week">◀ 前の週</button>
+                <span id="week-label"></span>
+                <button class="week-nav-btn" id="next-week">次の週 ▶</button>
+                <button id="today-btn">今週に戻る</button>
+            </div>
+            <button class="add-button" id="add-res-btn">＋ 新規予約</button>
+        </div>
+
+        <!-- タブ -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="room">会議室等</button>
+            <button class="tab-btn" data-tab="special">特別教室等</button>
+        </div>
+
+        <!-- 凡例 -->
+        <div class="legend" id="legend"></div>
+
+        <!-- タイムライン -->
+        <div class="timeline-wrap" id="timeline-wrap">
+            <div class="timeline-inner">
+                <div class="timeline-header">
+                    <div class="tl-gutter"></div>
+                    <div class="day-header-cell" id="dh-0">月</div>
+                    <div class="day-header-cell" id="dh-1">火</div>
+                    <div class="day-header-cell" id="dh-2">水</div>
+                    <div class="day-header-cell" id="dh-3">木</div>
+                    <div class="day-header-cell" id="dh-4">金</div>
+                    <div class="day-header-cell" id="dh-5">土</div>
+                </div>
+                <div class="timeline-body">
+                    <div class="time-col" id="time-col"></div>
+                    <div class="day-col" id="day-col-0"></div>
+                    <div class="day-col" id="day-col-1"></div>
+                    <div class="day-col" id="day-col-2"></div>
+                    <div class="day-col" id="day-col-3"></div>
+                    <div class="day-col" id="day-col-4"></div>
+                    <div class="day-col" id="day-col-5"></div>
                 </div>
             </div>
-            <div class="sidebar-section">
-                <h2 class="sidebar-title">ショートカット</h2>
-                <ul class="app-list"></ul> </div>
-        </aside>
+        </div>
+    </main>
+</div>
 
-        <main class="main-content">
-            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header">
-                    <h2 class="section-title">会議室等予約一覧</h2>
-                    <button id="add-reservation-btn" class="add-button">＋ 新規予約</button>
-                </div>
-                <div style="overflow-x: auto;">
-                    <table class="active-table">
-                        <thead>
-                            <tr><th>使用用途</th><th>使用場所</th><th>日付</th><th>開始時間</th><th>終了時間</th><th>使用者</th><th>操作</th></tr>
-                        </thead>
-                        <tbody id="reservations-body"></tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header">
-                    <h2 class="section-title">特別教室等予約一覧</h2>
-                    <button id="add-special-room-btn" class="add-button">＋ 新規予約</button>
-                </div>
-                <div style="overflow-x: auto;">
-                    <table class="active-table">
-                        <thead>
-                            <tr><th>使用用途</th><th>使用場所</th><th>日付</th><th>開始時間</th><th>終了時間</th><th>使用者</th><th>操作</th></tr>
-                        </thead>
-                        <tbody id="special-rooms-body"></tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
+<!-- 詳細ポップアップ -->
+<div class="detail-popup" id="detail-popup" style="display:none;">
+    <button class="detail-popup-close" id="detail-close">×</button>
+    <h4 id="detail-purpose"></h4>
+    <div class="detail-row">場所：<span id="detail-location"></span></div>
+    <div class="detail-row">日付：<span id="detail-date"></span></div>
+    <div class="detail-row">時間：<span id="detail-time"></span></div>
+    <div class="detail-row">使用者：<span id="detail-user"></span></div>
+    <div style="margin-top:12px;text-align:right;">
+        <button id="detail-delete-btn" style="background:transparent;color:#d9534f;border:none;font-size:13px;cursor:pointer;text-decoration:underline;padding:4px;">削除</button>
     </div>
+</div>
 
-    <div id="reservation-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3 class="modal-title">会議室等を予約</h3>
-            <div class="form-group"><label>使用用途</label><input type="text" id="res-purpose" class="modal-input" placeholder="例：学年会議、保護者面談など"></div>
-            <div class="form-group"><label>使用場所</label>
-                <select id="res-location" class="modal-input" style="background-color: #fff; cursor: pointer;">
-                    <option value="ＡＢ会議室">ＡＢ会議室</option><option value="Ａ応接室">Ａ応接室</option><option value="Ｂ応接室">Ｂ応接室</option><option value="進路指導室">進路指導室</option><option value="生徒会室">生徒会室</option>
-                </select>
+<!-- 予約モーダル（共通1つ） -->
+<div class="modal-overlay hidden" id="res-modal">
+    <div class="modal-content">
+        <h3 class="modal-title" id="modal-title">予約を追加</h3>
+        <div class="form-group">
+            <label>使用用途</label>
+            <input type="text" id="m-purpose" class="modal-input" placeholder="例：学年会議、補習など">
+        </div>
+        <div class="form-group">
+            <label>使用場所</label>
+            <select id="m-location" class="modal-input" style="background:#fff;cursor:pointer;"></select>
+        </div>
+        <div class="form-group">
+            <label>日付</label>
+            <input type="date" id="m-date" class="modal-input">
+        </div>
+        <div style="display:flex;gap:16px;">
+            <div class="form-group" style="flex:1;">
+                <label>開始時間</label>
+                <input type="time" id="m-start" class="modal-input">
             </div>
-            <div class="form-group"><label>日付</label><input type="date" id="res-date" class="modal-input"></div>
-            <div style="display: flex; gap: 16px;">
-                <div class="form-group" style="flex: 1;"><label>開始時間</label><input type="time" id="res-start" class="modal-input"></div>
-                <div class="form-group" style="flex: 1;"><label>終了時間</label><input type="time" id="res-end" class="modal-input"></div>
+            <div class="form-group" style="flex:1;">
+                <label>終了時間</label>
+                <input type="time" id="m-end" class="modal-input">
             </div>
-            <div class="form-group"><label>使用者</label><input type="text" id="res-user" class="modal-input" placeholder="例：山田太郎"></div>
-            <div class="modal-actions"><button id="res-cancel" class="btn-cancel">キャンセル</button><button id="res-submit" class="btn-submit">予約する</button></div>
+        </div>
+        <div class="form-group">
+            <label>使用者</label>
+            <input type="text" id="m-user" class="modal-input" placeholder="例：山田太郎">
+        </div>
+        <div class="modal-actions">
+            <button id="m-cancel" class="btn-cancel">キャンセル</button>
+            <button id="m-submit" class="btn-submit">予約する</button>
         </div>
     </div>
+</div>
 
-    <div id="special-room-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3 class="modal-title">特別教室等を予約</h3>
-            <div class="form-group"><label>使用用途</label><input type="text" id="sp-purpose" class="modal-input" placeholder="例：授業、補習など"></div>
-            <div class="form-group"><label>使用場所</label>
-                <select id="sp-location" class="modal-input" style="background-color: #fff; cursor: pointer;">
-                    <option value="視聴覚室">視聴覚室</option><option value="音楽室">音楽室</option><option value="調理室">調理室</option>
-                    <option value="美術室">美術室</option><option value="図書室">図書室</option><option value="ＰＣ教室">ＰＣ教室</option>
-                    <option value="理科実験室">理科実験室</option>
-                    <option value="体育室">体育室</option><option value="体育館">体育館</option>
-                    <option value="学習室Ｓ">学習室Ｓ</option><option value="学習室Ｌ">学習室Ｌ</option>
-                    <option value="ブラウジングルーム">ブラウジングルーム</option><option value="エンジェルルーム">エンジェルルーム</option>
-                    <option value="１１号教室">１１号教室</option><option value="１２号教室">１２号教室</option><option value="２２号教室">２２号教室</option>
-                    <option value="２３号教室">２３号教室</option><option value="３１号教室">３１号教室</option><option value="３２号教室">３２号教室</option>
-                    <option value="３５号教室">３５号教室</option><option value="３６号教室">３６号教室</option>
-                </select>
-            </div>
-            <div class="form-group"><label>日付</label><input type="date" id="sp-date" class="modal-input"></div>
-            <div style="display: flex; gap: 16px;">
-                <div class="form-group" style="flex: 1;"><label>開始時間</label><input type="time" id="sp-start" class="modal-input"></div>
-                <div class="form-group" style="flex: 1;"><label>終了時間</label><input type="time" id="sp-end" class="modal-input"></div>
-            </div>
-            <div class="form-group"><label>使用者</label><input type="text" id="sp-user" class="modal-input" placeholder="例：山田太郎"></div>
-            <div class="modal-actions"><button id="sp-cancel" class="btn-cancel">キャンセル</button><button id="sp-submit" class="btn-submit">予約する</button></div>
-        </div>
-    </div>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+<script src="./static/js/firebase_init.js"></script>
+<script src="./static/js/ui_common.js"></script>
 
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
-    
-    <script src="./static/js/firebase_init.js"></script>
-    <script src="./static/js/ui_common.js"></script>
-    <script src="./static/js/portal_features.js"></script>
-    <script src="./static/js/portal_editor.js"></script>
+<script>
+// ========== 場所マスタ ==========
+const ROOM_LOCS = [
+    { name: 'ＡＢ会議室', color: '#AED6F1' },
+    { name: 'Ａ応接室',   color: '#A9DFBF' },
+    { name: 'Ｂ応接室',   color: '#FAD7A0' },
+    { name: '進路指導室', color: '#F1948A' },
+    { name: '生徒会室',   color: '#C39BD3' },
+];
+const SPECIAL_LOCS = [
+    { name: '視聴覚室',           color: '#76D7C4' },
+    { name: '音楽室',             color: '#F7DC6F' },
+    { name: '調理室',             color: '#85C1E9' },
+    { name: '美術室',             color: '#82E0AA' },
+    { name: '図書室',             color: '#F0B27A' },
+    { name: 'ＰＣ教室',           color: '#AED6F1' },
+    { name: '理科実験室',         color: '#A9DFBF' },
+    { name: '体育室',             color: '#FAD7A0' },
+    { name: '体育館',             color: '#F1948A' },
+    { name: '学習室Ｓ',           color: '#C39BD3' },
+    { name: '学習室Ｌ',           color: '#76D7C4' },
+    { name: 'ブラウジングルーム', color: '#F7DC6F' },
+    { name: 'エンジェルルーム',   color: '#85C1E9' },
+    { name: '１１号教室',         color: '#82E0AA' },
+    { name: '１２号教室',         color: '#F0B27A' },
+    { name: '２２号教室',         color: '#AED6F1' },
+    { name: '２３号教室',         color: '#A9DFBF' },
+    { name: '３１号教室',         color: '#FAD7A0' },
+    { name: '３２号教室',         color: '#F1948A' },
+    { name: '３５号教室',         color: '#C39BD3' },
+    { name: '３６号教室',         color: '#76D7C4' },
+];
+
+// ========== 定数 ==========
+const DAY_NAMES  = ['月', '火', '水', '木', '金', '土'];
+const SLOT_H     = 40;      // px / 30分
+const START_H    = 7;
+const END_H      = 21;
+const TOTAL_MIN  = (END_H - START_H) * 60; // 840
+
+// ========== 状態 ==========
+let activeTab      = 'room';
+let currentMonday  = getThisWeekMonday();
+let weekData       = [];
+let currentDetail  = null;
+let dragState      = null;
+
+// ========== ユーティリティ ==========
+function getThisWeekMonday(from = new Date()) {
+    const d = new Date(from);
+    const day = d.getDay();
+    const offset = day === 0 ? 1 : 1 - day;
+    d.setDate(d.getDate() + offset);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function getWeekDates(monday) {
+    return Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(monday);
+        d.setDate(d.getDate() + i);
+        return d;
+    });
+}
+
+function toDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function normDate(s) {
+    return s ? s.replace(/\//g, '-') : '';
+}
+
+function toSlashDate(isoStr) {
+    // YYYY-MM-DD → YYYY/MM/DD
+    return isoStr.replace(/-/g, '/');
+}
+
+function getLocs() {
+    return activeTab === 'room' ? ROOM_LOCS : SPECIAL_LOCS;
+}
+
+function getColor(name) {
+    const found = getLocs().find(l => l.name === name);
+    return found ? found.color : '#D5D8DC';
+}
+
+function darken(hex) {
+    const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - 45);
+    const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - 45);
+    const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - 45);
+    return `rgb(${r},${g},${b})`;
+}
+
+function timeToMin(t) {
+    if (!t || t === '-') return 0;
+    const [h, m] = t.split(':').map(Number);
+    return (h - START_H) * 60 + (m || 0);
+}
+
+function minToTop(min) {
+    return min * (SLOT_H / 30);
+}
+
+function minToTimeStr(min) {
+    const abs = min + START_H * 60;
+    return `${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
+}
+
+// ========== 重複レイアウト計算 ==========
+function computeLayout(items) {
+    if (!items.length) return [];
+    const arr = items.map(r => ({
+        ...r,
+        _s: timeToMin(r.startTime),
+        _e: timeToMin(r.endTime),
+        _col: -1,
+        _total: 1
+    })).sort((a, b) => a._s - b._s);
+
+    const colEnds = [];
+    for (const item of arr) {
+        let placed = false;
+        for (let c = 0; c < colEnds.length; c++) {
+            if (colEnds[c] <= item._s) {
+                item._col = c;
+                colEnds[c] = item._e;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            item._col = colEnds.length;
+            colEnds.push(item._e);
+        }
+    }
+    for (const item of arr) {
+        let maxCol = item._col;
+        for (const other of arr) {
+            if (other === item) continue;
+            if (other._s < item._e && other._e > item._s) {
+                maxCol = Math.max(maxCol, other._col);
+            }
+        }
+        item._total = maxCol + 1;
+    }
+    return arr;
+}
+
+// ========== Firestore 取得 ==========
+async function fetchWeekData() {
+    const dates = getWeekDates(currentMonday).map(toDateStr);
+    const colName = activeTab === 'room' ? 'reservations' : 'special_rooms';
+    const snap = await db.collection(colName).get();
+    weekData = [];
+    snap.forEach(doc => {
+        const d = { id: doc.id, ...doc.data() };
+        const nd = normDate(d.date || '');
+        if (dates.includes(nd)) {
+            d._date = nd;
+            weekData.push(d);
+        }
+    });
+}
+
+// ========== タイムライン描画 ==========
+function buildTimeLabels() {
+    const col = document.getElementById('time-col');
+    col.innerHTML = '';
+    for (let h = START_H; h <= END_H; h++) {
+        const label = document.createElement('div');
+        label.className = 'time-label';
+        label.style.top = `${(h - START_H) * 80}px`;
+        label.textContent = `${h}:00`;
+        col.appendChild(label);
+    }
+}
+
+function buildGridLines(col) {
+    for (let i = 0; i <= 28; i++) {
+        const line = document.createElement('div');
+        // i=0→7:00(hour), i=1→7:30(half), i=2→8:00(hour)...
+        line.className = `grid-line ${i % 2 === 0 ? 'hour' : 'half'}`;
+        line.style.top = `${i * SLOT_H}px`;
+        col.appendChild(line);
+    }
+}
+
+function renderWeek() {
+    const dates = getWeekDates(currentMonday);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const todayStr = toDateStr(today);
+
+    // 週ラベル更新
+    const s = dates[0], e = dates[5];
+    document.getElementById('week-label').textContent =
+        `${s.getFullYear()}/${String(s.getMonth()+1).padStart(2,'0')}/${String(s.getDate()).padStart(2,'0')}（月）〜 ` +
+        `${String(e.getMonth()+1).padStart(2,'0')}/${String(e.getDate()).padStart(2,'0')}（土）`;
+
+    // 曜日ヘッダー更新
+    dates.forEach((d, i) => {
+        const el = document.getElementById(`dh-${i}`);
+        el.textContent = `${DAY_NAMES[i]}  ${d.getMonth()+1}/${d.getDate()}`;
+        el.classList.toggle('today-col', toDateStr(d) === todayStr);
+    });
+
+    // 曜日列を描画
+    dates.forEach((d, i) => {
+        const col = document.getElementById(`day-col-${i}`);
+        const dateStr = toDateStr(d);
+        col.dataset.date = dateStr;
+        col.classList.toggle('today-col', dateStr === todayStr);
+
+        // グリッド線＋ブロックを再構築（grid-lineは残してもOKだが全クリアが安全）
+        col.innerHTML = '';
+        buildGridLines(col);
+
+        // 予約ブロック
+        const dayItems = weekData.filter(r => r._date === dateStr);
+        computeLayout(dayItems).forEach(r => col.appendChild(createBlock(r)));
+
+        // 今日の現在時刻ライン
+        if (dateStr === todayStr) {
+            const line = document.createElement('div');
+            line.className = 'current-time-line';
+            line.id = 'cur-time-line';
+            updateTimeLine(line);
+            col.appendChild(line);
+        }
+    });
+}
+
+function createBlock(r) {
+    const color = getColor(r.location);
+    const startM = Math.max(0, timeToMin(r.startTime));
+    const endM   = Math.min(TOTAL_MIN, timeToMin(r.endTime));
+    const top    = minToTop(startM);
+    const height = Math.max(18, minToTop(endM - startM));
+    const wPct   = 100 / r._total;
+    const lPct   = r._col * wPct;
+
+    const block = document.createElement('div');
+    block.className = 'res-block';
+    block.style.cssText =
+        `top:${top}px;height:${height}px;` +
+        `left:${lPct}%;width:${wPct}%;` +
+        `background-color:${color};border-left:3px solid ${darken(color)};`;
+    block.innerHTML =
+        `<div class="res-block-location">${r.location || ''}</div>` +
+        `<div class="res-block-purpose">${r.purpose || ''}</div>` +
+        `<div class="res-block-user">${r.user || ''}</div>` +
+        `<div class="res-block-time">${r.startTime || ''} 〜 ${r.endTime || ''}</div>`;
+    block.addEventListener('click', e => {
+        e.stopPropagation();
+        if (block.dataset.dragMoved === '1') { block.dataset.dragMoved = ''; return; }
+        showDetail(r, e.clientX, e.clientY);
+    });
+    attachDrag(block, r);
+    return block;
+}
+
+// ========== ドラッグ移動 ==========
+function attachDrag(block, r) {
+    let startClientX = 0, startClientY = 0;
+    let offsetX = 0, offsetY = 0;
+    let duration = 0;
+    let ghost = null;
+    let moved = false;
+
+    block.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        const rect = block.getBoundingClientRect();
+        startClientX = e.clientX;
+        startClientY = e.clientY;
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        duration = timeToMin(r.endTime) - timeToMin(r.startTime);
+        moved = false;
+
+        ghost = document.createElement('div');
+        ghost.className = 'res-block drag-ghost';
+        ghost.innerHTML = block.innerHTML;
+        ghost.style.cssText =
+            block.style.cssText +
+            `;position:fixed;pointer-events:none;z-index:1000;` +
+            `width:${rect.width}px;height:${rect.height}px;` +
+            `left:${rect.left}px;top:${rect.top}px;` +
+            `opacity:0.85;box-shadow:0 6px 20px rgba(0,0,0,0.25);`;
+        document.body.appendChild(ghost);
+        block.classList.add('dragging');
+        block.setPointerCapture(e.pointerId);
+    });
+
+    block.addEventListener('pointermove', e => {
+        if (!ghost) return;
+        if (!moved && (Math.abs(e.clientX - startClientX) > 4 || Math.abs(e.clientY - startClientY) > 4)) {
+            moved = true;
+        }
+        ghost.style.left = `${e.clientX - offsetX}px`;
+        ghost.style.top  = `${e.clientY - offsetY}px`;
+    });
+
+    block.addEventListener('pointerup', async e => {
+        if (!ghost) return;
+        ghost.remove(); ghost = null;
+        block.classList.remove('dragging');
+
+        if (!moved) return; // クリック扱い（詳細ポップアップはclickイベントに任せる）
+
+        block.dataset.dragMoved = '1'; // clickイベントを抑制
+
+        // ドロップ先の曜日列を特定
+        let targetCol = null;
+        for (let i = 0; i < 6; i++) {
+            const col = document.getElementById(`day-col-${i}`);
+            const rect = col.getBoundingClientRect();
+            if (e.clientX >= rect.left && e.clientX <= rect.right) { targetCol = col; break; }
+        }
+        if (!targetCol || !targetCol.dataset.date) return;
+
+        // ブロックの上端位置 → 新しい開始時刻（15分スナップ）
+        const colRect = targetCol.getBoundingClientRect();
+        const topInCol = (e.clientY - offsetY) - colRect.top;
+        const rawMin   = topInCol / (SLOT_H / 30);
+        const snapped  = Math.round(rawMin / 15) * 15;
+        const newStart = Math.max(0, Math.min(TOTAL_MIN - duration, snapped));
+        const newEnd   = newStart + duration;
+
+        const colName = activeTab === 'room' ? 'reservations' : 'special_rooms';
+        try {
+            await db.collection(colName).doc(r.id).update({
+                date:      toSlashDate(targetCol.dataset.date),
+                startTime: minToTimeStr(newStart),
+                endTime:   minToTimeStr(newEnd),
+            });
+            await fetchWeekData();
+            renderWeek();
+        } catch (err) {
+            alert('移動に失敗しました。');
+            console.error(err);
+        }
+    });
+
+    block.addEventListener('pointercancel', () => {
+        if (ghost) { ghost.remove(); ghost = null; }
+        block.classList.remove('dragging');
+        moved = false;
+    });
+}
+
+function updateTimeLine(line) {
+    const now = new Date();
+    const min = (now.getHours() - START_H) * 60 + now.getMinutes();
+    line.style.display = (min >= 0 && min <= TOTAL_MIN) ? 'block' : 'none';
+    if (min >= 0 && min <= TOTAL_MIN) line.style.top = `${minToTop(min)}px`;
+}
+
+// ========== 凡例 ==========
+function renderLegend() {
+    const el = document.getElementById('legend');
+    el.innerHTML = '';
+    getLocs().forEach(loc => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<div class="legend-dot" style="background:${loc.color};"></div>${loc.name}`;
+        el.appendChild(item);
+    });
+}
+
+// ========== 詳細ポップアップ ==========
+function showDetail(r, cx, cy) {
+    currentDetail = r;
+    document.getElementById('detail-purpose').textContent  = r.purpose  || '（なし）';
+    document.getElementById('detail-location').textContent = r.location || '';
+    document.getElementById('detail-date').textContent     = r.date     || '';
+    document.getElementById('detail-time').textContent     = `${r.startTime} 〜 ${r.endTime}`;
+    document.getElementById('detail-user').textContent     = r.user     || '';
+
+    const popup = document.getElementById('detail-popup');
+    popup.style.display = 'block';
+    const pw = 300, ph = 180;
+    let x = cx + 12, y = cy + 12;
+    if (x + pw > window.innerWidth)  x = cx - pw - 12;
+    if (y + ph > window.innerHeight) y = cy - ph - 12;
+    popup.style.left = `${x}px`;
+    popup.style.top  = `${y}px`;
+}
+
+function hideDetail() {
+    document.getElementById('detail-popup').style.display = 'none';
+    currentDetail = null;
+}
+
+// ========== モーダル ==========
+function populateLocationSelect() {
+    const sel = document.getElementById('m-location');
+    sel.innerHTML = '';
+    getLocs().forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = loc.name;
+        opt.textContent = loc.name;
+        sel.appendChild(opt);
+    });
+}
+
+function openModal(dateStr = '', startTime = '', locationName = '') {
+    populateLocationSelect();
+    document.getElementById('m-purpose').value = '';
+    document.getElementById('m-date').value    = dateStr;
+    document.getElementById('m-start').value   = startTime;
+    document.getElementById('m-end').value     = '';
+    document.getElementById('m-user').value    = '';
+    if (locationName) {
+        const sel = document.getElementById('m-location');
+        for (const opt of sel.options) {
+            if (opt.value === locationName) { sel.value = locationName; break; }
+        }
+    }
+    document.getElementById('modal-title').textContent =
+        activeTab === 'room' ? '会議室等を予約' : '特別教室等を予約';
+    document.getElementById('res-modal').classList.remove('hidden');
+}
+
+async function submitReservation() {
+    const purpose  = document.getElementById('m-purpose').value.trim();
+    const location = document.getElementById('m-location').value;
+    const dateISO  = document.getElementById('m-date').value; // YYYY-MM-DD
+    const start    = document.getElementById('m-start').value;
+    const end      = document.getElementById('m-end').value;
+    const user     = document.getElementById('m-user').value.trim();
+
+    if (!purpose || !user || !dateISO || !start || !end) {
+        alert('すべての項目を入力してください。');
+        return;
+    }
+    if (start >= end) {
+        alert('終了時間は開始時間より後にしてください。');
+        return;
+    }
+
+    const colName   = activeTab === 'room' ? 'reservations' : 'special_rooms';
+    const slashDate = toSlashDate(dateISO); // YYYY/MM/DD（保存形式）
+
+    // 重複チェック：同一場所・同一日付の既存データをFirestoreから取得
+    const [snap1, snap2] = await Promise.all([
+        db.collection(colName).where('date', '==', slashDate).where('location', '==', location).get(),
+        db.collection(colName).where('date', '==', dateISO).where('location', '==', location).get(),
+    ]);
+    const existing = [];
+    snap1.forEach(doc => existing.push(doc.data()));
+    snap2.forEach(doc => {
+        const d = doc.data();
+        if (normDate(d.date) !== dateISO) existing.push(d); // 重複回避
+    });
+    const conflict = existing.filter(r => r.startTime < end && r.endTime > start);
+    if (conflict.length > 0) {
+        alert('この時間帯はすでに予約が入っています。');
+        return;
+    }
+
+    await db.collection(colName).add({
+        purpose, location,
+        date: slashDate,
+        startTime: start, endTime: end, user,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    document.getElementById('res-modal').classList.add('hidden');
+    await fetchWeekData();
+    renderWeek();
+}
+
+// ========== 初期化 ==========
+document.addEventListener('DOMContentLoaded', () => {
+    buildTimeLabels();
+    renderLegend();
+
+    // 曜日列クリック（空きエリア → 予約モーダル）
+    for (let i = 0; i < 6; i++) {
+        const col = document.getElementById(`day-col-${i}`);
+        col.addEventListener('click', e => {
+            if (e.target.closest('.res-block')) return;
+            const rect = col.getBoundingClientRect();
+            const clickY = e.clientY - rect.top;
+            const rawMin = clickY / (SLOT_H / 30);
+            const snapped = Math.floor(rawMin / 30) * 30;
+            const clamped = Math.max(0, Math.min(TOTAL_MIN - 30, snapped));
+            openModal(col.dataset.date || '', minToTimeStr(clamped));
+        });
+    }
+
+    // タブ切り替え
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeTab = btn.dataset.tab;
+            renderLegend();
+            await fetchWeekData();
+            renderWeek();
+        });
+    });
+
+    // 週ナビゲーション
+    document.getElementById('prev-week').addEventListener('click', async () => {
+        currentMonday = new Date(currentMonday);
+        currentMonday.setDate(currentMonday.getDate() - 7);
+        await fetchWeekData();
+        renderWeek();
+    });
+    document.getElementById('next-week').addEventListener('click', async () => {
+        currentMonday = new Date(currentMonday);
+        currentMonday.setDate(currentMonday.getDate() + 7);
+        await fetchWeekData();
+        renderWeek();
+    });
+    document.getElementById('today-btn').addEventListener('click', async () => {
+        currentMonday = getThisWeekMonday();
+        await fetchWeekData();
+        renderWeek();
+    });
+
+    // 新規予約ボタン
+    document.getElementById('add-res-btn').addEventListener('click', () => {
+        openModal(toDateStr(new Date()), '09:00');
+    });
+
+    // モーダル操作
+    document.getElementById('m-cancel').addEventListener('click', () => {
+        document.getElementById('res-modal').classList.add('hidden');
+    });
+    document.getElementById('res-modal').addEventListener('click', e => {
+        if (e.target === document.getElementById('res-modal'))
+            document.getElementById('res-modal').classList.add('hidden');
+    });
+    document.getElementById('m-submit').addEventListener('click', submitReservation);
+
+    // 詳細ポップアップ
+    document.getElementById('detail-close').addEventListener('click', hideDetail);
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#detail-popup') && !e.target.closest('.res-block'))
+            hideDetail();
+    });
+    document.getElementById('detail-delete-btn').addEventListener('click', async () => {
+        if (!currentDetail) return;
+        if (!confirm('この予約を削除しますか？')) return;
+        const colName = activeTab === 'room' ? 'reservations' : 'special_rooms';
+        await db.collection(colName).doc(currentDetail.id).delete();
+        hideDetail();
+        await fetchWeekData();
+        renderWeek();
+    });
+
+    // 現在時刻ラインを1分ごとに更新
+    setInterval(() => {
+        const line = document.getElementById('cur-time-line');
+        if (line) updateTimeLine(line);
+    }, 60000);
+
+    // 初回データ取得＆描画
+    fetchWeekData().then(() => renderWeek());
+});
+</script>
 </body>
 </html>

@@ -177,7 +177,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!appId) return;
 
             if (e.target.classList.contains('delete-app-btn')) {
-                if (confirm(`このショートカットを削除しますか？`)) { db.collection('shortcuts').doc(appId).delete(); }
+                if (confirm(`このショートカットを削除しますか？`)) {
+                    const app = customApps.find(a => a.id === appId);
+                    if (app && app.icon && app.icon.startsWith('https://firebasestorage')) {
+                        try { await storage.refFromURL(app.icon).delete(); } catch(e) {}
+                    }
+                    db.collection('shortcuts').doc(appId).delete();
+                }
             }
             if (e.target.classList.contains('edit-app-item-btn')) {
                 const app = customApps.find(a => a.id === appId);

@@ -52,7 +52,10 @@
                 <input type="text" id="edit-title" class="notion-title-input" placeholder="無題のコラム">
                 
                 <div class="notion-meta-row">
-                    <input type="text" id="edit-author" class="notion-meta-input" placeholder="部署 / 作成者 / タグ (空白で複数指定)">
+                    <input type="hidden" id="edit-author">
+                    <div id="tag-chip-wrap" class="notion-meta-input tag-chip-wrap" title="Enterまたはスペースでタグを追加">
+                        <input id="tag-text-input" class="tag-text-input" placeholder="タグを追加（Enter / スペース）" autocomplete="off">
+                    </div>
                     <input type="date" id="edit-date" class="notion-meta-input">
                 </div>
 

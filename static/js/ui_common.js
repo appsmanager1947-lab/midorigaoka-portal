@@ -266,4 +266,50 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // ------------------------------------------
+    // ユーザー情報 + ログアウトボタン（サイドバー下部）
+    // ------------------------------------------
+    if (layoutSidebar && typeof firebase !== 'undefined' && firebase.auth) {
+        firebase.auth().onAuthStateChanged(user => {
+            const existing = document.getElementById('sidebar-user-panel');
+            if (existing) existing.remove();
+            if (!user) return;
+
+            const displayName = user.displayName || user.email || 'ログイン中';
+            const panel = document.createElement('div');
+            panel.id = 'sidebar-user-panel';
+            panel.style.cssText = 'margin-top: auto; padding: 12px 16px; border-top: 1px solid #E6E4DF; display: flex; align-items: center; gap: 10px;';
+
+            const avatar = document.createElement('div');
+            avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: var(--accent-color, #2c8c5a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; flex-shrink: 0;';
+            avatar.textContent = displayName.charAt(0).toUpperCase();
+
+            const info = document.createElement('div');
+            info.style.cssText = 'flex: 1; overflow: hidden;';
+            info.innerHTML = `<div style="font-size: 13px; font-weight: 500; color: #4A4643; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${displayName}</div>`;
+
+            const logoutBtn = document.createElement('button');
+            logoutBtn.title = 'ログアウト';
+            logoutBtn.style.cssText = 'background: transparent; border: none; cursor: pointer; color: #aaa; font-size: 18px; padding: 4px; flex-shrink: 0; border-radius: 4px; transition: color 0.2s;';
+            logoutBtn.innerHTML = `<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h3M13 14l3-4-3-4M16 10H7"/></svg>`;
+            logoutBtn.onmouseover = () => logoutBtn.style.color = '#4A4643';
+            logoutBtn.onmouseout  = () => logoutBtn.style.color = '#aaa';
+            logoutBtn.addEventListener('click', async () => {
+                if (confirm('ログアウトしますか？')) {
+                    await firebase.auth().signOut();
+                    window.location.replace('./login.html');
+                }
+            });
+
+            panel.appendChild(avatar);
+            panel.appendChild(info);
+            panel.appendChild(logoutBtn);
+            layoutSidebar.appendChild(panel);
+
+            // サイドバーをフレックスカラムにして下部固定にする
+            layoutSidebar.style.display = 'flex';
+            layoutSidebar.style.flexDirection = 'column';
+        });
+    }
 });

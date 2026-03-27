@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログイン | 緑ヶ丘女子高等学校 教職員ポータル</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: var(--bg-main, #F5F3EF);
+        }
+        .login-card {
+            background: #fff;
+            border: 1px solid var(--border-color, #E6E4DF);
+            border-radius: 12px;
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+        }
+        .login-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            margin-bottom: 16px;
+        }
+        .login-school {
+            font-size: 13px;
+            color: var(--text-muted, #888);
+            margin: 0 0 4px;
+        }
+        .login-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--text-main, #4A4643);
+            margin: 0 0 32px;
+        }
+        .login-desc {
+            font-size: 14px;
+            color: var(--text-muted, #888);
+            margin: 0 0 28px;
+            line-height: 1.6;
+        }
+        .btn-ms-login {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: #2563EB;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 13px 24px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+        .btn-ms-login:hover { background: #1d4ed8; }
+        .btn-ms-login:disabled { background: #93c5fd; cursor: not-allowed; }
+        .login-error {
+            margin-top: 16px;
+            font-size: 13px;
+            color: #dc2626;
+            display: none;
+        }
+        .login-footer {
+            margin-top: 32px;
+            font-size: 12px;
+            color: #bbb;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <img class="login-logo" src="./static/ロゴ緑.png" alt="緑ヶ丘女子高等学校ロゴ">
+        <p class="login-school">緑ヶ丘女子高等学校</p>
+        <h1 class="login-title">教職員ポータル</h1>
+        <p class="login-desc">学校の組織アカウント（Microsoft 365）で<br>ログインしてください。</p>
+
+        <button id="btn-ms-login" class="btn-ms-login">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 21 21">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+            </svg>
+            Microsoftアカウントでログイン
+        </button>
+
+        <p id="login-error" class="login-error"></p>
+        <p class="login-footer">このサイトは教職員専用です。<br>個人アカウントではログインできません。</p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDp-zjaKXdKdzy8iFA_GVOZw9LaLto491c",
+            authDomain: "portalsite-midorigaoka-77f17.firebaseapp.com",
+            projectId: "portalsite-midorigaoka-77f17",
+            storageBucket: "portalsite-midorigaoka-77f17.firebasestorage.app",
+            messagingSenderId: "471591129551",
+            appId: "1:471591129551:web:dcacc879aaeb026abbc2ba"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+
+        // すでにログイン済みならホームへ
+        firebase.auth().onAuthStateChanged(user => {
+            if (user) window.location.replace('./index.html');
+        });
+
+        document.getElementById('btn-ms-login').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-ms-login');
+            const errEl = document.getElementById('login-error');
+            btn.disabled = true;
+            btn.textContent = 'ログイン中...';
+            errEl.style.display = 'none';
+
+            try {
+                const provider = new firebase.auth.OAuthProvider('microsoft.com');
+                provider.setCustomParameters({
+                    tenant: '5c0d80f1-88ff-4489-93f9-3d2cd0760c16',
+                    prompt: 'select_account'
+                });
+                await firebase.auth().signInWithPopup(provider);
+                window.location.replace('./index.html');
+            } catch (e) {
+                btn.disabled = false;
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg> Microsoftアカウントでログイン`;
+                if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+                    // ユーザーがポップアップを閉じた — エラー表示不要
+                } else if (e.code === 'auth/unauthorized-domain') {
+                    errEl.textContent = 'このドメインは許可されていません。Firebase Console でドメインを追加してください。';
+                    errEl.style.display = 'block';
+                } else {
+                    errEl.textContent = 'ログインに失敗しました。組織アカウントでお試しください。';
+                    errEl.style.display = 'block';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

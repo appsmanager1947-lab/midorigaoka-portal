@@ -1,7 +1,7 @@
 // ==========================================
 // 1. Firebaseの初期化と接続設定 (グローバルに宣言)
 // ==========================================
-let db, storage;
+let db, storage, auth;
 
 document.addEventListener('DOMContentLoaded', () => {
     const firebaseConfig = {
@@ -16,8 +16,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
-    
+
     // どのファイルからでもアクセスできるように、グローバル変数にセット
     db = firebase.firestore();
     storage = firebase.storage();
+    auth = firebase.auth();
+
+    // 認証ガード: ログインページ以外では未認証ユーザーをリダイレクト
+    const isLoginPage = window.location.pathname.endsWith('login.html');
+    if (!isLoginPage) {
+        document.body.style.visibility = 'hidden';
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                window.location.replace('./login.html');
+            } else {
+                document.body.style.visibility = '';
+            }
+        });
+    }
 });

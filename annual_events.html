@@ -80,9 +80,10 @@
         #popup-close:hover { color:#333; }
 
         /* ── CSVプレビュー ── */
-        #csv-preview-table { width:100%; border-collapse:collapse; font-size:12px; }
-        #csv-preview-table th, #csv-preview-table td { border:1px solid #E6E4DF; padding:4px 8px; }
-        #csv-preview-table th { background:#F7F7F5; }
+        #csv-preview-table, #duty-csv-preview-table { width:100%; border-collapse:collapse; font-size:12px; }
+        #csv-preview-table th, #csv-preview-table td,
+        #duty-csv-preview-table th, #duty-csv-preview-table td { border:1px solid #E6E4DF; padding:4px 8px; }
+        #csv-preview-table th, #duty-csv-preview-table th { background:#F7F7F5; }
 
         /* ── 対象チェックボックス ── */
         .target-checkbox-group { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
@@ -128,6 +129,7 @@
                     <h2 class="section-title">年間行事予定</h2>
                     <div style="display:flex; gap:8px;">
                         <button id="csv-btn" class="btn-cancel">CSVアップロード</button>
+                        <button id="duty-csv-btn" class="btn-cancel">日直CSV</button>
                         <button id="add-btn" class="add-button">＋ 追加</button>
                     </div>
                 </div>
@@ -212,7 +214,7 @@
                 <p id="csv-count" style="font-size:13px;color:#555;margin:0 0 8px;"></p>
                 <div style="max-height:280px;overflow-y:auto;border:1px solid #E6E4DF;border-radius:4px;">
                     <table id="csv-preview-table">
-                        <thead><tr><th>開始日</th><th>終了日</th><th>行事名</th><th>対象</th><th>備考</th><th>日直1</th><th>日直2</th></tr></thead>
+                        <thead><tr><th>開始日</th><th>終了日</th><th>行事名</th><th>対象</th><th>備考</th></tr></thead>
                         <tbody id="csv-tbody"></tbody>
                     </table>
                 </div>
@@ -242,6 +244,40 @@
             <div class="modal-actions">
                 <button id="duty-modal-cancel" class="btn-cancel">キャンセル</button>
                 <button id="duty-modal-submit" class="btn-submit">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 日直CSVモーダル ── -->
+    <div id="duty-csv-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:500px;width:100%;position:relative;overflow:hidden;">
+            <div class="csv-loading" id="duty-csv-loading">
+                <div class="csv-spinner" id="duty-csv-spinner"></div>
+                <div class="csv-loading-text" id="duty-csv-loading-text">読み込み中...</div>
+            </div>
+            <h3 class="modal-title">日直CSVアップロード</h3>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+                <input type="number" id="duty-template-year" class="modal-input" style="width:90px;margin:0;" placeholder="年度">
+                <span style="font-size:13px;color:#666;">年度</span>
+                <button id="duty-template-btn" class="btn-cancel">テンプレートDL</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+                <label for="duty-csv-file" class="btn-submit" style="cursor:pointer;display:inline-block;">ファイルを選択</label>
+                <input type="file" id="duty-csv-file" accept=".csv" style="display:none;">
+                <span id="duty-csv-filename" style="font-size:12px;color:#888;"></span>
+            </div>
+            <div id="duty-csv-preview" style="display:none;">
+                <p id="duty-csv-count" style="font-size:13px;color:#555;margin:0 0 8px;"></p>
+                <div style="max-height:260px;overflow-y:auto;border:1px solid #E6E4DF;border-radius:4px;">
+                    <table id="duty-csv-preview-table">
+                        <thead><tr><th>日付</th><th>日直1</th><th>日直2</th></tr></thead>
+                        <tbody id="duty-csv-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="duty-csv-cancel" class="btn-cancel">キャンセル</button>
+                <button id="duty-csv-register" class="btn-submit" disabled>登録する</button>
             </div>
         </div>
     </div>
@@ -719,7 +755,7 @@
 
         // テンプレートDL
         document.getElementById('csv-template-btn').addEventListener('click', () => {
-            const content = '\uFEFF日付,終了日付,行事名,対象,備考,日直1,日直2\n2026-04-08,2026-04-09,新入生オリエンテーション,全校,1泊2日,,\n2026-04-10,,授業開始,全校,,山田花子,鈴木一郎\n';
+            const content = '\uFEFF日付,終了日付,行事名,対象,備考\n2026-04-08,2026-04-09,新入生オリエンテーション,全校,1泊2日\n2026-04-10,,授業開始,全校,\n';
             const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
             const url  = URL.createObjectURL(blob);
             const a    = document.createElement('a');
@@ -781,17 +817,15 @@
                 const tbody = document.getElementById('csv-tbody');
                 tbody.innerHTML = '';
 
-                // ヘッダーで列数を判定（7列 = 日直あり、5列 = 終了日付あり、4列 = 旧フォーマット）
+                // ヘッダーで列数を判定（5列 = 終了日付あり、4列 = 旧フォーマット）
                 const headerCols = parseCSVLine(lines[0] || '');
                 const hasDateTo = headerCols.length >= 5;
-                const hasDuty   = headerCols.length >= 7;
 
                 for (let i = 1; i < lines.length; i++) {
                     const cols = parseCSVLine(lines[i]);
-                    let dateFrom, dateTo, title, target, note, duty1 = '', duty2 = '';
+                    let dateFrom, dateTo, title, target, note;
                     if (hasDateTo) {
                         [dateFrom, dateTo, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||'', cols[4]||''];
-                        if (hasDuty) { duty1 = cols[5]||''; duty2 = cols[6]||''; }
                     } else {
                         [dateFrom, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||''];
                         dateTo = '';
@@ -803,9 +837,9 @@
                     // 半角数字を全角に統一（例: "高1" → "高１"）してチェックボックス値と一致させる
                     const normTarget = s => s.replace(/[0-9]/g, d => '０１２３４５６７８９'[d]);
                     const targets = target ? target.split('、').map(t => normTarget(t.trim())).filter(t => t) : [];
-                    csvRows.push({ dateFrom, dateTo, title, target, targets, note, duty1, duty2 });
+                    csvRows.push({ dateFrom, dateTo, title, target, targets, note });
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${dateFrom}</td><td>${dateTo !== dateFrom ? dateTo : ''}</td><td>${title}</td><td>${target}</td><td>${note}</td><td>${duty1}</td><td>${duty2}</td>`;
+                    tr.innerHTML = `<td>${dateFrom}</td><td>${dateTo !== dateFrom ? dateTo : ''}</td><td>${title}</td><td>${target}</td><td>${note}</td>`;
                     tbody.appendChild(tr);
                 }
 
@@ -881,35 +915,13 @@
                     if (!csvKeySet.has(key)) toDelete.push(ev.id);
                 });
 
-                // 日直データの差分計算
-                const dutyCol = db.collection('daily_duty');
-                const csvDutyByDate = {};
-                csvRows.forEach(row => {
-                    if ((row.duty1 || row.duty2) && !csvDutyByDate[row.dateFrom]) {
-                        csvDutyByDate[row.dateFrom] = { duty1: row.duty1, duty2: row.duty2 };
-                    }
-                });
-                const dutyOps = [];
-                Object.entries(csvDutyByDate).forEach(([date, d]) => {
-                    const ex = dutyMap[date];
-                    if (!ex || ex.duty1 !== d.duty1 || ex.duty2 !== d.duty2) {
-                        dutyOps.push({ type: 'set', ref: dutyCol.doc(date), data: d });
-                    }
-                });
-                // CSVに含まれない日付の日直を削除
-                Object.keys(dutyMap).forEach(date => {
-                    if (!csvDutyByDate[date]) {
-                        dutyOps.push({ type: 'delete', ref: dutyCol.doc(date) });
-                    }
-                });
-
-                if (toAdd.length === 0 && toUpdate.length === 0 && toDelete.length === 0 && dutyOps.length === 0) {
+                if (toAdd.length === 0 && toUpdate.length === 0 && toDelete.length === 0) {
                     showDone(`変更なし（${unchanged} 件はそのまま）`);
                     setTimeout(() => { hideLoading(); csvModal.classList.add('hidden'); btn.disabled = false; }, 1800);
                     return;
                 }
 
-                updateLoadingText(`処理中... 追加:${toAdd.length} 更新:${toUpdate.length} 削除:${toDelete.length} 日直:${dutyOps.length}`);
+                updateLoadingText(`処理中... 追加:${toAdd.length} 更新:${toUpdate.length} 削除:${toDelete.length}`);
 
                 const ops = [];
                 toAdd.forEach(row => {
@@ -918,7 +930,6 @@
                 });
                 toUpdate.forEach(({ id, data }) => ops.push({ type:'update', ref: col.doc(id), data }));
                 toDelete.forEach(id => ops.push({ type:'delete', ref: col.doc(id) }));
-                ops.push(...dutyOps);
 
                 const BATCH_MAX = 400;
                 for (let i = 0; i < ops.length; i += BATCH_MAX) {
@@ -940,6 +951,156 @@
                 alert('エラーが発生しました。\n' + (err.message || err));
             }
         });
+        // ────────────────────────────────────────
+        // 日直CSV
+        // ────────────────────────────────────────
+        let dutyCsvRows = []; // { date, duty1, duty2 }
+        const dutyCsvModal = document.getElementById('duty-csv-modal');
+
+        // 年度の初期値（現在の学年度）
+        (function () {
+            const now = new Date();
+            const fy = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+            document.getElementById('duty-template-year').value = fy;
+        })();
+
+        document.getElementById('duty-csv-btn').addEventListener('click', () => {
+            dutyCsvRows = [];
+            document.getElementById('duty-csv-file').value = '';
+            document.getElementById('duty-csv-filename').textContent = '';
+            document.getElementById('duty-csv-preview').style.display = 'none';
+            document.getElementById('duty-csv-register').disabled = true;
+            dutyCsvModal.classList.remove('hidden');
+        });
+        document.getElementById('duty-csv-cancel').addEventListener('click', () => dutyCsvModal.classList.add('hidden'));
+
+        // テンプレートDL：指定年度の全日付入りCSV
+        document.getElementById('duty-template-btn').addEventListener('click', () => {
+            const year = parseInt(document.getElementById('duty-template-year').value);
+            if (!year || year < 2000 || year > 2100) { alert('年度を正しく入力してください（例：2026）'); return; }
+            const rows = ['\uFEFF日付,日直1,日直2'];
+            let d = new Date(year, 3, 1); // 4月1日
+            const end = new Date(year + 1, 2, 31); // 翌年3月31日
+            while (d <= end) {
+                rows.push(`${toDs(d)},,`);
+                d.setDate(d.getDate() + 1);
+            }
+            const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url; a.download = `duty_${year}.csv`; a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // ファイル選択 → パース・プレビュー
+        document.getElementById('duty-csv-file').addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            document.getElementById('duty-csv-filename').textContent = file.name;
+            document.getElementById('duty-csv-preview').style.display = 'none';
+            document.getElementById('duty-csv-register').disabled = true;
+
+            const loadEl = document.getElementById('duty-csv-loading');
+            document.getElementById('duty-csv-spinner').style.display = 'block';
+            document.getElementById('duty-csv-loading-text').textContent = 'ファイルを読み込んでいます...';
+            loadEl.classList.add('show');
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                let text = e.target.result;
+                if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+                const lines = text.split(/\r?\n/).filter(l => l.trim());
+                dutyCsvRows = [];
+                const tbody = document.getElementById('duty-csv-tbody');
+                tbody.innerHTML = '';
+                let withDuty = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = parseCSVLine(lines[i]);
+                    const date  = normDate(cols[0] || '');
+                    const duty1 = (cols[1] || '').trim();
+                    const duty2 = (cols[2] || '').trim();
+                    if (!date) continue;
+                    dutyCsvRows.push({ date, duty1, duty2 });
+                    if (duty1 || duty2) {
+                        withDuty++;
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${date}</td><td>${duty1}</td><td>${duty2}</td>`;
+                        tbody.appendChild(tr);
+                    }
+                }
+
+                loadEl.classList.remove('show');
+                document.getElementById('duty-csv-count').textContent =
+                    `${dutyCsvRows.length} 件読み込みました（うち日直設定あり：${withDuty} 件）`;
+                document.getElementById('duty-csv-preview').style.display = 'block';
+                if (dutyCsvRows.length > 0) document.getElementById('duty-csv-register').disabled = false;
+            };
+            reader.onerror = () => {
+                document.getElementById('duty-csv-loading').classList.remove('show');
+                alert('ファイルの読み込みに失敗しました。');
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        // 日直スマート同期
+        document.getElementById('duty-csv-register').addEventListener('click', async () => {
+            if (!dutyCsvRows.length) return;
+            const btn = document.getElementById('duty-csv-register');
+            btn.disabled = true;
+            const loadEl = document.getElementById('duty-csv-loading');
+            document.getElementById('duty-csv-spinner').style.display = 'block';
+            document.getElementById('duty-csv-loading-text').textContent = '照合中...';
+            loadEl.classList.add('show');
+
+            try {
+                const col = db.collection('daily_duty');
+                const ops = [];
+                let unchanged = 0;
+
+                dutyCsvRows.forEach(row => {
+                    const ex = dutyMap[row.date];
+                    if (row.duty1 || row.duty2) {
+                        if (!ex || ex.duty1 !== row.duty1 || ex.duty2 !== row.duty2) {
+                            ops.push({ type: 'set', ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2 } });
+                        } else { unchanged++; }
+                    } else {
+                        if (ex) ops.push({ type: 'delete', ref: col.doc(row.date) });
+                    }
+                });
+
+                if (ops.length === 0) {
+                    document.getElementById('duty-csv-spinner').style.display = 'none';
+                    document.getElementById('duty-csv-loading-text').innerHTML = `<span style="font-size:36px;">✅</span><br>変更なし（${unchanged} 件はそのまま）`;
+                    setTimeout(() => { loadEl.classList.remove('show'); dutyCsvModal.classList.add('hidden'); btn.disabled = false; }, 1800);
+                    return;
+                }
+
+                document.getElementById('duty-csv-loading-text').textContent = `処理中... ${ops.length} 件`;
+                const BATCH_MAX = 400;
+                for (let i = 0; i < ops.length; i += BATCH_MAX) {
+                    const batch = db.batch();
+                    ops.slice(i, i + BATCH_MAX).forEach(op => {
+                        if (op.type === 'set')    batch.set(op.ref, op.data);
+                        else if (op.type === 'delete') batch.delete(op.ref);
+                    });
+                    await batch.commit();
+                }
+
+                const saved  = ops.filter(o => o.type === 'set').length;
+                const deleted = ops.filter(o => o.type === 'delete').length;
+                document.getElementById('duty-csv-spinner').style.display = 'none';
+                document.getElementById('duty-csv-loading-text').innerHTML =
+                    `<span style="font-size:36px;">✅</span><br>完了：登録 ${saved} ・削除 ${deleted} ・変更なし ${unchanged}`;
+                setTimeout(() => { loadEl.classList.remove('show'); dutyCsvModal.classList.add('hidden'); btn.disabled = false; }, 2200);
+
+            } catch (err) {
+                document.getElementById('duty-csv-loading').classList.remove('show');
+                btn.disabled = false;
+                alert('エラーが発生しました。\n' + (err.message || err));
+            }
+        });
+
     })();
     </script>
 </body>

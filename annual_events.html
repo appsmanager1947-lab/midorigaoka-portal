@@ -280,9 +280,10 @@
         }
 
         // イベントの targets 配列を取得（後方互換）
+        function normTargetStr(s) { return s.replace(/[0-9]/g, d => '０１２３４５６７８９'[d]); }
         function getEvTargets(ev) {
-            if (ev.targets && ev.targets.length) return ev.targets;
-            if (ev.target) return [ev.target];
+            if (ev.targets && ev.targets.length) return ev.targets.map(normTargetStr);
+            if (ev.target) return ev.target.split(/[,、]/).map(t => normTargetStr(t.trim())).filter(t => t);
             return [];
         }
 
@@ -653,7 +654,9 @@
                     dateTo   = normDate(dateTo);
                     if (!dateTo) dateTo = dateFrom;
                     if (!dateFrom || !title) continue;
-                    const targets = target ? target.split('、').map(t => t.trim()).filter(t => t) : [];
+                    // 半角数字を全角に統一（例: "高1" → "高１"）してチェックボックス値と一致させる
+                    const normTarget = s => s.replace(/[0-9]/g, d => '０１２３４５６７８９'[d]);
+                    const targets = target ? target.split('、').map(t => normTarget(t.trim())).filter(t => t) : [];
                     csvRows.push({ dateFrom, dateTo, title, target, targets, note });
                     const tr = document.createElement('tr');
                     tr.innerHTML = `<td>${dateFrom}</td><td>${dateTo !== dateFrom ? dateTo : ''}</td><td>${title}</td><td>${target}</td><td>${note}</td>`;

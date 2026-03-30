@@ -1463,7 +1463,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 dayEvs.forEach(ev => {
                     const evLine = document.createElement('div');
-                    const targets = (ev.targets && ev.targets.length) ? ev.targets : (ev.target ? [ev.target] : []);
+                    const normT = s => s.replace(/[0-9]/g, d => '０１２３４５６７８９'[d]);
+                    const rawTargets = (ev.targets && ev.targets.length) ? ev.targets : (ev.target ? ev.target.split(/[,、]/).map(t => t.trim()).filter(t => t) : []);
+                    const targets = rawTargets.map(normT);
                     const bg = getEvBackground(targets, ev.color);
                     evLine.style.cssText = `font-size:11px; line-height:1.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${bg}; color:#333; border-radius:3px; padding:0 5px; margin-bottom:2px;`;
                     evLine.textContent = ev.title;

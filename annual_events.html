@@ -116,7 +116,9 @@
                     <button id="prev-btn" class="cal-nav-btn">◀</button>
                     <span id="month-label" class="cal-month-label"></span>
                     <button id="next-btn" class="cal-nav-btn">▶</button>
+                    <button id="goto-april-btn" class="cal-nav-btn" style="font-size:12px;padding:4px 10px;">今年度4月</button>
                 </div>
+                <div style="text-align:right;font-size:12px;color:#888;margin-bottom:4px;" id="ev-total-count"></div>
                 <div id="cal-wrap"></div>
             </section>
         </main>
@@ -430,16 +432,22 @@
         // ────────────────────────────────────────
         // Firestore リアルタイム取得
         // ────────────────────────────────────────
-        setTimeout(() => {
-            if (typeof db !== 'undefined') {
-                db.collection('annual_events').onSnapshot(snap => {
-                    allEvents = [];
-                    snap.forEach(doc => allEvents.push({ id: doc.id, ...doc.data() }));
-                    allEvents.sort((a, b) => (a.dateFrom || a.date || '').localeCompare(b.dateFrom || b.date || ''));
-                    renderCalendar();
-                });
-            }
-        }, 500);
+        function startEventsListener() {
+            if (typeof db === 'undefined' || !db) { setTimeout(startEventsListener, 200); return; }
+            db.collection('annual_events').onSnapshot(snap => {
+                allEvents = [];
+                snap.forEach(doc => allEvents.push({ id: doc.id, ...doc.data() }));
+                allEvents.sort((a, b) => (normDate(a.dateFrom || a.date || '')).localeCompare(normDate(b.dateFrom || b.date || '')));
+                renderCalendar();
+                const countEl = document.getElementById('ev-total-count');
+                if (countEl) countEl.textContent = allEvents.length ? `全 ${allEvents.length} 件` : '';
+            }, err => {
+                console.error('annual_events onSnapshot error:', err);
+                const countEl = document.getElementById('ev-total-count');
+                if (countEl) countEl.textContent = '読み込みエラー: ' + err.code;
+            });
+        }
+        startEventsListener();
 
         // ────────────────────────────────────────
         // 月ナビゲーション
@@ -452,6 +460,13 @@
         document.getElementById('next-btn').addEventListener('click', () => {
             curMonth++;
             if (curMonth > 11) { curMonth = 0; curYear++; }
+            renderCalendar();
+        });
+        document.getElementById('goto-april-btn').addEventListener('click', () => {
+            // 日本の学年度：4月始まり。3月以前なら前年の4月、4月以降なら今年の4月
+            const now = new Date();
+            curYear  = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+            curMonth = 3; // 4月 (0-indexed)
             renderCalendar();
         });
 

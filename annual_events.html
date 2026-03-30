@@ -440,7 +440,12 @@
                 allEvents.sort((a, b) => (normDate(a.dateFrom || a.date || '')).localeCompare(normDate(b.dateFrom || b.date || '')));
                 renderCalendar();
                 const countEl = document.getElementById('ev-total-count');
-                if (countEl) countEl.textContent = allEvents.length ? `全 ${allEvents.length} 件` : '';
+                if (countEl) {
+                    const sample = allEvents[0];
+                    const sampleDate = sample ? (sample.dateFrom || sample.date || '(フィールドなし)') : '';
+                    const sampleKeys = sample ? Object.keys(sample).join(', ') : '';
+                    countEl.textContent = `全 ${allEvents.length} 件 ／ 先頭dateFrom: "${sampleDate}" ／ フィールド: ${sampleKeys}`;
+                }
             }, err => {
                 console.error('annual_events onSnapshot error:', err);
                 const countEl = document.getElementById('ev-total-count');

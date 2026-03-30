@@ -65,6 +65,12 @@
         #csv-preview-table th, #csv-preview-table td { border:1px solid #E6E4DF; padding:4px 8px; }
         #csv-preview-table th { background:#F7F7F5; }
 
+        /* ── 対象チェックボックス ── */
+        .target-checkbox-group { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+        .target-checkbox-group label { display:flex; align-items:center; gap:4px; font-size:13px; cursor:pointer; padding:4px 10px; border:1px solid #E6E4DF; border-radius:4px; background:#fff; user-select:none; }
+        .target-checkbox-group label:hover { background:#f0f0f0; }
+        .target-checkbox-group input[type=checkbox] { cursor:pointer; }
+
         /* ── ローディングオーバーレイ ── */
         @keyframes csv-spin { to { transform: rotate(360deg); } }
         .csv-loading {
@@ -133,27 +139,24 @@
                 <input type="text" id="ev-title" class="modal-input" placeholder="例：文化祭">
             </div>
             <div class="form-group">
-                <label>対象</label>
-                <select id="ev-target" class="modal-input" style="background:#fff;cursor:pointer;">
-                    <option value="">（なし）</option>
-                    <option value="全校">全校</option>
-                    <option value="中学">中学</option>
-                    <option value="高１">高１</option>
-                    <option value="高２">高２</option>
-                    <option value="高３">高３</option>
-                    <option value="その他">その他</option>
-                </select>
+                <label>対象（複数選択可）</label>
+                <div class="target-checkbox-group">
+                    <label><input type="checkbox" name="ev-target" value="全校"> 全校</label>
+                    <label><input type="checkbox" name="ev-target" value="中学"> 中学</label>
+                    <label><input type="checkbox" name="ev-target" value="高１"> 高１</label>
+                    <label><input type="checkbox" name="ev-target" value="高２"> 高２</label>
+                    <label><input type="checkbox" name="ev-target" value="高３"> 高３</label>
+                    <label><input type="checkbox" name="ev-target" value="教職員"> 教職員</label>
+                    <label><input type="checkbox" name="ev-target" value="その他"> その他</label>
+                </div>
             </div>
             <div class="form-group">
                 <label>備考</label>
                 <input type="text" id="ev-note" class="modal-input" placeholder="任意">
             </div>
             <div class="form-group">
-                <label>色</label>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="color" id="ev-color" value="#F0F0F0" style="width:44px;height:34px;cursor:pointer;border:1px solid #ccc;border-radius:4px;padding:2px;">
-                    <span style="font-size:12px;color:#888;">（対象を選ぶと自動設定されます）</span>
-                </div>
+                <label>色プレビュー</label>
+                <div id="ev-color-preview" style="height:28px;border-radius:4px;border:1px solid #ccc;background:#F0F0F0;"></div>
             </div>
             <div class="modal-actions">
                 <button id="ev-cancel" class="btn-cancel">キャンセル</button>
@@ -217,7 +220,7 @@
 
         const TARGET_COLORS = {
             '全校':'#FADBD8','中学':'#D6EAF8','高１':'#D5F5E3',
-            '高２':'#FCF3CF','高３':'#E8DAEF','その他':'#F0F0F0'
+            '高２':'#FCF3CF','高３':'#FDEBD0','教職員':'#D7BDE2','その他':'#D5D8DC'
         };
 
         // 日本の祝日（2024〜2026）
@@ -244,6 +247,36 @@
 
         function pad(n) { return String(n).padStart(2, '0'); }
         function toDs(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+        // 対象配列 → 分割グラデーション背景
+        function getTargetBackground(targets) {
+            if (!targets || targets.length === 0) return '#F0F0F0';
+            if (targets.length === 1) return TARGET_COLORS[targets[0]] || '#F0F0F0';
+            const colors = targets.map(t => TARGET_COLORS[t] || '#F0F0F0');
+            const pct = 100 / colors.length;
+            const stops = [];
+            colors.forEach((c, i) => { stops.push(`${c} ${i * pct}%`); stops.push(`${c} ${(i + 1) * pct}%`); });
+            return `linear-gradient(to right, ${stops.join(', ')})`;
+        }
+
+        // イベントの targets 配列を取得（後方互換）
+        function getEvTargets(ev) {
+            if (ev.targets && ev.targets.length) return ev.targets;
+            if (ev.target) return [ev.target];
+            return [];
+        }
+
+        // チェックボックスの操作ヘルパー
+        function getSelectedTargets() {
+            return Array.from(document.querySelectorAll('input[name="ev-target"]:checked')).map(cb => cb.value);
+        }
+        function setSelectedTargets(arr) {
+            document.querySelectorAll('input[name="ev-target"]').forEach(cb => { cb.checked = arr.includes(cb.value); });
+            updateColorPreview();
+        }
+        function updateColorPreview() {
+            document.getElementById('ev-color-preview').style.background = getTargetBackground(getSelectedTargets());
+        }
 
         // ────────────────────────────────────────
         // カレンダー描画
@@ -332,8 +365,9 @@
         function buildEvItem(ev) {
             const div = document.createElement('div');
             div.className = 'ev-item';
-            div.style.backgroundColor = ev.color || '#F0F0F0';
-            div.title = ev.title + (ev.target ? ` [${ev.target}]` : '');
+            const targets = getEvTargets(ev);
+            div.style.background = getTargetBackground(targets);
+            div.title = ev.title + (targets.length ? ` [${targets.join('・')}]` : '');
 
             const span = document.createElement('span');
             span.textContent = ev.title;
@@ -371,7 +405,8 @@
             const dateStr = (to && to !== from) ? `${from} 〜 ${to}` : from;
             document.getElementById('popup-title').textContent  = ev.title;
             document.getElementById('popup-date').textContent   = `日付：${dateStr}`;
-            document.getElementById('popup-target').textContent = ev.target ? `対象：${ev.target}` : '';
+            const popupTargets = getEvTargets(ev);
+            document.getElementById('popup-target').textContent = popupTargets.length ? `対象：${popupTargets.join('・')}` : '';
             document.getElementById('popup-note').textContent   = ev.note   ? `備考：${ev.note}`   : '';
 
             const popup = document.getElementById('event-popup');
@@ -432,9 +467,8 @@
             document.getElementById('ev-date-from').value = '';
             document.getElementById('ev-date-to').value   = '';
             document.getElementById('ev-title').value  = '';
-            document.getElementById('ev-target').value = '';
+            setSelectedTargets([]);
             document.getElementById('ev-note').value   = '';
-            document.getElementById('ev-color').value  = '#F0F0F0';
             document.getElementById('ev-submit').textContent = '追加';
             evModal.classList.remove('hidden');
         });
@@ -445,18 +479,15 @@
             document.getElementById('ev-date-from').value = ev.dateFrom || ev.date || '';
             document.getElementById('ev-date-to').value   = (ev.dateTo && ev.dateTo !== (ev.dateFrom || ev.date)) ? ev.dateTo : '';
             document.getElementById('ev-title').value  = ev.title  || '';
-            document.getElementById('ev-target').value = ev.target || '';
+            setSelectedTargets(getEvTargets(ev));
             document.getElementById('ev-note').value   = ev.note   || '';
-            document.getElementById('ev-color').value  = ev.color  || '#F0F0F0';
             document.getElementById('ev-submit').textContent = '更新';
             evModal.classList.remove('hidden');
         }
 
-        // 対象→色の自動設定（追加時のみ）
-        document.getElementById('ev-target').addEventListener('change', function () {
-            if (!editId) {
-                document.getElementById('ev-color').value = TARGET_COLORS[this.value] || '#F0F0F0';
-            }
+        // チェックボックス変更→色プレビュー更新
+        document.querySelectorAll('input[name="ev-target"]').forEach(cb => {
+            cb.addEventListener('change', updateColorPreview);
         });
 
         document.getElementById('ev-cancel').addEventListener('click', () => evModal.classList.add('hidden'));
@@ -464,17 +495,17 @@
         document.getElementById('ev-submit').addEventListener('click', () => {
             const dateFrom = document.getElementById('ev-date-from').value;
             const dateTo   = document.getElementById('ev-date-to').value || dateFrom;
-            const title  = document.getElementById('ev-title').value.trim();
-            const target = document.getElementById('ev-target').value;
-            const note   = document.getElementById('ev-note').value.trim();
-            const color  = document.getElementById('ev-color').value;
+            const title   = document.getElementById('ev-title').value.trim();
+            const targets = getSelectedTargets();
+            const note    = document.getElementById('ev-note').value.trim();
+            const color   = targets.length === 1 ? (TARGET_COLORS[targets[0]] || '#F0F0F0') : '#F0F0F0';
 
             if (!dateFrom || !title) { alert('開始日と行事名は必須です。'); return; }
 
             const btn = document.getElementById('ev-submit');
             btn.disabled = true; btn.textContent = '保存中...';
 
-            const data = { dateFrom, dateTo, date: dateFrom, title, target, note, color };
+            const data = { dateFrom, dateTo, date: dateFrom, title, targets, target: targets.join(','), note, color };
             const col  = db.collection('annual_events');
             const done = () => { btn.disabled = false; btn.textContent = editId ? '更新' : '追加'; evModal.classList.add('hidden'); };
             const fail = () => { btn.disabled = false; btn.textContent = 'エラー'; };
@@ -587,7 +618,8 @@
                     }
                     if (!dateTo) dateTo = dateFrom;
                     if (!dateFrom || !title) continue;
-                    csvRows.push({ dateFrom, dateTo, title, target, note });
+                    const targets = target ? target.split('、').map(t => t.trim()).filter(t => t) : [];
+                    csvRows.push({ dateFrom, dateTo, title, target, targets, note });
                     const tr = document.createElement('tr');
                     tr.innerHTML = `<td>${dateFrom}</td><td>${dateTo !== dateFrom ? dateTo : ''}</td><td>${title}</td><td>${target}</td><td>${note}</td>`;
                     tbody.appendChild(tr);
@@ -642,16 +674,16 @@
                     if (ex) {
                         const exFrom = ex.dateFrom || ex.date;
                         const exTo   = ex.dateTo   || exFrom;
+                        const exTargets = (ex.targets && ex.targets.length) ? ex.targets.join('、') : (ex.target || '');
+                        const rowTargets = row.targets.join('、');
                         const same   = exFrom === row.dateFrom &&
                                        exTo   === row.dateTo   &&
-                                       (ex.target||'') === (row.target||'') &&
+                                       exTargets === rowTargets &&
                                        (ex.note  ||'') === (row.note  ||'');
                         if (same) { unchanged++; }
                         else {
-                            const newColor = (ex.target||'') !== (row.target||'')
-                                ? (TARGET_COLORS[row.target] || '#F0F0F0')
-                                : (ex.color || TARGET_COLORS[row.target] || '#F0F0F0');
-                            toUpdate.push({ id: ex.id, data: { dateFrom: row.dateFrom, dateTo: row.dateTo, date: row.dateFrom, title: row.title, target: row.target, note: row.note, color: newColor } });
+                            const newColor = row.targets.length === 1 ? (TARGET_COLORS[row.targets[0]] || '#F0F0F0') : '#F0F0F0';
+                            toUpdate.push({ id: ex.id, data: { dateFrom: row.dateFrom, dateTo: row.dateTo, date: row.dateFrom, title: row.title, targets: row.targets, target: row.targets.join(','), note: row.note, color: newColor } });
                         }
                     } else {
                         toAdd.push(row);
@@ -674,7 +706,10 @@
                 updateLoadingText(`処理中... 追加:${toAdd.length} 更新:${toUpdate.length} 削除:${toDelete.length}`);
 
                 const ops = [];
-                toAdd.forEach(row => ops.push({ type:'set', ref: col.doc(), data: { dateFrom: row.dateFrom, dateTo: row.dateTo, date: row.dateFrom, title: row.title, target: row.target, note: row.note, color: TARGET_COLORS[row.target]||'#F0F0F0', createdAt: firebase.firestore.FieldValue.serverTimestamp() } }));
+                toAdd.forEach(row => {
+                    const color = row.targets.length === 1 ? (TARGET_COLORS[row.targets[0]] || '#F0F0F0') : '#F0F0F0';
+                    ops.push({ type:'set', ref: col.doc(), data: { dateFrom: row.dateFrom, dateTo: row.dateTo, date: row.dateFrom, title: row.title, targets: row.targets, target: row.targets.join(','), note: row.note, color, createdAt: firebase.firestore.FieldValue.serverTimestamp() } });
+                });
                 toUpdate.forEach(({ id, data }) => ops.push({ type:'update', ref: col.doc(id), data }));
                 toDelete.forEach(id => ops.push({ type:'delete', ref: col.doc(id) }));
 

@@ -1,5 +1,21 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    // 対象ラベル → 色マップ（annual_events と共通）
+    const EV_TARGET_COLORS = {
+        '全校':'#FADBD8','中学':'#D6EAF8','高１':'#D5F5E3',
+        '高２':'#FCF3CF','高３':'#FDEBD0','教職員':'#D7BDE2','その他':'#D5D8DC'
+    };
+
+    function getEvBackground(targets, fallbackColor) {
+        if (!targets || targets.length === 0) return fallbackColor || '#F0F0F0';
+        if (targets.length === 1) return EV_TARGET_COLORS[targets[0]] || fallbackColor || '#F0F0F0';
+        const colors = targets.map(t => EV_TARGET_COLORS[t] || '#F0F0F0');
+        const pct = 100 / colors.length;
+        const stops = [];
+        colors.forEach((c, i) => { stops.push(`${c} ${i * pct}%`); stops.push(`${c} ${(i + 1) * pct}%`); });
+        return `linear-gradient(to right, ${stops.join(', ')})`;
+    }
+
     // 共通関数: 今日の日付取得
     function getTodayStr() {
         const d = new Date();
@@ -1428,10 +1444,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         dayEvs.forEach(ev => {
                             const evLine = document.createElement('div');
-                            const bg = ev.color || '#F0F0F0';
+                            const targets = (ev.targets && ev.targets.length) ? ev.targets : (ev.target ? [ev.target] : []);
+                            const bg = getEvBackground(targets, ev.color);
                             evLine.style.cssText = `font-size:11px; line-height:1.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${bg}; color:#333; border-radius:3px; padding:0 5px; margin-bottom:2px;`;
                             evLine.textContent = ev.title;
-                            evLine.title = ev.title + (ev.target ? ` [${ev.target}]` : '') + (ev.note ? `　${ev.note}` : '');
+                            evLine.title = ev.title + (targets.length ? ` [${targets.join('・')}]` : '') + (ev.note ? `　${ev.note}` : '');
                             evCol.appendChild(evLine);
                         });
 

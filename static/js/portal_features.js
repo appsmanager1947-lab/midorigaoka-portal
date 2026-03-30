@@ -10,9 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!targets || targets.length === 0) return fallbackColor || '#F0F0F0';
         if (targets.length === 1) return EV_TARGET_COLORS[targets[0]] || fallbackColor || '#F0F0F0';
         const colors = targets.map(t => EV_TARGET_COLORS[t] || '#F0F0F0');
-        const pct = 100 / colors.length;
+        const n = colors.length;
         const stops = [];
-        colors.forEach((c, i) => { stops.push(`${c} ${i * pct}%`); stops.push(`${c} ${(i + 1) * pct}%`); });
+        colors.forEach((c, i) => {
+            const start = i === 0 ? 0 : Math.round(i * 10000 / n) / 100;
+            const end   = i === n - 1 ? 100 : Math.round((i + 1) * 10000 / n) / 100;
+            stops.push(`${c} ${start}%`, `${c} ${end}%`);
+        });
         return `linear-gradient(to right, ${stops.join(', ')})`;
     }
 

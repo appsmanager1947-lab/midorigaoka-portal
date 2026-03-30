@@ -41,6 +41,7 @@ body {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
 }
 
 .sidebar-header {

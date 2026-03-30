@@ -249,8 +249,20 @@
 
         function pad(n) { return String(n).padStart(2, '0'); }
         function toDs(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-        // YYYY/MM/DD → YYYY-MM-DD に正規化（CSVやExcel由来のスラッシュ形式に対応）
-        function normDate(s) { return s ? s.replace(/\//g, '-') : s; }
+        // 日付文字列を正規化: スラッシュをダッシュに変換し、ゼロ埋め（例: "2026-4-1" → "2026-04-01"）
+        function normDate(s) {
+            if (!s) return s;
+            const parts = s.replace(/\//g, '-').split('-');
+            if (parts.length !== 3) return s;
+            return `${parts[0]}-${pad(parts[1])}-${pad(parts[2])}`;
+        }
+        // 日付文字列からDateオブジェクトを生成（ゼロ埋め不要の安全な方法）
+        function parseDate(s) {
+            if (!s) return new Date(NaN);
+            const parts = s.replace(/\//g, '-').split('-');
+            if (parts.length !== 3) return new Date(NaN);
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
 
         // 対象配列 → 分割グラデーション背景
         function getTargetBackground(targets) {
@@ -304,10 +316,10 @@
             // 行事マップを構築（期間対応：dateFrom〜dateTo の各日に展開）
             const evMap = {};
             allEvents.forEach(ev => {
-                const from = normDate(ev.dateFrom || ev.date);
-                const to   = normDate(ev.dateTo   || from);
-                let d = new Date(from + 'T00:00:00');
-                const toD = new Date(to + 'T00:00:00');
+                const from = ev.dateFrom || ev.date;
+                const to   = ev.dateTo   || from;
+                let d = parseDate(from);
+                const toD = parseDate(to);
                 while (d <= toD) {
                     const ds = toDs(d);
                     if (!evMap[ds]) evMap[ds] = [];
@@ -440,12 +452,7 @@
                 allEvents.sort((a, b) => (normDate(a.dateFrom || a.date || '')).localeCompare(normDate(b.dateFrom || b.date || '')));
                 renderCalendar();
                 const countEl = document.getElementById('ev-total-count');
-                if (countEl) {
-                    const sample = allEvents[0];
-                    const sampleDate = sample ? (sample.dateFrom || sample.date || '(フィールドなし)') : '';
-                    const sampleKeys = sample ? Object.keys(sample).join(', ') : '';
-                    countEl.textContent = `全 ${allEvents.length} 件 ／ 先頭dateFrom: "${sampleDate}" ／ フィールド: ${sampleKeys}`;
-                }
+                if (countEl) countEl.textContent = allEvents.length ? `全 ${allEvents.length} 件` : '';
             }, err => {
                 console.error('annual_events onSnapshot error:', err);
                 const countEl = document.getElementById('ev-total-count');

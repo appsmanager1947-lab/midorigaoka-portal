@@ -50,6 +50,14 @@
         }
         .ev-act-btn.del { color: #d9534f; font-weight: bold; }
 
+        /* ── 日直タグ ── */
+        .duty-item {
+            font-size: 11px; padding: 2px 5px; margin-bottom: 3px;
+            background: #E8F5E9; border-left: 3px solid #2c8c5a;
+            border-radius: 3px; white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; color: #1a5c3a; font-weight: 600;
+        }
+
         /* ── 詳細ポップアップ ── */
         #event-popup {
             position: fixed; background: #fff; border: 1px solid #ccc;
@@ -186,7 +194,7 @@
                 <p id="csv-count" style="font-size:13px;color:#555;margin:0 0 8px;"></p>
                 <div style="max-height:280px;overflow-y:auto;border:1px solid #E6E4DF;border-radius:4px;">
                     <table id="csv-preview-table">
-                        <thead><tr><th>開始日</th><th>終了日</th><th>行事名</th><th>対象</th><th>備考</th></tr></thead>
+                        <thead><tr><th>開始日</th><th>終了日</th><th>行事名</th><th>対象</th><th>備考</th><th>日直1</th><th>日直2</th></tr></thead>
                         <tbody id="csv-tbody"></tbody>
                     </table>
                 </div>
@@ -244,6 +252,7 @@
         let curYear  = new Date().getFullYear();
         let curMonth = new Date().getMonth(); // 0-indexed
         let allEvents = [];
+        let dutyMap   = {}; // date string → { duty1, duty2 }
         let editId    = null;
         let csvRows   = [];
 
@@ -372,6 +381,14 @@
                 cell.appendChild(num);
 
                 if (!other) {
+                    const duty = dutyMap[ds];
+                    if (duty && (duty.duty1 || duty.duty2)) {
+                        const dutyDiv = document.createElement('div');
+                        dutyDiv.className = 'duty-item';
+                        const names = [duty.duty1, duty.duty2].filter(n => n);
+                        dutyDiv.textContent = '日直：' + names.join('・');
+                        cell.appendChild(dutyDiv);
+                    }
                     (evMap[ds] || []).forEach(ev => cell.appendChild(buildEvItem(ev)));
                 }
                 grid.appendChild(cell);
@@ -464,7 +481,16 @@
                 if (countEl) countEl.textContent = '読み込みエラー: ' + err.code;
             });
         }
+        function startDutiesListener() {
+            if (typeof db === 'undefined' || !db) { setTimeout(startDutiesListener, 200); return; }
+            db.collection('daily_duty').onSnapshot(snap => {
+                dutyMap = {};
+                snap.forEach(doc => { dutyMap[doc.id] = doc.data(); });
+                renderCalendar();
+            }, err => console.error('daily_duty onSnapshot error:', err));
+        }
         startEventsListener();
+        startDutiesListener();
 
         // ────────────────────────────────────────
         // 月ナビゲーション
@@ -575,7 +601,7 @@
 
         // テンプレートDL
         document.getElementById('csv-template-btn').addEventListener('click', () => {
-            const content = '\uFEFF日付,終了日付,行事名,対象,備考\n2026-04-08,2026-04-09,新入生オリエンテーション,全校,1泊2日\n2026-04-10,,授業開始,全校,\n';
+            const content = '\uFEFF日付,終了日付,行事名,対象,備考,日直1,日直2\n2026-04-08,2026-04-09,新入生オリエンテーション,全校,1泊2日,,\n2026-04-10,,授業開始,全校,,山田花子,鈴木一郎\n';
             const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
             const url  = URL.createObjectURL(blob);
             const a    = document.createElement('a');
@@ -637,15 +663,17 @@
                 const tbody = document.getElementById('csv-tbody');
                 tbody.innerHTML = '';
 
-                // ヘッダーで列数を判定（5列 = 終了日付あり、4列 = 旧フォーマット）
+                // ヘッダーで列数を判定（7列 = 日直あり、5列 = 終了日付あり、4列 = 旧フォーマット）
                 const headerCols = parseCSVLine(lines[0] || '');
                 const hasDateTo = headerCols.length >= 5;
+                const hasDuty   = headerCols.length >= 7;
 
                 for (let i = 1; i < lines.length; i++) {
                     const cols = parseCSVLine(lines[i]);
-                    let dateFrom, dateTo, title, target, note;
+                    let dateFrom, dateTo, title, target, note, duty1 = '', duty2 = '';
                     if (hasDateTo) {
                         [dateFrom, dateTo, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||'', cols[4]||''];
+                        if (hasDuty) { duty1 = cols[5]||''; duty2 = cols[6]||''; }
                     } else {
                         [dateFrom, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||''];
                         dateTo = '';
@@ -657,9 +685,9 @@
                     // 半角数字を全角に統一（例: "高1" → "高１"）してチェックボックス値と一致させる
                     const normTarget = s => s.replace(/[0-9]/g, d => '０１２３４５６７８９'[d]);
                     const targets = target ? target.split('、').map(t => normTarget(t.trim())).filter(t => t) : [];
-                    csvRows.push({ dateFrom, dateTo, title, target, targets, note });
+                    csvRows.push({ dateFrom, dateTo, title, target, targets, note, duty1, duty2 });
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${dateFrom}</td><td>${dateTo !== dateFrom ? dateTo : ''}</td><td>${title}</td><td>${target}</td><td>${note}</td>`;
+                    tr.innerHTML = `<td>${dateFrom}</td><td>${dateTo !== dateFrom ? dateTo : ''}</td><td>${title}</td><td>${target}</td><td>${note}</td><td>${duty1}</td><td>${duty2}</td>`;
                     tbody.appendChild(tr);
                 }
 
@@ -735,13 +763,35 @@
                     if (!csvKeySet.has(key)) toDelete.push(ev.id);
                 });
 
-                if (toAdd.length === 0 && toUpdate.length === 0 && toDelete.length === 0) {
+                // 日直データの差分計算
+                const dutyCol = db.collection('daily_duty');
+                const csvDutyByDate = {};
+                csvRows.forEach(row => {
+                    if ((row.duty1 || row.duty2) && !csvDutyByDate[row.dateFrom]) {
+                        csvDutyByDate[row.dateFrom] = { duty1: row.duty1, duty2: row.duty2 };
+                    }
+                });
+                const dutyOps = [];
+                Object.entries(csvDutyByDate).forEach(([date, d]) => {
+                    const ex = dutyMap[date];
+                    if (!ex || ex.duty1 !== d.duty1 || ex.duty2 !== d.duty2) {
+                        dutyOps.push({ type: 'set', ref: dutyCol.doc(date), data: d });
+                    }
+                });
+                // CSVに含まれない日付の日直を削除
+                Object.keys(dutyMap).forEach(date => {
+                    if (!csvDutyByDate[date]) {
+                        dutyOps.push({ type: 'delete', ref: dutyCol.doc(date) });
+                    }
+                });
+
+                if (toAdd.length === 0 && toUpdate.length === 0 && toDelete.length === 0 && dutyOps.length === 0) {
                     showDone(`変更なし（${unchanged} 件はそのまま）`);
                     setTimeout(() => { hideLoading(); csvModal.classList.add('hidden'); btn.disabled = false; }, 1800);
                     return;
                 }
 
-                updateLoadingText(`処理中... 追加:${toAdd.length} 更新:${toUpdate.length} 削除:${toDelete.length}`);
+                updateLoadingText(`処理中... 追加:${toAdd.length} 更新:${toUpdate.length} 削除:${toDelete.length} 日直:${dutyOps.length}`);
 
                 const ops = [];
                 toAdd.forEach(row => {
@@ -750,6 +800,7 @@
                 });
                 toUpdate.forEach(({ id, data }) => ops.push({ type:'update', ref: col.doc(id), data }));
                 toDelete.forEach(id => ops.push({ type:'delete', ref: col.doc(id) }));
+                ops.push(...dutyOps);
 
                 const BATCH_MAX = 400;
                 for (let i = 0; i < ops.length; i += BATCH_MAX) {

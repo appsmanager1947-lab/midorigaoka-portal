@@ -1388,88 +1388,114 @@ document.addEventListener('DOMContentLoaded', () => {
         navBar.appendChild(nextBtn);
         eventsWidgetList.parentElement.insertBefore(navBar, eventsWidgetList);
 
+        // 日付文字列を正規化してゼロ埋め ("2026-4-1" → "2026-04-01")
+        function normEvDate(s) {
+            if (!s) return '';
+            const parts = s.replace(/\//g, '-').split('-');
+            if (parts.length !== 3) return s;
+            return `${parts[0]}-${String(parseInt(parts[1])).padStart(2,'0')}-${String(parseInt(parts[2])).padStart(2,'0')}`;
+        }
+        function parseEvDate(s) {
+            if (!s) return new Date(NaN);
+            const parts = s.replace(/\//g, '-').split('-');
+            if (parts.length !== 3) return new Date(NaN);
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+
+        let allEventsCache = [];
         let unsubscribeEvents = null;
 
-        function loadEventsWidget() {
-            if (unsubscribeEvents) unsubscribeEvents();
+        function renderEventsWidget() {
             monthLabel.textContent = `${viewYear}年${MONTHS_JP[viewMonth]}`;
-            const lastDay    = new Date(viewYear, viewMonth + 1, 0).getDate();
-            const monthStart = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-01`;
-            const monthEnd   = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+            const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
+            const monthStart = new Date(viewYear, viewMonth, 1);
+            const monthEnd   = new Date(viewYear, viewMonth, lastDay);
 
-            eventsWidgetList.innerHTML = '<li style="font-size:12px;color:#aaa;padding:6px 4px;">読み込み中...</li>';
+            // 全件から当月に該当するものを期間展開してevMapに入れる
+            const evMap = {};
+            allEventsCache.forEach(ev => {
+                const from = parseEvDate(ev.dateFrom || ev.date);
+                const to   = parseEvDate(ev.dateTo   || ev.dateFrom || ev.date);
+                if (isNaN(from) || isNaN(to)) return;
+                let d = new Date(Math.max(from, monthStart));
+                const end = new Date(Math.min(to, monthEnd));
+                while (d <= end) {
+                    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                    if (!evMap[ds]) evMap[ds] = [];
+                    evMap[ds].push(ev);
+                    d.setDate(d.getDate() + 1);
+                }
+            });
 
-            unsubscribeEvents = db.collection('annual_events')
-                .where('date', '>=', monthStart)
-                .where('date', '<=', monthEnd)
-                .orderBy('date', 'asc')
-                .onSnapshot(snap => {
-                    // 日付→行事リストのマップを作成
-                    const evMap = {};
-                    snap.forEach(doc => {
-                        const ev = doc.data();
-                        if (!evMap[ev.date]) evMap[ev.date] = [];
-                        evMap[ev.date].push(ev);
-                    });
+            eventsWidgetList.innerHTML = '';
 
-                    eventsWidgetList.innerHTML = '';
+            // 月の全日付を順に描画
+            for (let day = 1; day <= lastDay; day++) {
+                const dateStr  = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const d        = new Date(viewYear, viewMonth, day);
+                const dow      = d.getDay();
+                const isToday  = dateStr === todayStr;
+                const isSun    = dow === 0;
+                const isSat    = dow === 6;
+                const dayEvs   = evMap[dateStr] || [];
+                const hasEvs   = dayEvs.length > 0;
 
-                    // 月の全日付を順に描画
-                    for (let day = 1; day <= lastDay; day++) {
-                        const dateStr  = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                        const d        = new Date(dateStr + 'T00:00:00');
-                        const dow      = d.getDay();
-                        const isToday  = dateStr === todayStr;
-                        const isSun    = dow === 0;
-                        const isSat    = dow === 6;
-                        const dayEvs   = evMap[dateStr] || [];
-                        const hasEvs   = dayEvs.length > 0;
+                const dowColor = isToday ? '#2c8c5a' : isSun ? '#c0392b' : isSat ? '#1a5276' : '#4A4643';
+                const rowBg    = isToday ? '#EBF7F1' : isSun ? '#FFF8F8' : isSat ? '#F5F9FF' : '';
 
-                        const dowColor = isToday ? '#2c8c5a' : isSun ? '#c0392b' : isSat ? '#1a5276' : '#4A4643';
-                        const rowBg    = isToday ? '#EBF7F1' : isSun ? '#FFF8F8' : isSat ? '#F5F9FF' : '';
+                const li = document.createElement('li');
+                li.style.cssText = `display:flex; align-items:flex-start; padding:2px 4px;`
+                    + (rowBg ? ` background:${rowBg};` : '')
+                    + (isToday ? ' border-left:3px solid #2c8c5a;' : 'border-left:3px solid transparent;');
 
-                        const li = document.createElement('li');
-                        li.style.cssText = `display:flex; align-items:flex-start; padding:2px 4px;`
-                            + (rowBg ? ` background:${rowBg};` : '')
-                            + (isToday ? ' border-left:3px solid #2c8c5a;' : 'border-left:3px solid transparent;');
+                // 日付ラベル列（固定幅）
+                const dateCol = document.createElement('div');
+                dateCol.style.cssText = `flex:0 0 30px; font-size:11px; font-weight:${hasEvs || isToday ? 'bold' : 'normal'}; color:${dowColor}; padding-top:1px; line-height:1.6;`;
+                dateCol.textContent = `${day}${DAYS_JP[dow]}`;
 
-                        // 日付ラベル列（固定幅）
-                        const dateCol = document.createElement('div');
-                        dateCol.style.cssText = `flex:0 0 30px; font-size:11px; font-weight:${hasEvs || isToday ? 'bold' : 'normal'}; color:${dowColor}; padding-top:1px; line-height:1.6;`;
-                        dateCol.textContent = `${day}${DAYS_JP[dow]}`;
+                // 行事列
+                const evCol = document.createElement('div');
+                evCol.style.cssText = 'flex:1; min-width:0; padding-top:1px;';
 
-                        // 行事列
-                        const evCol = document.createElement('div');
-                        evCol.style.cssText = 'flex:1; min-width:0; padding-top:1px;';
-
-                        dayEvs.forEach(ev => {
-                            const evLine = document.createElement('div');
-                            const targets = (ev.targets && ev.targets.length) ? ev.targets : (ev.target ? [ev.target] : []);
-                            const bg = getEvBackground(targets, ev.color);
-                            evLine.style.cssText = `font-size:11px; line-height:1.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${bg}; color:#333; border-radius:3px; padding:0 5px; margin-bottom:2px;`;
-                            evLine.textContent = ev.title;
-                            evLine.title = ev.title + (targets.length ? ` [${targets.join('・')}]` : '') + (ev.note ? `　${ev.note}` : '');
-                            evCol.appendChild(evLine);
-                        });
-
-                        li.appendChild(dateCol);
-                        li.appendChild(evCol);
-                        eventsWidgetList.appendChild(li);
-                    }
-
-                    // 今日の行が見えるようにスクロール
-                    const todayEl = [...eventsWidgetList.children].find(el => el.style.borderLeft.includes('#2c8c5a'));
-                    if (todayEl) todayEl.scrollIntoView({ block: 'center' });
+                dayEvs.forEach(ev => {
+                    const evLine = document.createElement('div');
+                    const targets = (ev.targets && ev.targets.length) ? ev.targets : (ev.target ? [ev.target] : []);
+                    const bg = getEvBackground(targets, ev.color);
+                    evLine.style.cssText = `font-size:11px; line-height:1.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:${bg}; color:#333; border-radius:3px; padding:0 5px; margin-bottom:2px;`;
+                    evLine.textContent = ev.title;
+                    evLine.title = ev.title + (targets.length ? ` [${targets.join('・')}]` : '') + (ev.note ? `　${ev.note}` : '');
+                    evCol.appendChild(evLine);
                 });
+
+                li.appendChild(dateCol);
+                li.appendChild(evCol);
+                eventsWidgetList.appendChild(li);
+            }
+
+            // 今日の行が見えるようにスクロール
+            const todayEl = [...eventsWidgetList.children].find(el => el.style.borderLeft.includes('#2c8c5a'));
+            if (todayEl) todayEl.scrollIntoView({ block: 'center' });
+        }
+
+        // Firestoreから全件取得してキャッシュ、月表示を更新
+        function startSidebarEventsListener() {
+            if (typeof db === 'undefined' || !db) { setTimeout(startSidebarEventsListener, 200); return; }
+            if (unsubscribeEvents) unsubscribeEvents();
+            eventsWidgetList.innerHTML = '<li style="font-size:12px;color:#aaa;padding:6px 4px;">読み込み中...</li>';
+            unsubscribeEvents = db.collection('annual_events').onSnapshot(snap => {
+                allEventsCache = [];
+                snap.forEach(doc => allEventsCache.push(doc.data()));
+                renderEventsWidget();
+            });
         }
 
         prevBtn.addEventListener('click', () => {
-            viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } loadEventsWidget();
+            viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } renderEventsWidget();
         });
         nextBtn.addEventListener('click', () => {
-            viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } loadEventsWidget();
+            viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } renderEventsWidget();
         });
-        loadEventsWidget();
+        startSidebarEventsListener();
     }
 
 }); // ← ファイルの最後を閉じるカッコです

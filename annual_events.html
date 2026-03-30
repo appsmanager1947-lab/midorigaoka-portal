@@ -165,6 +165,13 @@
                 <input type="text" id="ev-note" class="modal-input" placeholder="任意">
             </div>
             <div class="form-group">
+                <label>日直（開始日に設定・省略可）</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="ev-duty1" class="modal-input" placeholder="日直1" style="margin:0;">
+                    <input type="text" id="ev-duty2" class="modal-input" placeholder="日直2" style="margin:0;">
+                </div>
+            </div>
+            <div class="form-group">
                 <label>色プレビュー</label>
                 <div id="ev-color-preview" style="height:28px;border-radius:4px;border:1px solid #ccc;background:#F0F0F0;"></div>
             </div>
@@ -521,6 +528,12 @@
         // ────────────────────────────────────────
         const evModal = document.getElementById('ev-modal');
 
+        function loadDutyFields(dateStr) {
+            const duty = dateStr ? (dutyMap[dateStr] || {}) : {};
+            document.getElementById('ev-duty1').value = duty.duty1 || '';
+            document.getElementById('ev-duty2').value = duty.duty2 || '';
+        }
+
         document.getElementById('add-btn').addEventListener('click', () => {
             editId = null;
             document.getElementById('ev-modal-title').textContent = '行事を追加';
@@ -529,18 +542,25 @@
             document.getElementById('ev-title').value  = '';
             setSelectedTargets([]);
             document.getElementById('ev-note').value   = '';
+            loadDutyFields('');
             document.getElementById('ev-submit').textContent = '追加';
             evModal.classList.remove('hidden');
+        });
+
+        document.getElementById('ev-date-from').addEventListener('change', function () {
+            loadDutyFields(this.value);
         });
 
         function openEditModal(ev) {
             editId = ev.id;
             document.getElementById('ev-modal-title').textContent = '行事を編集';
-            document.getElementById('ev-date-from').value = ev.dateFrom || ev.date || '';
-            document.getElementById('ev-date-to').value   = (ev.dateTo && ev.dateTo !== (ev.dateFrom || ev.date)) ? ev.dateTo : '';
+            const dateFrom = ev.dateFrom || ev.date || '';
+            document.getElementById('ev-date-from').value = dateFrom;
+            document.getElementById('ev-date-to').value   = (ev.dateTo && ev.dateTo !== dateFrom) ? ev.dateTo : '';
             document.getElementById('ev-title').value  = ev.title  || '';
             setSelectedTargets(getEvTargets(ev));
             document.getElementById('ev-note').value   = ev.note   || '';
+            loadDutyFields(dateFrom);
             document.getElementById('ev-submit').textContent = '更新';
             evModal.classList.remove('hidden');
         }
@@ -558,6 +578,8 @@
             const title   = document.getElementById('ev-title').value.trim();
             const targets = getSelectedTargets();
             const note    = document.getElementById('ev-note').value.trim();
+            const duty1   = document.getElementById('ev-duty1').value.trim();
+            const duty2   = document.getElementById('ev-duty2').value.trim();
             const color   = targets.length === 1 ? (TARGET_COLORS[targets[0]] || '#F0F0F0') : '#F0F0F0';
 
             if (!dateFrom || !title) { alert('開始日と行事名は必須です。'); return; }
@@ -567,14 +589,15 @@
 
             const data = { dateFrom, dateTo, date: dateFrom, title, targets, target: targets.join(','), note, color };
             const col  = db.collection('annual_events');
+            const saveDuty = () => db.collection('daily_duty').doc(dateFrom).set({ duty1, duty2 });
             const done = () => { btn.disabled = false; btn.textContent = editId ? '更新' : '追加'; evModal.classList.add('hidden'); };
             const fail = () => { btn.disabled = false; btn.textContent = 'エラー'; };
 
             if (editId) {
-                col.doc(editId).update(data).then(done).catch(fail);
+                col.doc(editId).update(data).then(saveDuty).then(done).catch(fail);
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                col.add(data).then(done).catch(fail);
+                col.add(data).then(saveDuty).then(done).catch(fail);
             }
         });
 

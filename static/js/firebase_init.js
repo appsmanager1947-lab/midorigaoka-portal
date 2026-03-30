@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     auth = firebase.auth();
 
     // 認証ガード: ログインページ以外では未認証ユーザーをリダイレクト
-    const isLoginPage = window.location.pathname.endsWith('login.html');
+    const isLoginPage = window.location.pathname.endsWith('login.html') || window.location.pathname.endsWith('/login');
     if (!isLoginPage) {
         document.body.style.visibility = 'hidden';
         auth.onAuthStateChanged(user => {

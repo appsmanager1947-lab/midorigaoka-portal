@@ -247,6 +247,8 @@
 
         function pad(n) { return String(n).padStart(2, '0'); }
         function toDs(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+        // YYYY/MM/DD → YYYY-MM-DD に正規化（CSVやExcel由来のスラッシュ形式に対応）
+        function normDate(s) { return s ? s.replace(/\//g, '-') : s; }
 
         // 対象配列 → 分割グラデーション背景
         function getTargetBackground(targets) {
@@ -300,8 +302,8 @@
             // 行事マップを構築（期間対応：dateFrom〜dateTo の各日に展開）
             const evMap = {};
             allEvents.forEach(ev => {
-                const from = ev.dateFrom || ev.date;
-                const to   = ev.dateTo   || from;
+                const from = normDate(ev.dateFrom || ev.date);
+                const to   = normDate(ev.dateTo   || from);
                 let d = new Date(from + 'T00:00:00');
                 const toD = new Date(to + 'T00:00:00');
                 while (d <= toD) {
@@ -616,6 +618,8 @@
                         [dateFrom, title, target, note] = [cols[0]||'', cols[1]||'', cols[2]||'', cols[3]||''];
                         dateTo = '';
                     }
+                    dateFrom = normDate(dateFrom);
+                    dateTo   = normDate(dateTo);
                     if (!dateTo) dateTo = dateFrom;
                     if (!dateFrom || !title) continue;
                     const targets = target ? target.split('、').map(t => t.trim()).filter(t => t) : [];
@@ -652,11 +656,11 @@
             try {
                 const col = db.collection('annual_events');
 
-                // 既存データのキーマップを構築
+                // 既存データのキーマップを構築（スラッシュ形式の日付も正規化）
                 const existingMap = {};
                 allEvents.forEach(ev => {
-                    const from = ev.dateFrom || ev.date;
-                    const to   = ev.dateTo   || from;
+                    const from = normDate(ev.dateFrom || ev.date);
+                    const to   = normDate(ev.dateTo   || from);
                     const key  = `${from}|${to}|${ev.title}`;
                     existingMap[key] = ev;
                 });
@@ -672,8 +676,8 @@
                     const key = `${row.dateFrom}|${row.dateTo}|${row.title}`;
                     const ex  = existingMap[key];
                     if (ex) {
-                        const exFrom = ex.dateFrom || ex.date;
-                        const exTo   = ex.dateTo   || exFrom;
+                        const exFrom = normDate(ex.dateFrom || ex.date);
+                        const exTo   = normDate(ex.dateTo   || exFrom);
                         const exTargets = (ex.targets && ex.targets.length) ? ex.targets.join('、') : (ex.target || '');
                         const rowTargets = row.targets.join('、');
                         const same   = exFrom === row.dateFrom &&
@@ -691,8 +695,8 @@
                 });
 
                 allEvents.forEach(ev => {
-                    const from = ev.dateFrom || ev.date;
-                    const to   = ev.dateTo   || from;
+                    const from = normDate(ev.dateFrom || ev.date);
+                    const to   = normDate(ev.dateTo   || from);
                     const key  = `${from}|${to}|${ev.title}`;
                     if (!csvKeySet.has(key)) toDelete.push(ev.id);
                 });

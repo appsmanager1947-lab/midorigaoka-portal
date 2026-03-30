@@ -5,7 +5,7 @@ let db, storage, auth;
 
 document.addEventListener('DOMContentLoaded', () => {
     const firebaseConfig = {
-      apiKey: "AIzaSyDp-zjaKXdKdzy8iFA_GVOZw9LaLto491c",
+      apiKey: "AIzaSyC0Av1pu-j2_j3FWwGAEg_Db7dZoLMEeIA",
       authDomain: "portalsite-midorigaoka-77f17.firebaseapp.com",
       projectId: "portalsite-midorigaoka-77f17",
       storageBucket: "portalsite-midorigaoka-77f17.firebasestorage.app",

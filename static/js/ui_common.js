@@ -173,10 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         appList.addEventListener('click', async (e) => {
-            const appId = e.target.getAttribute('data-id');
-            if (!appId) return;
+            const btn = e.target.closest('[data-id]');
+            if (!btn) return;
+            const appId = btn.getAttribute('data-id');
 
-            if (e.target.classList.contains('delete-app-btn')) {
+            if (btn.classList.contains('delete-app-btn')) {
                 if (confirm(`このショートカットを削除しますか？`)) {
                     const app = customApps.find(a => a.id === appId);
                     if (app && app.icon && app.icon.startsWith('https://firebasestorage')) {
@@ -185,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     db.collection('shortcuts').doc(appId).delete();
                 }
             }
-            if (e.target.classList.contains('edit-app-item-btn')) {
+            if (btn.classList.contains('edit-app-item-btn')) {
                 const app = customApps.find(a => a.id === appId);
                 if(app) {
                     editingAppId = app.id;

@@ -622,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
                                 <span style="font-size:12px; color:#2c8c5a; white-space:nowrap;">開く →</span>
                             `;
-                            row.addEventListener('click', () => { window.location.href = `./column_detail.html?id=${item.columnId}`; });
+                            row.addEventListener('click', () => { window.location.href = `./column_detail.html?id=${item.columnId}&dash_id=${item.id}&source=dashboard`; });
                         } else {
                             row.innerHTML = `
                                 <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
@@ -866,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dashModal.addEventListener('click', (e) => { if (e.target === dashModal) { dashModal.classList.add('hidden'); editingDashId = null; } });
         document.getElementById('dash-submit').addEventListener('click', () => {
             const title = document.getElementById('dash-title').value.trim();
-            const tag = document.getElementById('dash-tag').value.trim() || 'リンク';
+            const tag = document.getElementById('dash-tag').value.trim() || 'その他';
             const url = document.getElementById('dash-url').value.trim();
             if (!title || !url) { alert('タイトルとリンクは必ず入力してください。'); return; }
             const data = { type: 'simple', title, tag, url };
@@ -914,7 +914,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dashMultiModal.addEventListener('click', (e) => { if (e.target === dashMultiModal) { dashMultiModal.classList.add('hidden'); editingDashId = null; } });
         document.getElementById('dash-multi-submit').addEventListener('click', () => {
             const title = document.getElementById('dash-multi-title').value.trim();
-            const tag = document.getElementById('dash-multi-tag').value.trim() || 'リンク';
+            const tag = document.getElementById('dash-multi-tag').value.trim() || 'その他';
             if (!title) { alert('タイトルを入力してください。'); return; }
             const links = [];
             document.querySelectorAll('#dash-multi-links-container > div').forEach(row => {
@@ -991,6 +991,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (detailTitle) {
         const urlParams = new URLSearchParams(window.location.search);
         const colId = urlParams.get('id');
+        const detailSource = urlParams.get('source');
+        const detailDashId = urlParams.get('dash_id');
 
         db.collection('columns').doc(colId).get().then(doc => {
             if (doc.exists) {
@@ -1003,13 +1005,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     detailActions.style.display = 'block';
 
                     document.getElementById('btn-detail-edit').addEventListener('click', () => {
-                        window.location.href = `./column_edit.html?edit_id=${colId}`;
+                        let editUrl = `./column_edit.html?edit_id=${colId}`;
+                        if (detailSource === 'dashboard') editUrl += '&source=dashboard_edit';
+                        window.location.href = editUrl;
                     });
 
                     document.getElementById('btn-detail-delete').addEventListener('click', () => {
                         if (confirm('このコラムを削除してもよろしいですか？')) {
-                            db.collection('columns').doc(colId).delete().then(() => {
-                                window.location.href = './columns.html';
+                            const batch = db.batch();
+                            batch.delete(db.collection('columns').doc(colId));
+                            if (detailSource === 'dashboard' && detailDashId) {
+                                batch.delete(db.collection('dashboards').doc(detailDashId));
+                            }
+                            batch.commit().then(() => {
+                                window.location.href = detailSource === 'dashboard' ? './index.html' : './columns.html';
                             });
                         }
                     });

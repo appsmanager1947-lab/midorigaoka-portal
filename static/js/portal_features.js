@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (colContainer) {
                 const sortedCols = [...columns].slice(0, 4); // 最新4件
                 if (sortedCols.length === 0) {
-                    colContainer.innerHTML = '<p style="color:#bbb; font-size:13px; padding:8px 0;">コラムはありません</p>';
+                    colContainer.innerHTML = '<p style="color:#bbb; font-size:13px; padding:8px 0; text-align:center;">コラムはありません</p>';
                 } else {
                     colContainer.innerHTML = sortedCols.map(createColumnCard).join('');
                     setupColumnCardEvents('column-list-container');
@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (filteredCols.length === 0) {
-                allColContainer.innerHTML = '<p style="color:#bbb; font-size:13px; padding:8px 0;">コラムはありません</p>';
+                allColContainer.innerHTML = '<p style="color:#bbb; font-size:13px; padding:8px 0; text-align:center;">コラムはありません</p>';
             } else {
                 allColContainer.innerHTML = filteredCols.map(createColumnCard).join('');
             }

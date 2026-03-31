@@ -1310,6 +1310,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let timetables = [];
         let isTtEditMode = false;
         const days = ['月', '火', '水', '木', '金'];
+        const TT_CLASSES = ['1-1','1-2','1-3','1-4','2-1','2-2','2-3','2-4','3-1','3-2','3-3','3-4','3-A','A選択','B選択','C選択','D選択','E選択','F選択','プログラム'];
+        const TT_DAYS = ['月','火','水','木','金'];
+        const TT_PERIODS = ['1','2','3','4','5','6','7'];
 
         function renderTimetable() {
             ttBody.innerHTML = '';
@@ -1391,6 +1394,113 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (confirm('この授業を時間割から削除しますか？')) {
                     db.collection('timetables').doc(id).delete();
                 }
+            }
+        });
+
+        // ── CSV一括登録 ──────────────────────────────────────────
+        const ttCsvBtn = document.getElementById('tt-csv-btn');
+        const ttCsvModal = document.getElementById('tt-csv-modal');
+        const ttCsvFile = document.getElementById('tt-csv-file');
+        const ttCsvPreviewWrap = document.getElementById('tt-csv-preview-wrap');
+        const ttCsvPreviewBody = document.getElementById('tt-csv-preview-body');
+        const ttCsvCount = document.getElementById('tt-csv-count');
+        const ttCsvErrors = document.getElementById('tt-csv-errors');
+        const ttCsvSubmit = document.getElementById('tt-csv-submit');
+
+        let parsedTtRows = [];
+
+        // テンプレートDL
+        document.getElementById('tt-csv-template-dl').addEventListener('click', () => {
+            const header = '曜日,時限,クラス,科目名,担当者';
+            const examples = [
+                '月,1,1-1,現代文,山田',
+                '月,1,1-2,数学I,鈴木',
+                '月,2,A選択,英語表現,田中',
+                '火,3,プログラム,情報,佐藤',
+            ].join('\n');
+            const blob = new Blob([header + '\n' + examples], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = 'timetable_template.csv'; a.click();
+        });
+
+        if (ttCsvBtn) {
+            ttCsvBtn.addEventListener('click', () => {
+                ttCsvFile.value = ''; ttCsvPreviewWrap.style.display = 'none';
+                ttCsvErrors.textContent = ''; ttCsvSubmit.disabled = true; parsedTtRows = [];
+                ttCsvModal.classList.remove('hidden');
+            });
+        }
+
+        document.getElementById('tt-csv-cancel').addEventListener('click', () => ttCsvModal.classList.add('hidden'));
+        ttCsvModal.addEventListener('click', (e) => { if (e.target === ttCsvModal) ttCsvModal.classList.add('hidden'); });
+
+        ttCsvFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const text = ev.target.result;
+                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+                if (lines.length < 2) { ttCsvErrors.textContent = 'データ行がありません。'; return; }
+
+                const errors = [];
+                parsedTtRows = [];
+                ttCsvPreviewBody.innerHTML = '';
+
+                lines.slice(1).forEach((line, i) => {
+                    const cols = line.split(',').map(c => c.trim());
+                    const [day, period, className, subject, teacher] = cols;
+                    const rowNum = i + 2;
+                    if (!day || !period || !className || !subject || !teacher) {
+                        errors.push(`${rowNum}行目: 必須項目が不足しています`); return;
+                    }
+                    if (!TT_DAYS.includes(day)) { errors.push(`${rowNum}行目: 曜日「${day}」が不正です`); return; }
+                    if (!TT_PERIODS.includes(period)) { errors.push(`${rowNum}行目: 時限「${period}」が不正です（1〜7）`); return; }
+
+                    parsedTtRows.push({ day, period, className, subject, teacher });
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #F0EEE9';
+                    tr.innerHTML = [day, period, className, subject, teacher].map(v =>
+                        `<td style="padding:5px 10px;">${v}</td>`).join('');
+                    ttCsvPreviewBody.appendChild(tr);
+                });
+
+                ttCsvCount.textContent = parsedTtRows.length;
+                ttCsvErrors.innerHTML = errors.length ? errors.join('<br>') : '';
+                ttCsvPreviewWrap.style.display = 'block';
+                ttCsvSubmit.disabled = parsedTtRows.length === 0;
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        ttCsvSubmit.addEventListener('click', async () => {
+            if (parsedTtRows.length === 0) return;
+            if (!confirm(`現在の時間割をすべて削除し、${parsedTtRows.length}件のデータで置き換えます。よろしいですか？`)) return;
+
+            ttCsvSubmit.disabled = true;
+            ttCsvSubmit.textContent = '登録中...';
+
+            try {
+                // 既存データを500件ずつ削除
+                const existing = [...timetables];
+                for (let i = 0; i < existing.length; i += 400) {
+                    const batch = db.batch();
+                    existing.slice(i, i + 400).forEach(t => batch.delete(db.collection('timetables').doc(t.id)));
+                    await batch.commit();
+                }
+                // 新データを500件ずつ追加
+                for (let i = 0; i < parsedTtRows.length; i += 400) {
+                    const batch = db.batch();
+                    parsedTtRows.slice(i, i + 400).forEach(row => batch.set(db.collection('timetables').doc(), row));
+                    await batch.commit();
+                }
+                ttCsvModal.classList.add('hidden');
+                alert(`${parsedTtRows.length}件の時間割を登録しました。`);
+            } catch (err) {
+                alert('登録中にエラーが発生しました。');
+            } finally {
+                ttCsvSubmit.disabled = false;
+                ttCsvSubmit.textContent = '一括登録する';
             }
         });
     }

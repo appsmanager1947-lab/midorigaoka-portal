@@ -561,16 +561,17 @@ document.addEventListener('DOMContentLoaded', () => {
             '総務部': '#F0F0F0', 'その他': '#F0F0F0',
             '生徒会': '#FAE5D3'
         };
+        const DASH_TAG_LIST = ['教職員', '進路指導部', '教務部', '生徒指導部', '入試対策部', '総務部', '生徒会'];
+        const dashTagOptionsHtml = DASH_TAG_LIST.map(t => `<option value="${t}"></option>`).join('');
+        const editIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
 
+        // ── レンダリング ──────────────────────────────────────────
         function renderDashboard() {
             dashboardGrid.innerHTML = '';
-
             if (dashboardItems.length === 0) {
-                dashboardGrid.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px;">登録されたリンクはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
+                dashboardGrid.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px;">登録されたカードはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
                 return;
             }
-
-            // 通常・編集モード共通：タグ別グループリスト
             const groups = {};
             const tagOrder = [];
             dashboardItems.forEach(item => {
@@ -578,48 +579,61 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!groups[tag]) { groups[tag] = []; tagOrder.push(tag); }
                 groups[tag].push(item);
             });
-
             tagOrder.forEach(tag => {
                 const items = groups[tag];
                 const color = DASH_TAG_COLORS[tag] || '#F0F0F0';
-
                 const section = document.createElement('div');
                 section.style.cssText = `margin-bottom:16px; border:1px solid ${isDashEditMode ? '#0066cc' : '#E6E4DF'}; border-radius:8px; overflow:hidden;`;
-
                 const header = document.createElement('div');
                 header.style.cssText = `background:${color}; padding:7px 16px; font-size:12px; font-weight:bold; color:#4A4643; border-bottom:1px solid rgba(0,0,0,0.07); letter-spacing:0.04em;`;
                 header.textContent = tag;
                 section.appendChild(header);
-
                 items.forEach((item, idx) => {
                     const row = document.createElement('div');
                     const isLast = idx === items.length - 1;
                     row.dataset.id = item.id;
                     row.dataset.tag = tag;
-
                     if (isDashEditMode) {
                         row.setAttribute('draggable', 'true');
                         row.style.cssText = `display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; ${isLast ? '' : 'border-bottom:1px solid #F0EEE9;'} cursor:grab;`;
+                        const typeIcon = item.type === 'multi' ? '📋' : item.type === 'page' ? '📝' : '🔗';
                         row.innerHTML = `
                             <span style="color:#bbb; font-size:20px; user-select:none; flex:0 0 auto; pointer-events:none;">⠿</span>
+                            <span style="font-size:14px; flex:0 0 auto; pointer-events:none;">${typeIcon}</span>
                             <span style="flex:1; font-size:14px; color:#4A4643; opacity:0.7;">${item.title}</span>
-                            <button class="edit-dash-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; font-size:14px; padding:2px 6px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+                            <button class="edit-dash-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; padding:2px 6px;">${editIconSvg}</button>
                             <button class="delete-dash-btn" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:18px; font-weight:bold; padding:2px 6px;">×</button>
                         `;
                     } else {
                         row.style.cssText = `display:flex; align-items:center; padding:10px 16px; gap:12px; background:#fff; ${isLast ? '' : 'border-bottom:1px solid #F0EEE9;'} transition:background 0.15s;`;
                         row.onmouseover = () => row.style.backgroundColor = '#F7F7F5';
                         row.onmouseout = () => row.style.backgroundColor = '#fff';
-                        row.innerHTML = `
-                            <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
-                            <a href="${item.url}" target="_blank" style="font-size:12px; color:#2c8c5a; text-decoration:none; white-space:nowrap; padding:4px 10px; border:1px solid #c3e6d6; border-radius:4px; background:#f0faf5; transition:all 0.15s;"
-                               onmouseover="this.style.backgroundColor='#2c8c5a'; this.style.color='#fff';"
-                               onmouseout="this.style.backgroundColor='#f0faf5'; this.style.color='#2c8c5a';">開く ↗</a>
-                        `;
+                        if (item.type === 'multi') {
+                            row.style.cursor = 'pointer';
+                            const linkCount = (item.links || []).length;
+                            row.innerHTML = `
+                                <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
+                                <span style="font-size:12px; color:#888; white-space:nowrap;">${linkCount}件 ▸</span>
+                            `;
+                            row.addEventListener('click', () => openLinkSelectModal(item));
+                        } else if (item.type === 'page') {
+                            row.style.cursor = 'pointer';
+                            row.innerHTML = `
+                                <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
+                                <span style="font-size:12px; color:#2c8c5a; white-space:nowrap;">開く →</span>
+                            `;
+                            row.addEventListener('click', () => { window.location.href = `./column_detail.html?id=${item.columnId}`; });
+                        } else {
+                            row.innerHTML = `
+                                <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
+                                <a href="${item.url || '#'}" target="_blank" style="font-size:12px; color:#2c8c5a; text-decoration:none; white-space:nowrap; padding:4px 10px; border:1px solid #c3e6d6; border-radius:4px; background:#f0faf5; transition:all 0.15s;"
+                                   onmouseover="this.style.backgroundColor='#2c8c5a'; this.style.color='#fff';"
+                                   onmouseout="this.style.backgroundColor='#f0faf5'; this.style.color='#2c8c5a';">開く ↗</a>
+                            `;
+                        }
                     }
                     section.appendChild(row);
                 });
-
                 dashboardGrid.appendChild(section);
             });
         }
@@ -644,29 +658,32 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDashboard();
         });
 
+        // ── 編集モードのクリックハンドラ（SVG子要素対応）────────
         dashboardGrid.addEventListener('click', async (e) => {
-            const id = e.target.getAttribute('data-id');
-            if (!id) return;
-
-            if (e.target.classList.contains('delete-dash-btn')) {
+            const btn = e.target.closest('[data-id]');
+            if (!btn) return;
+            const id = btn.getAttribute('data-id');
+            if (btn.classList.contains('delete-dash-btn')) {
                 const item = dashboardItems.find(i => i.id === id);
-                if (item && confirm(`リンク「${item.title}」を削除しますか？`)) { db.collection('dashboards').doc(id).delete(); }
+                if (item && confirm(`カード「${item.title}」を削除しますか？`)) {
+                    if (item.type === 'page' && item.columnId) {
+                        db.collection('columns').doc(item.columnId).delete().catch(() => {});
+                    }
+                    db.collection('dashboards').doc(id).delete();
+                }
             }
-            if (e.target.classList.contains('edit-dash-item-btn')) {
+            if (btn.classList.contains('edit-dash-item-btn')) {
                 const item = dashboardItems.find(i => i.id === id);
                 if (item) {
                     editingDashId = id;
-                    document.getElementById('dash-title').value = item.title;
-                    document.getElementById('dash-tag').value = item.tag;
-                    document.getElementById('dash-url').value = item.url;
-                    document.getElementById('dash-submit').textContent = '更新';
-                    document.querySelector('#dash-modal-overlay .modal-title').textContent = 'ダッシュボードを編集';
-                    dashModal.classList.remove('hidden');
+                    if (item.type === 'multi') { openMultiModal(item); }
+                    else if (item.type === 'page') { openPageEditModal(item); }
+                    else { openSimpleModal(item); }
                 }
             }
         });
 
-        // ドラッグ＆ドロップ（同タグ内のみ並び替え）
+        // ── ドラッグ＆ドロップ（同タグ内のみ）───────────────────
         let _dashDndSrcId = null;
         let _dashDndSrcTag = null;
         dashboardGrid.addEventListener('dragstart', (e) => {
@@ -708,16 +725,43 @@ document.addEventListener('DOMContentLoaded', () => {
             await batch.commit();
         });
 
+        // ── 1. 種類選択モーダル ──────────────────────────────────
+        const typeCardStyle = 'display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border:1px solid #E6E4DF; border-radius:8px; background:#fff; cursor:pointer; text-align:left; width:100%; transition:border-color 0.2s;';
+        const dashTypeModal = document.createElement('div');
+        dashTypeModal.className = 'modal-overlay hidden';
+        dashTypeModal.innerHTML = `
+            <div class="modal-content" style="max-width:480px;">
+                <h3 class="modal-title">カードの種類を選択</h3>
+                <div style="display:flex; flex-direction:column; gap:10px; margin:4px 0 8px;">
+                    <button id="dash-type-simple" style="${typeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">🔗</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">シンプルリンクカード</div><div style="font-size:12px; color:#888;">1つのリンクを開くシンプルなカード</div></div>
+                    </button>
+                    <button id="dash-type-multi" style="${typeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">📋</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">マルチリンクカード</div><div style="font-size:12px; color:#888;">クリックすると複数リンクから選択するモーダルが開く</div></div>
+                    </button>
+                    <button id="dash-type-page" style="${typeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">📝</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">フリーページカード</div><div style="font-size:12px; color:#888;">自由に書き込めるページを持つカード（コラム機能を使用）</div></div>
+                    </button>
+                </div>
+                <div class="modal-actions"><button id="dash-type-cancel" class="btn-cancel">キャンセル</button></div>
+            </div>
+        `;
+        document.body.appendChild(dashTypeModal);
+
+        // ── 2. シンプルリンクモーダル ─────────────────────────────
         const dashModal = document.createElement('div');
         dashModal.id = 'dash-modal-overlay';
         dashModal.className = 'modal-overlay hidden';
         dashModal.innerHTML = `
             <div class="modal-content">
-                <h3 class="modal-title">ダッシュボードにリンクを追加</h3>
+                <h3 id="dash-modal-title" class="modal-title">シンプルリンクカードを追加</h3>
                 <div class="form-group"><label>タイトル</label><input type="text" id="dash-title" class="modal-input" placeholder="例：令和8年度 生徒指導規程"></div>
                 <div class="form-group">
                     <label>タグ</label><input type="text" id="dash-tag" class="modal-input" list="dash-tag-options" placeholder="選択または入力してください">
-                    <datalist id="dash-tag-options"><option value="教職員"></option><option value="進路指導部"></option><option value="教務部"></option><option value="生徒指導部"></option><option value="入試対策部"></option><option value="総務部"></option><option value="生徒会"></option></datalist>
+                    <datalist id="dash-tag-options">${dashTagOptionsHtml}</datalist>
                 </div>
                 <div class="form-group"><label>リンク先 (URL)</label><input type="text" id="dash-url" class="modal-input" placeholder="https://..."></div>
                 <div class="modal-actions"><button id="dash-cancel" class="btn-cancel">キャンセル</button><button id="dash-submit" class="btn-submit">追加</button></div>
@@ -725,31 +769,219 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         document.body.appendChild(dashModal);
 
-        addDashBtn.addEventListener('click', () => {
-            editingDashId = null;
-            document.getElementById('dash-title').value = ''; document.getElementById('dash-tag').value = ''; document.getElementById('dash-url').value = '';
-            document.getElementById('dash-submit').textContent = '追加';
-            document.querySelector('#dash-modal-overlay .modal-title').textContent = 'ダッシュボードにリンクを追加';
-            dashModal.classList.remove('hidden');
-        });
-        document.getElementById('dash-cancel').addEventListener('click', () => dashModal.classList.add('hidden'));
+        // ── 3. マルチリンクモーダル ───────────────────────────────
+        const dashMultiModal = document.createElement('div');
+        dashMultiModal.className = 'modal-overlay hidden';
+        dashMultiModal.innerHTML = `
+            <div class="modal-content" style="max-width:500px;">
+                <h3 id="dash-multi-modal-title" class="modal-title">マルチリンクカードを追加</h3>
+                <div class="form-group"><label>カードタイトル</label><input type="text" id="dash-multi-title" class="modal-input" placeholder="例：参考資料一覧"></div>
+                <div class="form-group">
+                    <label>タグ</label><input type="text" id="dash-multi-tag" class="modal-input" list="dash-multi-tag-options" placeholder="選択または入力してください">
+                    <datalist id="dash-multi-tag-options">${dashTagOptionsHtml}</datalist>
+                </div>
+                <div class="form-group">
+                    <label>リンク一覧</label>
+                    <div id="dash-multi-links-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>
+                    <button id="dash-multi-add-link" type="button" style="width:100%; padding:8px; border:1px dashed #aaa; border-radius:6px; background:#fafafa; color:#555; cursor:pointer; font-size:13px;">＋ リンクを追加</button>
+                </div>
+                <div class="modal-actions"><button id="dash-multi-cancel" class="btn-cancel">キャンセル</button><button id="dash-multi-submit" class="btn-submit">追加</button></div>
+            </div>
+        `;
+        document.body.appendChild(dashMultiModal);
 
+        // ── 4. フリーページ作成モーダル ──────────────────────────
+        const dashPageModal = document.createElement('div');
+        dashPageModal.className = 'modal-overlay hidden';
+        dashPageModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 class="modal-title">フリーページカードを追加</h3>
+                <p style="font-size:13px; color:#666; margin:-8px 0 16px;">カード情報を入力すると、ページ編集画面に移動します。</p>
+                <div class="form-group"><label>カードタイトル</label><input type="text" id="dash-page-title" class="modal-input" placeholder="例：学校ニュース"></div>
+                <div class="form-group">
+                    <label>タグ</label><input type="text" id="dash-page-tag" class="modal-input" list="dash-page-tag-options" placeholder="選択または入力してください">
+                    <datalist id="dash-page-tag-options">${dashTagOptionsHtml}</datalist>
+                </div>
+                <div class="modal-actions"><button id="dash-page-cancel" class="btn-cancel">キャンセル</button><button id="dash-page-submit" class="btn-submit">ページを作成 →</button></div>
+            </div>
+        `;
+        document.body.appendChild(dashPageModal);
+
+        // ── 5. フリーページ編集モーダル（タイトル/タグ変更）────────
+        const dashPageEditModal = document.createElement('div');
+        dashPageEditModal.className = 'modal-overlay hidden';
+        dashPageEditModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 class="modal-title">フリーページカードを編集</h3>
+                <div class="form-group"><label>カードタイトル</label><input type="text" id="dash-page-edit-title" class="modal-input"></div>
+                <div class="form-group">
+                    <label>タグ</label><input type="text" id="dash-page-edit-tag" class="modal-input" list="dash-page-edit-tag-options">
+                    <datalist id="dash-page-edit-tag-options">${dashTagOptionsHtml}</datalist>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <a id="dash-page-edit-link" href="#" style="font-size:13px; color:#2c8c5a; text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border:1px solid #c3e6d6; border-radius:6px; background:#f0faf5;">📝 ページ内容を編集する →</a>
+                </div>
+                <div class="modal-actions"><button id="dash-page-edit-cancel" class="btn-cancel">キャンセル</button><button id="dash-page-edit-submit" class="btn-submit">保存</button></div>
+            </div>
+        `;
+        document.body.appendChild(dashPageEditModal);
+
+        // ── 6. リンク選択モーダル（マルチリンク用）──────────────
+        const dashLinkSelectModal = document.createElement('div');
+        dashLinkSelectModal.className = 'modal-overlay hidden';
+        dashLinkSelectModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 id="dash-link-select-title" class="modal-title"></h3>
+                <div id="dash-link-select-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:4px;"></div>
+                <div class="modal-actions"><button id="dash-link-select-close" class="btn-cancel">閉じる</button></div>
+            </div>
+        `;
+        document.body.appendChild(dashLinkSelectModal);
+
+        // ── イベントハンドラ ──────────────────────────────────────
+
+        // 種類選択
+        addDashBtn.addEventListener('click', () => { editingDashId = null; dashTypeModal.classList.remove('hidden'); });
+        document.getElementById('dash-type-cancel').addEventListener('click', () => dashTypeModal.classList.add('hidden'));
+        dashTypeModal.addEventListener('click', (e) => { if (e.target === dashTypeModal) dashTypeModal.classList.add('hidden'); });
+        document.getElementById('dash-type-simple').addEventListener('click', () => { dashTypeModal.classList.add('hidden'); openSimpleModal(null); });
+        document.getElementById('dash-type-multi').addEventListener('click', () => { dashTypeModal.classList.add('hidden'); openMultiModal(null); });
+        document.getElementById('dash-type-page').addEventListener('click', () => {
+            dashTypeModal.classList.add('hidden');
+            document.getElementById('dash-page-title').value = '';
+            document.getElementById('dash-page-tag').value = '';
+            dashPageModal.classList.remove('hidden');
+        });
+
+        // シンプルリンク
+        function openSimpleModal(item) {
+            document.getElementById('dash-title').value = item ? item.title : '';
+            document.getElementById('dash-tag').value = item ? (item.tag || '') : '';
+            document.getElementById('dash-url').value = item ? (item.url || '') : '';
+            document.getElementById('dash-modal-title').textContent = item ? 'シンプルリンクカードを編集' : 'シンプルリンクカードを追加';
+            document.getElementById('dash-submit').textContent = item ? '更新' : '追加';
+            dashModal.classList.remove('hidden');
+        }
+        document.getElementById('dash-cancel').addEventListener('click', () => { dashModal.classList.add('hidden'); editingDashId = null; });
+        dashModal.addEventListener('click', (e) => { if (e.target === dashModal) { dashModal.classList.add('hidden'); editingDashId = null; } });
         document.getElementById('dash-submit').addEventListener('click', () => {
             const title = document.getElementById('dash-title').value.trim();
             const tag = document.getElementById('dash-tag').value.trim() || 'リンク';
             const url = document.getElementById('dash-url').value.trim();
             if (!title || !url) { alert('タイトルとリンクは必ず入力してください。'); return; }
-
-            const data = { title, tag, url };
-
+            const data = { type: 'simple', title, tag, url };
             if (editingDashId) {
-                db.collection('dashboards').doc(editingDashId).update(data).then(() => { dashModal.classList.add('hidden'); });
+                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashModal.classList.add('hidden'); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = dashboardItems.length;
                 db.collection('dashboards').add(data).then(() => { dashModal.classList.add('hidden'); });
             }
         });
+
+        // マルチリンク
+        function addMultiLinkRow(container, linkTitle, linkUrl) {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:6px; align-items:center;';
+            row.innerHTML = `
+                <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                    <input type="text" class="multi-link-title modal-input" placeholder="リンクのタイトル" style="margin:0; font-size:13px; padding:6px 10px;">
+                    <input type="text" class="multi-link-url modal-input" placeholder="https://..." style="margin:0; font-size:13px; padding:6px 10px;">
+                </div>
+                <button type="button" class="multi-link-remove" style="flex:0 0 auto; background:transparent; color:#d9534f; border:1px solid #d9534f; border-radius:4px; cursor:pointer; padding:4px 8px; font-weight:bold; align-self:center;">×</button>
+            `;
+            if (linkTitle) row.querySelector('.multi-link-title').value = linkTitle;
+            if (linkUrl)   row.querySelector('.multi-link-url').value   = linkUrl;
+            row.querySelector('.multi-link-remove').addEventListener('click', () => row.remove());
+            container.appendChild(row);
+        }
+        function openMultiModal(item) {
+            const container = document.getElementById('dash-multi-links-container');
+            container.innerHTML = '';
+            document.getElementById('dash-multi-title').value = item ? item.title : '';
+            document.getElementById('dash-multi-tag').value = item ? (item.tag || '') : '';
+            document.getElementById('dash-multi-modal-title').textContent = item ? 'マルチリンクカードを編集' : 'マルチリンクカードを追加';
+            document.getElementById('dash-multi-submit').textContent = item ? '更新' : '追加';
+            if (item && item.links && item.links.length > 0) {
+                item.links.forEach(link => addMultiLinkRow(container, link.title, link.url));
+            } else {
+                addMultiLinkRow(container, '', '');
+            }
+            dashMultiModal.classList.remove('hidden');
+        }
+        document.getElementById('dash-multi-add-link').addEventListener('click', () => addMultiLinkRow(document.getElementById('dash-multi-links-container'), '', ''));
+        document.getElementById('dash-multi-cancel').addEventListener('click', () => { dashMultiModal.classList.add('hidden'); editingDashId = null; });
+        dashMultiModal.addEventListener('click', (e) => { if (e.target === dashMultiModal) { dashMultiModal.classList.add('hidden'); editingDashId = null; } });
+        document.getElementById('dash-multi-submit').addEventListener('click', () => {
+            const title = document.getElementById('dash-multi-title').value.trim();
+            const tag = document.getElementById('dash-multi-tag').value.trim() || 'リンク';
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            const links = [];
+            document.querySelectorAll('#dash-multi-links-container > div').forEach(row => {
+                const lt = row.querySelector('.multi-link-title').value.trim();
+                const lu = row.querySelector('.multi-link-url').value.trim();
+                if (lt && lu) links.push({ title: lt, url: lu });
+            });
+            if (links.length === 0) { alert('リンクを1件以上入力してください。'); return; }
+            const data = { type: 'multi', title, tag, links };
+            if (editingDashId) {
+                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashMultiModal.classList.add('hidden'); });
+            } else {
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                data.order = dashboardItems.length;
+                db.collection('dashboards').add(data).then(() => { dashMultiModal.classList.add('hidden'); });
+            }
+        });
+
+        // フリーページ作成
+        document.getElementById('dash-page-cancel').addEventListener('click', () => dashPageModal.classList.add('hidden'));
+        dashPageModal.addEventListener('click', (e) => { if (e.target === dashPageModal) dashPageModal.classList.add('hidden'); });
+        document.getElementById('dash-page-submit').addEventListener('click', () => {
+            const title = document.getElementById('dash-page-title').value.trim();
+            const tag = document.getElementById('dash-page-tag').value.trim() || 'その他';
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            dashPageModal.classList.add('hidden');
+            const params = new URLSearchParams({ source: 'dashboard', dash_tag: tag, dash_title: title });
+            window.location.href = `./column_edit.html?${params.toString()}`;
+        });
+
+        // フリーページ編集（タイトル/タグのみ。ページ内容はリンクから）
+        function openPageEditModal(item) {
+            document.getElementById('dash-page-edit-title').value = item.title;
+            document.getElementById('dash-page-edit-tag').value = item.tag || '';
+            document.getElementById('dash-page-edit-link').href = `./column_edit.html?edit_id=${item.columnId}&source=dashboard_edit`;
+            dashPageEditModal.classList.remove('hidden');
+        }
+        document.getElementById('dash-page-edit-cancel').addEventListener('click', () => { dashPageEditModal.classList.add('hidden'); editingDashId = null; });
+        dashPageEditModal.addEventListener('click', (e) => { if (e.target === dashPageEditModal) { dashPageEditModal.classList.add('hidden'); editingDashId = null; } });
+        document.getElementById('dash-page-edit-submit').addEventListener('click', () => {
+            if (!editingDashId) return;
+            const title = document.getElementById('dash-page-edit-title').value.trim();
+            const tag = document.getElementById('dash-page-edit-tag').value.trim() || 'その他';
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            db.collection('dashboards').doc(editingDashId).update({ title, tag }).then(() => { editingDashId = null; dashPageEditModal.classList.add('hidden'); });
+        });
+
+        // リンク選択（マルチリンクカードクリック時）
+        function openLinkSelectModal(item) {
+            document.getElementById('dash-link-select-title').textContent = item.title;
+            const list = document.getElementById('dash-link-select-list');
+            list.innerHTML = '';
+            (item.links || []).forEach(link => {
+                const a = document.createElement('a');
+                a.href = link.url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border:1px solid #E6E4DF; border-radius:6px; background:#fff; text-decoration:none; color:#4A4643; font-size:14px; transition:background 0.15s;';
+                a.innerHTML = `<span>${link.title || link.url}</span><span style="font-size:12px; color:#2c8c5a; flex:0 0 auto; margin-left:12px;">開く ↗</span>`;
+                a.onmouseover = () => a.style.background = '#F7F7F5';
+                a.onmouseout  = () => a.style.background = '#fff';
+                list.appendChild(a);
+            });
+            dashLinkSelectModal.classList.remove('hidden');
+        }
+        document.getElementById('dash-link-select-close').addEventListener('click', () => dashLinkSelectModal.classList.add('hidden'));
+        dashLinkSelectModal.addEventListener('click', (e) => { if (e.target === dashLinkSelectModal) dashLinkSelectModal.classList.add('hidden'); });
     }
 
     // ==========================================

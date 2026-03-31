@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (colContainer) {
                 const sortedCols = [...columns].slice(0, 4); // 最新4件
                 if (sortedCols.length === 0) {
-                    colContainer.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px;">コラムはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
+                    colContainer.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px; grid-column:1/-1;">コラムはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
                 } else {
                     colContainer.innerHTML = sortedCols.map(createColumnCard).join('');
                     setupColumnCardEvents('column-list-container');
@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (filteredCols.length === 0) {
-                allColContainer.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px;">コラムはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
+                allColContainer.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px; grid-column:1/-1;">コラムはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
             } else {
                 allColContainer.innerHTML = filteredCols.map(createColumnCard).join('');
             }

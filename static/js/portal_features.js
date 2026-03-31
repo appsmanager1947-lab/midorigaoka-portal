@@ -559,9 +559,9 @@ document.addEventListener('DOMContentLoaded', () => {
             '生徒指導部': '#FCF3CF', '高２': '#FCF3CF',
             '入試対策部': '#E8DAEF', '高３': '#E8DAEF',
             '総務部': '#F0F0F0', 'その他': '#F0F0F0',
-            '生徒会': '#FAE5D3'
+            '生徒会': '#FAE5D3', '書類': '#E3F0FB'
         };
-        const DASH_TAG_LIST = ['教職員', '進路指導部', '教務部', '生徒指導部', '入試対策部', '総務部', '生徒会'];
+        const DASH_TAG_LIST = ['書類', '教職員', '進路指導部', '教務部', '生徒指導部', '入試対策部', '総務部', '生徒会'];
         const dashTagOptionsHtml = DASH_TAG_LIST.map(t => `<option value="${t}"></option>`).join('');
         const editIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
 

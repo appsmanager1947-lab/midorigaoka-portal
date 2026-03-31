@@ -1382,7 +1382,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const className = document.getElementById('tt-class').value;
             const subject = document.getElementById('tt-subject').value.trim(); const teacher = document.getElementById('tt-teacher').value.trim();
 
-            if (!subject || !teacher) { alert('科目名と担当者は必ず入力してください。'); return; }
+            if (!subject) { alert('科目名は必ず入力してください。'); return; }
 
             db.collection('timetables').add({ day, period, className, subject, teacher })
               .then(() => closeTtModal());
@@ -1451,8 +1451,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const cols = line.split(',').map(c => c.trim());
                     const [day, period, className, subject, teacher] = cols;
                     const rowNum = i + 2;
-                    if (!day || !period || !className || !subject || !teacher) {
-                        errors.push(`${rowNum}行目: 必須項目が不足しています`); return;
+                    if (!day || !period || !className || !subject) {
+                        errors.push(`${rowNum}行目: 必須項目が不足しています（曜日・時限・クラス・科目名）`); return;
                     }
                     if (!TT_DAYS.includes(day)) { errors.push(`${rowNum}行目: 曜日「${day}」が不正です`); return; }
                     if (!TT_PERIODS.includes(period)) { errors.push(`${rowNum}行目: 時限「${period}」が不正です（1〜7）`); return; }

@@ -1418,7 +1418,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 '月,2,A選択,英語表現,田中',
                 '火,3,プログラム,情報,佐藤',
             ].join('\n');
-            const blob = new Blob([header + '\n' + examples], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob(['\uFEFF' + header + '\n' + examples], { type: 'text/csv;charset=utf-8;' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
             a.download = 'timetable_template.csv'; a.click();
         });

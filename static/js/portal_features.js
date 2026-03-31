@@ -249,7 +249,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (colContainer || allColContainer) {
         db.collection('columns').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
             columns = [];
-            snapshot.forEach((doc) => { columns.push({ id: doc.id, ...doc.data() }); });
+            snapshot.forEach((doc) => {
+                const d = doc.data();
+                if (!d.isDashboardPage) columns.push({ id: doc.id, ...d });
+            });
             
             if (colContainer) {
                 const sortedCols = [...columns].slice(0, 4); // 最新4件

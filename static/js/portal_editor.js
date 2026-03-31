@@ -666,6 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveData.author = editAuthor ? editAuthor.value.trim() : '教職員';
                     saveData.date = getTodayStr();
                     saveData.img = currentEyecatchData;
+                    if (isDashboardSource || isDashboardEdit) saveData.isDashboardPage = true;
                 }
 
                 const afterPublish = () => {

@@ -51,22 +51,17 @@
 
                 <input type="text" id="edit-title" class="notion-title-input" placeholder="無題のコラム">
                 
-                <div class="notion-meta-row">
-                    <input type="hidden" id="edit-author">
-                    <div id="tag-chip-wrap" class="notion-meta-input tag-chip-wrap" title="一覧から選択するかタグを入力し、Enterまたはスペースで追加">
-                        <input id="tag-text-input" class="tag-text-input" placeholder="タグを選択または入力（Enter / スペース）" list="column-tag-options" autocomplete="off">
-                        <datalist id="column-tag-options">
-                            <option value="書類"></option>
-                            <option value="教職員"></option>
-                            <option value="進路指導部"></option>
-                            <option value="教務部"></option>
-                            <option value="生徒指導部"></option>
-                            <option value="入試対策部"></option>
-                            <option value="総務部"></option>
-                            <option value="生徒会"></option>
-                            <option value="学習サポート"></option>
-                        </datalist>
+                <input type="hidden" id="edit-author">
+                <div id="tag-selector-area">
+                    <div class="tag-section-label">🏷️ タグ <span class="tag-section-hint">（複数選択可・自由入力も可）</span></div>
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:5px;">
+                        <div id="tag-preset-buttons" style="display:contents;"></div>
+                        <div id="tag-chip-wrap" style="display:contents;">
+                            <input id="tag-text-input" class="tag-custom-text-input" placeholder="＋ その他のタグを入力" autocomplete="off">
+                        </div>
                     </div>
+                </div>
+                <div class="notion-meta-row">
                     <input type="date" id="edit-date" class="notion-meta-input">
                 </div>
 

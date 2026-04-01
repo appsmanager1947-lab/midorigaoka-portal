@@ -80,53 +80,68 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // ① タグチップ UI (column_edit のみ)
+        // ① タグセレクター UI (column_edit のみ)
         if (!isBoardMode) {
-            const tagWrap = document.getElementById('tag-chip-wrap');
+            const COLUMN_TAG_LIST = ['書類', '教職員', '進路指導部', '教務部', '生徒指導部', '入試対策部', '総務部', '生徒会', '学習サポート'];
+            const tagPresetWrap = document.getElementById('tag-preset-buttons');
+            const tagChipWrap = document.getElementById('tag-chip-wrap');
             const tagInput = document.getElementById('tag-text-input');
-            if (tagWrap && tagInput) {
-                function syncValueFromChips() {
-                    const chips = tagWrap.querySelectorAll('.tag-chip');
-                    editAuthor.value = Array.from(chips).map(c => c.dataset.tag).join(' ');
-                }
-                function addChip(text) {
-                    const chip = document.createElement('span');
-                    chip.className = 'tag-chip';
-                    chip.dataset.tag = text;
-                    chip.innerHTML = `${text}<button class="tag-chip-remove" type="button" aria-label="削除">×</button>`;
-                    chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
-                        chip.remove();
-                        syncValueFromChips();
-                    });
-                    tagWrap.insertBefore(chip, tagInput);
-                    syncValueFromChips();
-                }
-                syncTagsFromValue = function() {
-                    tagWrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
-                    const val = editAuthor.value.trim();
-                    if (val) val.split(/\s+/).forEach(t => t && addChip(t));
-                };
+
+            function syncValueFromUI() {
+                const presetTags = Array.from(tagPresetWrap.querySelectorAll('.tag-preset-btn.active')).map(b => b.dataset.tag);
+                const customChips = Array.from(tagChipWrap.querySelectorAll('.tag-chip')).map(c => c.dataset.tag);
+                editAuthor.value = [...presetTags, ...customChips].join(' ');
+            }
+
+            function addCustomChip(text) {
+                const chip = document.createElement('span');
+                chip.className = 'tag-chip';
+                chip.dataset.tag = text;
+                chip.innerHTML = `${text}<button class="tag-chip-remove" type="button" aria-label="削除">×</button>`;
+                chip.querySelector('.tag-chip-remove').addEventListener('click', () => { chip.remove(); syncValueFromUI(); });
+                tagChipWrap.insertBefore(chip, tagInput);
+                syncValueFromUI();
+            }
+
+            // プリセットボタン生成
+            COLUMN_TAG_LIST.forEach(tag => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tag-preset-btn';
+                btn.dataset.tag = tag;
+                btn.textContent = tag;
+                btn.addEventListener('click', () => { btn.classList.toggle('active'); syncValueFromUI(); });
+                tagPresetWrap.appendChild(btn);
+            });
+
+            syncTagsFromValue = function() {
+                tagPresetWrap.querySelectorAll('.tag-preset-btn').forEach(b => b.classList.remove('active'));
+                tagChipWrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+                const val = editAuthor.value.trim();
+                if (!val) return;
+                val.split(/\s+/).forEach(t => {
+                    if (!t) return;
+                    const btn = tagPresetWrap.querySelector(`[data-tag="${t}"]`);
+                    if (btn) { btn.classList.add('active'); } else { addCustomChip(t); }
+                });
+            };
+
+            if (tagInput) {
                 tagInput.addEventListener('keydown', e => {
                     if (e.isComposing) return;
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         const v = tagInput.value.trim();
-                        if (v) { addChip(v); tagInput.value = ''; }
+                        if (!v) return;
+                        const preset = tagPresetWrap.querySelector(`[data-tag="${v}"]`);
+                        if (preset) { preset.classList.add('active'); syncValueFromUI(); }
+                        else { addCustomChip(v); }
+                        tagInput.value = '';
                     } else if (e.key === 'Backspace' && tagInput.value === '') {
-                        const chips = tagWrap.querySelectorAll('.tag-chip');
-                        if (chips.length > 0) { chips[chips.length - 1].remove(); syncValueFromChips(); }
+                        const chips = tagChipWrap.querySelectorAll('.tag-chip');
+                        if (chips.length > 0) { chips[chips.length - 1].remove(); syncValueFromUI(); }
                     }
                 });
-                // datalist から選択した場合（マウス選択）は input イベントで検知
-                tagInput.addEventListener('input', () => {
-                    const v = tagInput.value.trim();
-                    if (!v) return;
-                    const datalist = document.getElementById('column-tag-options');
-                    if (!datalist) return;
-                    const isOption = Array.from(datalist.options).some(o => o.value === v);
-                    if (isOption) { addChip(v); tagInput.value = ''; }
-                });
-                tagWrap.addEventListener('click', () => tagInput.focus());
             }
         }
 

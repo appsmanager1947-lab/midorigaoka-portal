@@ -215,6 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${tagsHtml}
                         <span class="column-tag">${col.date}</span>
                     </div>
+                    ${col.authorName ? `<div style="font-size:11px; color:#888; margin-top:4px;">👤 ${col.authorName}</div>` : ''}
                 </div>
             </div>
         `;
@@ -1096,7 +1097,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const tagsContainer = document.querySelector('.column-tags');
                 if (tagsContainer) {
-                    tagsContainer.innerHTML = `${tagsHtml} <span class="column-tag">${colData.date}</span>`;
+                    const authorNameHtml = colData.authorName ? `<span style="font-size:12px; color:#888; margin-left:6px;">👤 ${colData.authorName}</span>` : '';
+                    tagsContainer.innerHTML = `${tagsHtml} <span class="column-tag">${colData.date}</span>${authorNameHtml}`;
                 }
 
                 const eyecatch = document.getElementById('detail-eyecatch');

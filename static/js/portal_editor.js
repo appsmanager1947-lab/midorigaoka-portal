@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editContent) {
         const editTitle = document.getElementById('edit-title');
         const editAuthor = document.getElementById('edit-author');
+        const editAuthorName = document.getElementById('edit-author-name');
         const editDate = document.getElementById('edit-date');
         const btnPublish = document.getElementById('btn-publish');
         
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     editTitle.value = data.title;
                     if(editAuthor) editAuthor.value = isBoardMode ? data.dept : data.author;
                     if (syncTagsFromValue) syncTagsFromValue();
+                    if(editAuthorName && !isBoardMode) editAuthorName.value = data.authorName || '';
                     if(editDate) editDate.value = isBoardMode ? data.period : data.date;
                     if (!isBoardMode && data.contentType === 'html') {
                         isHtmlImportMode = true;
@@ -638,6 +640,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const draftData = {
                         title: editTitle.value.trim() || '（タイトルなし）',
                         author: editAuthor ? editAuthor.value.trim() : '教職員',
+                        authorName: editAuthorName ? editAuthorName.value.trim() : '',
                         date: editDate ? editDate.value : getTodayStr(),
                         content: isHtmlImportMode && htmlInputDraft ? htmlInputDraft.value.trim() : editContent.innerHTML,
                         contentType: isHtmlImportMode ? 'html' : 'editor',
@@ -682,6 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 editTitle.value = d.title === '（タイトルなし）' ? '' : d.title;
                                 if (editAuthor) editAuthor.value = d.author || '';
                                 if (syncTagsFromValue) syncTagsFromValue();
+                                if (editAuthorName) editAuthorName.value = d.authorName || '';
                                 if (editDate) editDate.value = d.date || '';
                                 if (d.contentType === 'html') {
                                     const htmlInputEl = document.getElementById('html-input');
@@ -767,6 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveData.status = 'active';
                 } else {
                     saveData.author = editAuthor ? editAuthor.value.trim() : '教職員';
+                    saveData.authorName = editAuthorName ? editAuthorName.value.trim() : '';
                     saveData.date = getTodayStr();
                     saveData.img = currentEyecatchData;
                     if (isDashboardSource || isDashboardEdit) saveData.isDashboardPage = true;

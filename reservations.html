@@ -404,9 +404,12 @@
             CSV形式：<code style="background:#F7F7F5;padding:1px 4px;border-radius:3px;">種別,場所,曜日,開始時間,終了時間,用途</code><br>
             種別は「会議室」または「特別教室」、曜日は「月〜土」
         </p>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+            <button class="btn-cancel" id="csv-default-download-btn">⬇ 現在のCSVをダウンロード</button>
+        </div>
         <div style="position:relative;">
             <input type="file" id="csv-default-file" accept=".csv" style="display:none;">
-            <button class="btn-cancel" id="csv-default-select-btn" style="margin-bottom:8px;">CSVファイルを選択</button>
+            <button class="btn-cancel" id="csv-default-select-btn" style="margin-bottom:8px;">CSVファイルを選択してアップロード</button>
             <span id="csv-default-filename" style="font-size:12px;color:#888;margin-left:8px;"></span>
         </div>
         <div id="csv-default-preview-wrap" style="display:none;max-height:300px;overflow-y:auto;border:1px solid #E6E4DF;border-radius:4px;">
@@ -1091,6 +1094,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('csv-default-submit').disabled = true;
         document.getElementById('csv-default-modal').classList.remove('hidden');
     });
+    document.getElementById('csv-default-download-btn').addEventListener('click', () => {
+        const dayNames = ['月','火','水','木','金','土'];
+        const rows = [['種別','場所','曜日','開始時間','終了時間','用途']];
+        defaultSchedules.forEach(d => {
+            rows.push([
+                d.type === 'room' ? '会議室' : '特別教室',
+                d.location,
+                dayNames[d.dayOfWeek] ?? '',
+                d.startTime,
+                d.endTime,
+                d.purpose
+            ]);
+        });
+        const csv = rows.map(r => r.join(',')).join('\r\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'default_schedules.csv';
+        a.click(); URL.revokeObjectURL(url);
+    });
+
     document.getElementById('csv-default-cancel').addEventListener('click', () => {
         document.getElementById('csv-default-modal').classList.add('hidden');
     });

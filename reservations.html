@@ -241,6 +241,39 @@
             margin-top: 1px;
         }
 
+        /* デフォルト使用ブロック */
+        .default-block {
+            position: absolute;
+            border-radius: 4px;
+            padding: 3px 5px;
+            font-size: 11px;
+            overflow: hidden;
+            box-sizing: border-box;
+            z-index: 1;
+            opacity: 0.45;
+            cursor: default;
+            border-style: dashed;
+            border-width: 2px;
+        }
+        .default-block-purpose {
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .default-block-location {
+            font-size: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* CSVモーダル */
+        #csv-default-modal .modal-content { max-width: 640px; width: 96vw; }
+        #csv-default-preview { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+        #csv-default-preview th, #csv-default-preview td { border:1px solid #E6E4DF; padding:4px 8px; }
+        #csv-default-preview th { background:#F7F7F5; }
+
         /* 現在時刻ライン */
         .current-time-line {
             position: absolute;
@@ -321,6 +354,7 @@
                 <button class="week-nav-btn" id="next-week">次の週 ▶</button>
                 <button id="today-btn">今週に戻る</button>
             </div>
+            <button class="btn-cancel" id="csv-default-open-btn" style="font-size:12px;">📋 デフォルト登録</button>
             <button class="add-button" id="add-res-btn">＋ 新規予約</button>
         </div>
 
@@ -357,6 +391,36 @@
             </div>
         </div>
     </main>
+</div>
+
+<!-- デフォルトCSV登録モーダル -->
+<div class="modal-overlay hidden" id="csv-default-modal">
+    <div class="modal-content">
+        <h3 class="modal-title">デフォルト使用状況 CSV登録</h3>
+        <p style="font-size:12px;color:#888;margin:0 0 8px;">
+            会議室・特別教室のデフォルト使用状況を CSV で一括登録します。登録すると既存のデフォルト情報はすべて置き換えられます。
+        </p>
+        <p style="font-size:12px;color:#555;margin:0 0 12px;">
+            CSV形式：<code style="background:#F7F7F5;padding:1px 4px;border-radius:3px;">種別,場所,曜日,開始時間,終了時間,用途</code><br>
+            種別は「会議室」または「特別教室」、曜日は「月〜土」
+        </p>
+        <div style="position:relative;">
+            <input type="file" id="csv-default-file" accept=".csv" style="display:none;">
+            <button class="btn-cancel" id="csv-default-select-btn" style="margin-bottom:8px;">CSVファイルを選択</button>
+            <span id="csv-default-filename" style="font-size:12px;color:#888;margin-left:8px;"></span>
+        </div>
+        <div id="csv-default-preview-wrap" style="display:none;max-height:300px;overflow-y:auto;border:1px solid #E6E4DF;border-radius:4px;">
+            <table id="csv-default-preview">
+                <thead><tr><th>種別</th><th>場所</th><th>曜日</th><th>開始</th><th>終了</th><th>用途</th></tr></thead>
+                <tbody id="csv-default-tbody"></tbody>
+            </table>
+        </div>
+        <p id="csv-default-count" style="font-size:13px;color:#555;margin:8px 0 0;"></p>
+        <div class="modal-actions">
+            <button id="csv-default-cancel" class="btn-cancel">キャンセル</button>
+            <button id="csv-default-submit" class="btn-submit" disabled>登録する</button>
+        </div>
+    </div>
 </div>
 
 <!-- 詳細ポップアップ -->
@@ -436,8 +500,7 @@ const SPECIAL_LOCS = [
     { name: '体育室',             color: '#FAD7A0' },
     { name: '体育館',             color: '#F1948A' },
     { name: '学習室Ｓ',           color: '#C39BD3' },
-    { name: '学習室Ｌ',           color: '#76D7C4' },
-    { name: 'ブラウジングルーム', color: '#F7DC6F' },
+    { name: 'ブラウジングルーム', color: '#76D7C4' },
     { name: 'エンジェルルーム',   color: '#85C1E9' },
     { name: '１１号教室',         color: '#82E0AA' },
     { name: '１２号教室',         color: '#F0B27A' },
@@ -446,7 +509,8 @@ const SPECIAL_LOCS = [
     { name: '３１号教室',         color: '#FAD7A0' },
     { name: '３２号教室',         color: '#F1948A' },
     { name: '３５号教室',         color: '#C39BD3' },
-    { name: '３６号教室',         color: '#76D7C4' },
+    { name: '３６号教室',         color: '#F7DC6F' },
+    { name: '３７号教室',         color: '#85C1E9' },
 ];
 
 // ========== 定数 ==========
@@ -457,11 +521,12 @@ const END_H      = 21;
 const TOTAL_MIN  = (END_H - START_H) * 60; // 840
 
 // ========== 状態 ==========
-let activeTab      = 'room';
-let currentMonday  = getThisWeekMonday();
-let weekData       = [];
-let currentDetail  = null;
-let dragState      = null;
+let activeTab        = 'room';
+let currentMonday    = getThisWeekMonday();
+let weekData         = [];
+let defaultSchedules = [];
+let currentDetail    = null;
+let dragState        = null;
 
 // ========== ユーティリティ ==========
 function getThisWeekMonday(from = new Date()) {
@@ -581,6 +646,13 @@ async function fetchWeekData() {
     });
 }
 
+// ========== デフォルト取得 ==========
+async function fetchDefaultSchedules() {
+    const snap = await db.collection('default_schedules').get();
+    defaultSchedules = [];
+    snap.forEach(doc => defaultSchedules.push({ id: doc.id, ...doc.data() }));
+}
+
 // ========== タイムライン描画 ==========
 function buildTimeLabels() {
     const col = document.getElementById('time-col');
@@ -633,9 +705,15 @@ function renderWeek() {
         col.innerHTML = '';
         buildGridLines(col);
 
-        // 予約ブロック
+        // デフォルト使用ブロック＋予約ブロックを合わせてレイアウト
         const dayItems = weekData.filter(r => r._date === dateStr);
-        computeLayout(dayItems).forEach(r => col.appendChild(createBlock(r)));
+        const tabType  = activeTab === 'room' ? 'room' : 'special';
+        const dayDefaults = defaultSchedules
+            .filter(d => d.type === tabType && d.dayOfWeek === i)
+            .map(d => ({ ...d, _isDefault: true }));
+        computeLayout([...dayDefaults, ...dayItems]).forEach(r => {
+            col.appendChild(r._isDefault ? createDefaultBlock(r) : createBlock(r));
+        });
 
         // 今日の現在時刻ライン
         if (dateStr === todayStr) {
@@ -674,6 +752,28 @@ function createBlock(r) {
         showDetail(r, e.clientX, e.clientY);
     });
     attachDrag(block, r);
+    return block;
+}
+
+function createDefaultBlock(r) {
+    const color = getColor(r.location);
+    const startM = Math.max(0, timeToMin(r.startTime));
+    const endM   = Math.min(TOTAL_MIN, timeToMin(r.endTime));
+    const top    = minToTop(startM);
+    const height = Math.max(18, minToTop(endM - startM));
+    const wPct   = 100 / r._total;
+    const lPct   = r._col * wPct;
+
+    const block = document.createElement('div');
+    block.className = 'default-block';
+    block.style.cssText =
+        `top:${top}px;height:${height}px;` +
+        `left:${lPct}%;width:${wPct}%;` +
+        `background-color:${color};border-color:${darken(color)};`;
+    block.innerHTML =
+        `<div class="default-block-purpose">${r.purpose || ''}</div>` +
+        `<div class="default-block-location">${r.location || ''}</div>`;
+    block.title = `【デフォルト】${r.purpose}｜${r.location}｜${r.startTime}〜${r.endTime}`;
     return block;
 }
 
@@ -890,7 +990,7 @@ async function submitReservation() {
 }
 
 // ========== 初期化 ==========
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     buildTimeLabels();
     renderLegend();
 
@@ -976,7 +1076,93 @@ document.addEventListener('DOMContentLoaded', () => {
         if (line) updateTimeLine(line);
     }, 60000);
 
+    // ── デフォルトCSV登録 ──
+    const DAY_NAME_MAP = { '月':0, '火':1, '水':2, '木':3, '金':4, '土':5 };
+    const TYPE_MAP     = { '会議室':'room', '特別教室':'special' };
+    let parsedDefaults = [];
+
+    document.getElementById('csv-default-open-btn').addEventListener('click', () => {
+        parsedDefaults = [];
+        document.getElementById('csv-default-file').value = '';
+        document.getElementById('csv-default-filename').textContent = '';
+        document.getElementById('csv-default-tbody').innerHTML = '';
+        document.getElementById('csv-default-preview-wrap').style.display = 'none';
+        document.getElementById('csv-default-count').textContent = '';
+        document.getElementById('csv-default-submit').disabled = true;
+        document.getElementById('csv-default-modal').classList.remove('hidden');
+    });
+    document.getElementById('csv-default-cancel').addEventListener('click', () => {
+        document.getElementById('csv-default-modal').classList.add('hidden');
+    });
+    document.getElementById('csv-default-modal').addEventListener('click', e => {
+        if (e.target === document.getElementById('csv-default-modal'))
+            document.getElementById('csv-default-modal').classList.add('hidden');
+    });
+    document.getElementById('csv-default-select-btn').addEventListener('click', () => {
+        document.getElementById('csv-default-file').click();
+    });
+    document.getElementById('csv-default-file').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        document.getElementById('csv-default-filename').textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const text = ev.target.result;
+            const lines = text.split(/\r?\n/).filter(l => l.trim());
+            parsedDefaults = [];
+            const errors = [];
+            // ヘッダー行を読み飛ばす（1行目が「種別」で始まる場合）
+            const start = lines[0].startsWith('種別') ? 1 : 0;
+            lines.slice(start).forEach((line, idx) => {
+                const cols = line.split(',').map(s => s.trim());
+                if (cols.length < 6) return;
+                const [typeName, location, dayName, startTime, endTime, purpose] = cols;
+                const type = TYPE_MAP[typeName];
+                const dayOfWeek = DAY_NAME_MAP[dayName];
+                if (type === undefined || dayOfWeek === undefined) {
+                    errors.push(`行${idx + start + 1}: 種別「${typeName}」または曜日「${dayName}」が不正`);
+                    return;
+                }
+                parsedDefaults.push({ type, location, dayOfWeek, startTime, endTime, purpose });
+            });
+
+            const tbody = document.getElementById('csv-default-tbody');
+            tbody.innerHTML = '';
+            parsedDefaults.forEach(d => {
+                const dayNames = ['月','火','水','木','金','土'];
+                const typeLabel = d.type === 'room' ? '会議室' : '特別教室';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${typeLabel}</td><td>${d.location}</td><td>${dayNames[d.dayOfWeek]}</td><td>${d.startTime}</td><td>${d.endTime}</td><td>${d.purpose}</td>`;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('csv-default-preview-wrap').style.display = parsedDefaults.length ? 'block' : 'none';
+            document.getElementById('csv-default-count').textContent =
+                parsedDefaults.length ? `${parsedDefaults.length} 件を読み込みました。` + (errors.length ? `（スキップ ${errors.length} 件）` : '') : 'データが読み込めませんでした。';
+            document.getElementById('csv-default-submit').disabled = parsedDefaults.length === 0;
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+    document.getElementById('csv-default-submit').addEventListener('click', async () => {
+        if (!parsedDefaults.length) return;
+        document.getElementById('csv-default-submit').disabled = true;
+        document.getElementById('csv-default-submit').textContent = '登録中...';
+
+        // 既存デフォルトを全削除してから新規追加
+        const existing = await db.collection('default_schedules').get();
+        const batch = db.batch();
+        existing.forEach(doc => batch.delete(doc.ref));
+        parsedDefaults.forEach(d => batch.set(db.collection('default_schedules').doc(), d));
+        await batch.commit();
+
+        await fetchDefaultSchedules();
+        renderWeek();
+        document.getElementById('csv-default-modal').classList.add('hidden');
+        document.getElementById('csv-default-submit').textContent = '登録する';
+    });
+
     // 初回データ取得＆描画
+    await fetchDefaultSchedules();
     fetchWeekData().then(() => renderWeek());
 });
 </script>

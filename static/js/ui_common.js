@@ -1,3 +1,11 @@
+// ブラウザキャッシュ強制クリア
+if ('caches' in window) {
+    caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
+}
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+}
+
 // ==========================================
 // 2. 共通UIとサイドバー (ショートカット機能含む)
 // ==========================================

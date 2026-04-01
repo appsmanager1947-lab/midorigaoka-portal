@@ -53,12 +53,10 @@
                 
                 <input type="hidden" id="edit-author">
                 <div id="tag-selector-area">
-                    <div class="tag-section-label">🏷️ タグ <span class="tag-section-hint">（複数選択可・自由入力も可）</span></div>
-                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:5px;">
-                        <div id="tag-preset-buttons" style="display:contents;"></div>
-                        <div id="tag-chip-wrap" style="display:contents;">
-                            <input id="tag-text-input" class="tag-custom-text-input" placeholder="＋ その他のタグを入力" autocomplete="off">
-                        </div>
+                    <div class="tag-section-label">🏷️ タグ <span class="tag-section-hint">クリックで選択（複数可）</span></div>
+                    <div id="tag-preset-buttons" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px;"></div>
+                    <div id="tag-chip-wrap" style="display:flex; flex-wrap:wrap; align-items:center; gap:5px; min-height:24px;">
+                        <input id="tag-text-input" class="tag-custom-text-input" placeholder="＋ その他のタグを入力（Enter）" autocomplete="off">
                     </div>
                 </div>
                 <div class="notion-meta-row">

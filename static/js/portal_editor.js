@@ -117,6 +117,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (chips.length > 0) { chips[chips.length - 1].remove(); syncValueFromChips(); }
                     }
                 });
+                // datalist から選択した場合（マウス選択）は input イベントで検知
+                tagInput.addEventListener('input', () => {
+                    const v = tagInput.value.trim();
+                    if (!v) return;
+                    const datalist = document.getElementById('column-tag-options');
+                    if (!datalist) return;
+                    const isOption = Array.from(datalist.options).some(o => o.value === v);
+                    if (isOption) { addChip(v); tagInput.value = ''; }
+                });
                 tagWrap.addEventListener('click', () => tagInput.focus());
             }
         }

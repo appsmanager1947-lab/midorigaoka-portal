@@ -53,8 +53,19 @@
                 
                 <div class="notion-meta-row">
                     <input type="hidden" id="edit-author">
-                    <div id="tag-chip-wrap" class="notion-meta-input tag-chip-wrap" title="Enterまたはスペースでタグを追加">
-                        <input id="tag-text-input" class="tag-text-input" placeholder="タグを追加（Enter / スペース）" autocomplete="off">
+                    <div id="tag-chip-wrap" class="notion-meta-input tag-chip-wrap" title="一覧から選択するかタグを入力し、Enterまたはスペースで追加">
+                        <input id="tag-text-input" class="tag-text-input" placeholder="タグを選択または入力（Enter / スペース）" list="column-tag-options" autocomplete="off">
+                        <datalist id="column-tag-options">
+                            <option value="書類"></option>
+                            <option value="教職員"></option>
+                            <option value="進路指導部"></option>
+                            <option value="教務部"></option>
+                            <option value="生徒指導部"></option>
+                            <option value="入試対策部"></option>
+                            <option value="総務部"></option>
+                            <option value="生徒会"></option>
+                            <option value="学習サポート"></option>
+                        </datalist>
                     </div>
                     <input type="date" id="edit-date" class="notion-meta-input">
                 </div>

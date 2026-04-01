@@ -556,6 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let dashboardItems = [];
         let isDashEditMode = false;
         let editingDashId = null;
+        let dashTagOrder = [];
 
         dashboardGrid.style.display = 'block';
 
@@ -580,20 +581,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const groups = {};
-            const tagOrder = [];
+            const naturalTagOrder = [];
             dashboardItems.forEach(item => {
                 const tag = item.tag || 'その他';
-                if (!groups[tag]) { groups[tag] = []; tagOrder.push(tag); }
+                if (!groups[tag]) { groups[tag] = []; naturalTagOrder.push(tag); }
                 groups[tag].push(item);
             });
-            tagOrder.forEach(tag => {
+            // dashTagOrder 順で並べ替え（未登録タグは末尾に追加）
+            const sortedTags = [...dashTagOrder.filter(t => groups[t])];
+            naturalTagOrder.forEach(t => { if (!sortedTags.includes(t)) sortedTags.push(t); });
+            sortedTags.forEach(tag => {
                 const items = groups[tag];
                 const color = DASH_TAG_COLORS[tag] || '#F0F0F0';
                 const section = document.createElement('div');
+                section.dataset.sectionTag = tag;
                 section.style.cssText = `margin-bottom:16px; border:1px solid ${isDashEditMode ? '#0066cc' : '#E6E4DF'}; border-radius:8px; overflow:hidden;`;
                 const header = document.createElement('div');
-                header.style.cssText = `background:${color}; padding:7px 16px; font-size:12px; font-weight:bold; color:#4A4643; border-bottom:1px solid rgba(0,0,0,0.07); letter-spacing:0.04em;`;
-                header.textContent = tag;
+                if (isDashEditMode) {
+                    header.setAttribute('draggable', 'true');
+                    header.dataset.tagSection = tag;
+                    header.style.cssText = `background:${color}; padding:7px 16px; font-size:12px; font-weight:bold; color:#4A4643; border-bottom:1px solid rgba(0,0,0,0.07); letter-spacing:0.04em; cursor:grab; display:flex; align-items:center; gap:8px;`;
+                    header.innerHTML = `<span style="color:#aaa; font-size:16px; user-select:none; flex:0 0 auto; pointer-events:none;">⠿</span><span>${tag}</span>`;
+                } else {
+                    header.style.cssText = `background:${color}; padding:7px 16px; font-size:12px; font-weight:bold; color:#4A4643; border-bottom:1px solid rgba(0,0,0,0.07); letter-spacing:0.04em;`;
+                    header.textContent = tag;
+                }
                 section.appendChild(header);
                 items.forEach((item, idx) => {
                     const row = document.createElement('div');
@@ -657,6 +669,11 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDashboard();
         });
 
+        db.collection('settings').doc('dashboardTagOrder').onSnapshot(doc => {
+            dashTagOrder = (doc.exists && Array.isArray(doc.data().order)) ? doc.data().order : [];
+            renderDashboard();
+        });
+
         editDashBtn.addEventListener('click', () => {
             isDashEditMode = !isDashEditMode;
             editDashBtn.textContent = isDashEditMode ? '完了' : '編集';
@@ -690,46 +707,87 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // ── ドラッグ＆ドロップ（同タグ内のみ）───────────────────
+        // ── ドラッグ＆ドロップ（同タグ内のアイテム順 ＆ タグセクション順）───────────────────
         let _dashDndSrcId = null;
         let _dashDndSrcTag = null;
+        let _dashSectionDndSrc = null;
         dashboardGrid.addEventListener('dragstart', (e) => {
             if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
-            const row = e.target.closest('[draggable]');
-            if (!row || !row.dataset.id) return;
-            _dashDndSrcId = row.dataset.id;
-            _dashDndSrcTag = row.dataset.tag;
-            e.dataTransfer.effectAllowed = 'move';
-            setTimeout(() => { row.style.opacity = '0.4'; }, 0);
+            const draggable = e.target.closest('[draggable]');
+            if (!draggable) return;
+            if (draggable.dataset.tagSection) {
+                // タグセクションのドラッグ
+                _dashSectionDndSrc = draggable.dataset.tagSection;
+                _dashDndSrcId = null; _dashDndSrcTag = null;
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => { draggable.parentElement.style.opacity = '0.4'; }, 0);
+            } else if (draggable.dataset.id) {
+                // アイテム行のドラッグ
+                _dashSectionDndSrc = null;
+                _dashDndSrcId = draggable.dataset.id;
+                _dashDndSrcTag = draggable.dataset.tag;
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => { draggable.style.opacity = '0.4'; }, 0);
+            }
         });
         dashboardGrid.addEventListener('dragend', () => {
             dashboardGrid.querySelectorAll('[draggable]').forEach(r => { r.style.opacity = ''; r.style.boxShadow = ''; });
+            dashboardGrid.querySelectorAll('[data-section-tag]').forEach(s => { s.style.opacity = ''; s.style.boxShadow = ''; });
         });
         dashboardGrid.addEventListener('dragover', (e) => {
             e.preventDefault();
-            const row = e.target.closest('[draggable]');
             dashboardGrid.querySelectorAll('[draggable]').forEach(r => { r.style.boxShadow = ''; });
-            if (!row || row.dataset.id === _dashDndSrcId || row.dataset.tag !== _dashDndSrcTag) return;
-            const rect = row.getBoundingClientRect();
-            row.style.boxShadow = e.clientY < rect.top + rect.height / 2 ? 'inset 0 2px 0 #0066cc' : 'inset 0 -2px 0 #0066cc';
-            e.dataTransfer.dropEffect = 'move';
+            dashboardGrid.querySelectorAll('[data-section-tag]').forEach(s => { s.style.boxShadow = ''; });
+            if (_dashSectionDndSrc) {
+                const targetSection = e.target.closest('[data-section-tag]');
+                if (!targetSection || targetSection.dataset.sectionTag === _dashSectionDndSrc) return;
+                const rect = targetSection.getBoundingClientRect();
+                targetSection.style.boxShadow = e.clientY < rect.top + rect.height / 2 ? 'inset 0 2px 0 #0066cc' : 'inset 0 -2px 0 #0066cc';
+                e.dataTransfer.dropEffect = 'move';
+            } else if (_dashDndSrcId) {
+                const row = e.target.closest('[draggable][data-id]');
+                if (!row || row.dataset.id === _dashDndSrcId || row.dataset.tag !== _dashDndSrcTag) return;
+                const rect = row.getBoundingClientRect();
+                row.style.boxShadow = e.clientY < rect.top + rect.height / 2 ? 'inset 0 2px 0 #0066cc' : 'inset 0 -2px 0 #0066cc';
+                e.dataTransfer.dropEffect = 'move';
+            }
         });
         dashboardGrid.addEventListener('drop', async (e) => {
             e.preventDefault();
             dashboardGrid.querySelectorAll('[draggable]').forEach(r => { r.style.opacity = ''; r.style.boxShadow = ''; });
-            const targetRow = e.target.closest('[draggable]');
-            if (!targetRow || !_dashDndSrcId || targetRow.dataset.id === _dashDndSrcId || targetRow.dataset.tag !== _dashDndSrcTag) return;
-            const srcIdx = dashboardItems.findIndex(i => i.id === _dashDndSrcId);
-            const rect = targetRow.getBoundingClientRect();
-            const insertBefore = e.clientY < rect.top + rect.height / 2;
-            const arr = [...dashboardItems];
-            const [moved] = arr.splice(srcIdx, 1);
-            let insertIdx = arr.findIndex(i => i.id === targetRow.dataset.id);
-            if (!insertBefore) insertIdx++;
-            arr.splice(insertIdx, 0, moved);
-            const batch = db.batch();
-            arr.forEach((item, idx) => { batch.update(db.collection('dashboards').doc(item.id), { order: idx }); });
-            await batch.commit();
+            dashboardGrid.querySelectorAll('[data-section-tag]').forEach(s => { s.style.opacity = ''; s.style.boxShadow = ''; });
+            if (_dashSectionDndSrc) {
+                // タグセクションの順番入れ替え
+                const targetSection = e.target.closest('[data-section-tag]');
+                if (!targetSection || targetSection.dataset.sectionTag === _dashSectionDndSrc) return;
+                const currentOrder = [...dashboardGrid.querySelectorAll('[data-section-tag]')].map(s => s.dataset.sectionTag);
+                const srcIdx = currentOrder.indexOf(_dashSectionDndSrc);
+                const targetTag = targetSection.dataset.sectionTag;
+                const rect = targetSection.getBoundingClientRect();
+                const insertBefore = e.clientY < rect.top + rect.height / 2;
+                const arr = [...currentOrder];
+                const [moved] = arr.splice(srcIdx, 1);
+                let insertIdx = arr.indexOf(targetTag);
+                if (!insertBefore) insertIdx++;
+                arr.splice(insertIdx, 0, moved);
+                _dashSectionDndSrc = null;
+                await db.collection('settings').doc('dashboardTagOrder').set({ order: arr });
+            } else if (_dashDndSrcId) {
+                // 同タグ内アイテムの順番入れ替え
+                const targetRow = e.target.closest('[draggable][data-id]');
+                if (!targetRow || !_dashDndSrcId || targetRow.dataset.id === _dashDndSrcId || targetRow.dataset.tag !== _dashDndSrcTag) return;
+                const srcIdx = dashboardItems.findIndex(i => i.id === _dashDndSrcId);
+                const rect = targetRow.getBoundingClientRect();
+                const insertBefore = e.clientY < rect.top + rect.height / 2;
+                const arr = [...dashboardItems];
+                const [moved] = arr.splice(srcIdx, 1);
+                let insertIdx = arr.findIndex(i => i.id === targetRow.dataset.id);
+                if (!insertBefore) insertIdx++;
+                arr.splice(insertIdx, 0, moved);
+                const batch = db.batch();
+                arr.forEach((item, idx) => { batch.update(db.collection('dashboards').doc(item.id), { order: idx }); });
+                await batch.commit();
+            }
         });
 
         // ── 1. 種類選択モーダル ──────────────────────────────────

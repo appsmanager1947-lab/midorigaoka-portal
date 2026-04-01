@@ -9,8 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const editDate = document.getElementById('edit-date');
         const btnPublish = document.getElementById('btn-publish');
         
-        let currentEyecatchData = ""; 
+        let currentEyecatchData = "";
         let editingColId = null;
+        let isHtmlImportMode = false;
         
         const isBoardMode = window.location.pathname.includes('board_edit');
         const urlParams = new URLSearchParams(window.location.search);
@@ -38,7 +39,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(editAuthor) editAuthor.value = isBoardMode ? data.dept : data.author;
                     if (syncTagsFromValue) syncTagsFromValue();
                     if(editDate) editDate.value = isBoardMode ? data.period : data.date;
-                    editContent.innerHTML = data.content;
+                    if (!isBoardMode && data.contentType === 'html') {
+                        isHtmlImportMode = true;
+                        const htmlImportArea = document.getElementById('html-import-area');
+                        const htmlInputEl = document.getElementById('html-input');
+                        const btnModeEditorEl = document.getElementById('btn-mode-editor');
+                        const btnModeHtmlEl = document.getElementById('btn-mode-html');
+                        if (htmlImportArea) htmlImportArea.style.display = 'block';
+                        editContent.style.display = 'none';
+                        if (htmlInputEl) htmlInputEl.value = data.content || '';
+                        if (btnModeEditorEl) { btnModeEditorEl.style.background = '#fff'; btnModeEditorEl.style.color = '#555'; btnModeEditorEl.style.borderColor = '#bbb'; }
+                        if (btnModeHtmlEl) { btnModeHtmlEl.style.background = '#0066cc'; btnModeHtmlEl.style.color = '#fff'; btnModeHtmlEl.style.borderColor = '#0066cc'; }
+                        const ctToggle = document.getElementById('content-type-toggle');
+                        if (ctToggle) ctToggle.style.display = 'flex';
+                    } else {
+                        editContent.innerHTML = data.content;
+                    }
                     if(btnPublish) btnPublish.textContent = "更新する";
                     
                     if (!isBoardMode && data.img) {
@@ -105,7 +121,49 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // ② 画像を Blob(ファイル実体) に変換する関数
+        // ② HTMLインポートモード切替（コラム編集時のみ）
+        if (!isBoardMode) {
+            const btnModeEditor = document.getElementById('btn-mode-editor');
+            const btnModeHtml = document.getElementById('btn-mode-html');
+            const htmlImportArea = document.getElementById('html-import-area');
+            const htmlInput = document.getElementById('html-input');
+            const btnPreviewHtml = document.getElementById('btn-preview-html');
+            const htmlPreviewFrame = document.getElementById('html-preview-frame');
+
+            function setEditorMode() {
+                isHtmlImportMode = false;
+                editContent.style.display = '';
+                if (htmlImportArea) htmlImportArea.style.display = 'none';
+                if (btnModeEditor) { btnModeEditor.style.background = '#0066cc'; btnModeEditor.style.color = '#fff'; btnModeEditor.style.borderColor = '#0066cc'; }
+                if (btnModeHtml) { btnModeHtml.style.background = '#fff'; btnModeHtml.style.color = '#555'; btnModeHtml.style.borderColor = '#bbb'; }
+            }
+            function setHtmlMode() {
+                isHtmlImportMode = true;
+                editContent.style.display = 'none';
+                if (htmlImportArea) htmlImportArea.style.display = 'block';
+                if (btnModeEditor) { btnModeEditor.style.background = '#fff'; btnModeEditor.style.color = '#555'; btnModeEditor.style.borderColor = '#bbb'; }
+                if (btnModeHtml) { btnModeHtml.style.background = '#0066cc'; btnModeHtml.style.color = '#fff'; btnModeHtml.style.borderColor = '#0066cc'; }
+            }
+            if (btnModeEditor) btnModeEditor.addEventListener('click', setEditorMode);
+            if (btnModeHtml) btnModeHtml.addEventListener('click', setHtmlMode);
+
+            if (btnPreviewHtml && htmlPreviewFrame && htmlInput) {
+                btnPreviewHtml.addEventListener('click', () => {
+                    const raw = htmlInput.value.trim();
+                    if (!raw) return;
+                    const parsed = new DOMParser().parseFromString(raw, 'text/html');
+                    const styles = Array.from(parsed.querySelectorAll('style')).map(s => s.outerHTML).join('');
+                    const bodyHtml = parsed.body ? parsed.body.innerHTML : raw;
+                    htmlPreviewFrame.srcdoc = `<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}</head><body style="margin:0;">${bodyHtml}</body></html>`;
+                    htmlPreviewFrame.style.display = 'block';
+                    htmlPreviewFrame.onload = () => {
+                        try { htmlPreviewFrame.style.height = htmlPreviewFrame.contentDocument.body.scrollHeight + 32 + 'px'; } catch(e) {}
+                    };
+                });
+            }
+        }
+
+        // ③ 画像を Blob(ファイル実体) に変換する関数
         function compressImageToBlob(file, maxWidth, quality, callback) {
             const reader = new FileReader();
             reader.onload = function(event) {
@@ -552,11 +610,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (btnSaveDraft) {
                 btnSaveDraft.addEventListener('click', async () => {
+                    const htmlInputDraft = document.getElementById('html-input');
                     const draftData = {
                         title: editTitle.value.trim() || '（タイトルなし）',
                         author: editAuthor ? editAuthor.value.trim() : '教職員',
                         date: editDate ? editDate.value : getTodayStr(),
-                        content: editContent.innerHTML,
+                        content: isHtmlImportMode && htmlInputDraft ? htmlInputDraft.value.trim() : editContent.innerHTML,
+                        contentType: isHtmlImportMode ? 'html' : 'editor',
                         img: currentEyecatchData,
                         savedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
@@ -599,7 +659,24 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (editAuthor) editAuthor.value = d.author || '';
                                 if (syncTagsFromValue) syncTagsFromValue();
                                 if (editDate) editDate.value = d.date || '';
-                                editContent.innerHTML = d.content || '';
+                                if (d.contentType === 'html') {
+                                    const htmlInputEl = document.getElementById('html-input');
+                                    const htmlImportAreaEl = document.getElementById('html-import-area');
+                                    const btnModeEditorEl = document.getElementById('btn-mode-editor');
+                                    const btnModeHtmlEl = document.getElementById('btn-mode-html');
+                                    isHtmlImportMode = true;
+                                    editContent.style.display = 'none';
+                                    if (htmlImportAreaEl) htmlImportAreaEl.style.display = 'block';
+                                    if (htmlInputEl) htmlInputEl.value = d.content || '';
+                                    if (btnModeEditorEl) { btnModeEditorEl.style.background = '#fff'; btnModeEditorEl.style.color = '#555'; btnModeEditorEl.style.borderColor = '#bbb'; }
+                                    if (btnModeHtmlEl) { btnModeHtmlEl.style.background = '#0066cc'; btnModeHtmlEl.style.color = '#fff'; btnModeHtmlEl.style.borderColor = '#0066cc'; }
+                                } else {
+                                    isHtmlImportMode = false;
+                                    editContent.style.display = '';
+                                    const htmlImportAreaEl = document.getElementById('html-import-area');
+                                    if (htmlImportAreaEl) htmlImportAreaEl.style.display = 'none';
+                                    editContent.innerHTML = d.content || '';
+                                }
                                 currentEyecatchData = d.img || '';
                                 const preview = document.getElementById('cover-image-preview');
                                 const btnAdd = document.getElementById('btn-add-cover');
@@ -652,9 +729,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnPublish.textContent = "保存中...";
 
                 const collectionName = isBoardMode ? 'boards' : 'columns';
+                const htmlInputSave = document.getElementById('html-input');
                 let saveData = {
                     title: title,
-                    content: editContent.innerHTML,
+                    content: (!isBoardMode && isHtmlImportMode && htmlInputSave) ? htmlInputSave.value.trim() : editContent.innerHTML,
+                    contentType: (!isBoardMode && isHtmlImportMode) ? 'html' : 'editor',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 

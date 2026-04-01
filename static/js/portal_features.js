@@ -1103,7 +1103,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     eyecatch.src = colData.img;
                     eyecatch.style.display = 'inline-block';
                 }
-                document.getElementById('detail-content').innerHTML = colData.content;
+                if (colData.contentType === 'html') {
+                    const parsed = new DOMParser().parseFromString(colData.content || '', 'text/html');
+                    const styles = Array.from(parsed.querySelectorAll('style')).map(s => s.outerHTML).join('');
+                    const bodyHtml = parsed.body ? parsed.body.innerHTML : (colData.content || '');
+                    const srcdoc = `<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}</head><body style="margin:0;">${bodyHtml}</body></html>`;
+                    const container = document.getElementById('detail-content');
+                    const iframe = document.createElement('iframe');
+                    iframe.style.cssText = 'width:100%; border:none; display:block; min-height:200px;';
+                    iframe.srcdoc = srcdoc;
+                    iframe.addEventListener('load', () => {
+                        try { iframe.style.height = iframe.contentDocument.body.scrollHeight + 32 + 'px'; } catch(e) {}
+                    });
+                    container.appendChild(iframe);
+                } else {
+                    document.getElementById('detail-content').innerHTML = colData.content;
+                }
             } else {
                 detailTitle.textContent = "コラムが見つかりませんでした。";
             }

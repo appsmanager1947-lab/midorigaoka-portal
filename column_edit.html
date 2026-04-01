@@ -59,7 +59,19 @@
                     <input type="date" id="edit-date" class="notion-meta-input">
                 </div>
 
+                <div id="content-type-toggle" style="display:flex; gap:8px; margin-bottom:12px;">
+                    <button id="btn-mode-editor" style="padding:5px 14px; font-size:12px; border-radius:4px; border:1px solid #0066cc; background:#0066cc; color:#fff; cursor:pointer;">✏️ 自由記述</button>
+                    <button id="btn-mode-html" style="padding:5px 14px; font-size:12px; border-radius:4px; border:1px solid #bbb; background:#fff; color:#555; cursor:pointer;">🔧 HTMLインポート</button>
+                </div>
+
                 <div id="edit-content" class="notion-rich-textarea" contenteditable="true" data-placeholder="「/」でメニューを表示、または入力を開始..."></div>
+
+                <div id="html-import-area" style="display:none;">
+                    <p style="font-size:12px; color:#999; margin:0 0 8px;">HTMLコードを貼り付けてください。bodyタグ内のコンテンツとstyleが抽出・再現されます。</p>
+                    <textarea id="html-input" style="width:100%; height:280px; font-family:monospace; font-size:12px; border:1px solid #E6E4DF; border-radius:4px; padding:10px; resize:vertical; box-sizing:border-box;" placeholder="<!DOCTYPE html>&#10;<html>&#10;  <head>...</head>&#10;  <body>...</body>&#10;</html>"></textarea>
+                    <button id="btn-preview-html" style="margin-top:8px; padding:5px 14px; font-size:12px; border-radius:4px; border:1px solid #0066cc; background:#fff; color:#0066cc; cursor:pointer;">プレビュー確認</button>
+                    <iframe id="html-preview-frame" style="display:none; width:100%; margin-top:12px; border:1px solid #E6E4DF; border-radius:4px; min-height:300px;"></iframe>
+                </div>
             </div>
 
             <div id="slash-menu" class="slash-menu hidden">

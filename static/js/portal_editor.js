@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ① タグセレクター UI (column_edit のみ)
         if (!isBoardMode) {
-            const COLUMN_TAG_LIST = ['書類', '教職員', '進路指導部', '教務部', '生徒指導部', '入試対策部', '総務部', '生徒会', '学習サポート'];
+            const COLUMN_TAG_LIST = ['書類', '教職員', '進路指導部', '教務部', '生徒指導部', '入試対策部', '総務部', '生徒会', '学習サポート', '事務'];
             const tagPresetWrap = document.getElementById('tag-preset-buttons');
             const tagChipWrap = document.getElementById('tag-chip-wrap');
             const tagInput = document.getElementById('tag-text-input');

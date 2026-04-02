@@ -1126,7 +1126,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const parsed = new DOMParser().parseFromString(colData.content || '', 'text/html');
                     const styles = Array.from(parsed.querySelectorAll('style')).map(s => s.outerHTML).join('');
                     const bodyHtml = parsed.body ? parsed.body.innerHTML : (colData.content || '');
-                    const srcdoc = `<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}</head><body style="margin:0;">${bodyHtml}</body></html>`;
+                    // リンククリック制御スクリプト:
+                    //   アンカーリンク(#xxx)はiframe内スムーズスクロール、それ以外は新規タブで開く
+                    //   → iframeがポータルページ全体に遷移してサイドバーが二重表示されるバグを防止
+                    const linkScript = `<script>document.addEventListener('click',function(e){var a=e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href');if(h&&h.startsWith('#')){e.preventDefault();var el=document.getElementById(h.slice(1));if(el)el.scrollIntoView({behavior:'smooth'});}else if(h&&!h.startsWith('javascript:')){e.preventDefault();window.open(a.href,'_blank');}});<\/script>`;
+                    const srcdoc = `<!DOCTYPE html><html><head><meta charset="UTF-8">${styles}${linkScript}</head><body style="margin:0;">${bodyHtml}</body></html>`;
                     const container = document.getElementById('detail-content');
                     const iframe = document.createElement('iframe');
                     iframe.style.cssText = 'width:100%; border:none; display:block; min-height:200px;';

@@ -198,8 +198,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let columns = [];
     let drafts = [];
 
+    function makeTitleIcon(title) {
+        const chars = (title || '無題').slice(0, 2);
+        let hash = 0;
+        for (let i = 0; i < (title || '').length; i++) {
+            hash = (title.charCodeAt(i) + ((hash << 5) - hash)) | 0;
+        }
+        const hue = Math.abs(hash) % 360;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">`
+            + `<rect width="400" height="400" fill="hsl(${hue},35%,78%)"/>`
+            + `<text x="200" y="200" dominant-baseline="central" text-anchor="middle"`
+            + ` font-family="sans-serif" font-size="160" font-weight="bold" fill="hsl(${hue},35%,28%)">${chars}</text>`
+            + `</svg>`;
+        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
     function createColumnCard(col) {
-        const imgSrc = col.img ? col.img : "https://placehold.co/400x400/CCCCCC/FFFFFF?text=No+Image";
+        const imgSrc = col.img ? col.img : makeTitleIcon(col.title || '');
         const authorStr = col.author || '教職員';
         const tagsArray = authorStr.split(/[\s　]+/).filter(tag => tag.length > 0);
         const tagsHtml = tagsArray.map(tag => `<span class="column-tag">${tag}</span>`).join('');

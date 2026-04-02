@@ -69,6 +69,26 @@
         }
         .duty-item:hover .duty-actions { display: flex; gap: 2px; }
 
+        /* ── 日直履歴アイコン ── */
+        .duty-history-icon {
+            background: none; border: none; cursor: pointer;
+            font-size: 11px; padding: 0 2px; color: #2c8c5a;
+            opacity: 0.7; flex-shrink: 0;
+        }
+        .duty-history-icon:hover { opacity: 1; }
+
+        /* ── 日直履歴ポップアップ ── */
+        #duty-history-popup {
+            position: fixed; background: #fff;
+            border: 1px solid #ccc; border-radius: 8px;
+            padding: 14px 16px 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 2100; min-width: 220px; max-width: 300px; display: none;
+        }
+        #duty-history-popup h4 { font-size: 14px; font-weight: bold; margin: 0 0 4px; padding-right: 20px; }
+        .duty-hist-row { font-size: 12px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+        .duty-hist-row:last-child { border-bottom: none; }
+        .duty-hist-meta { font-size: 11px; color: #aaa; margin-bottom: 2px; }
+
         /* ── 詳細ポップアップ ── */
         #event-popup {
             position: fixed; background: #fff; border: 1px solid #ccc;
@@ -238,6 +258,14 @@
                 <button id="csv-register" class="btn-submit" disabled>登録する</button>
             </div>
         </div>
+    </div>
+
+    <!-- ── 日直変更履歴ポップアップ ── -->
+    <div id="duty-history-popup">
+        <button id="duty-history-close" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:18px;cursor:pointer;color:#aaa;line-height:1;">×</button>
+        <h4>変更履歴</h4>
+        <div id="duty-history-date" style="font-size:12px;color:#888;margin-bottom:8px;"></div>
+        <div id="duty-history-list"></div>
     </div>
 
     <!-- ── 日直編集モーダル ── -->
@@ -518,8 +546,46 @@
             acts.appendChild(editBtn);
             acts.appendChild(delBtn);
             div.appendChild(acts);
+
+            // 変更履歴アイコン（履歴がある場合のみ）
+            if (duty.history && duty.history.length > 0) {
+                const histBtn = document.createElement('button');
+                histBtn.className = 'duty-history-icon';
+                histBtn.textContent = '🕐';
+                histBtn.title = `変更履歴（${duty.history.length}件）`;
+                histBtn.addEventListener('click', e => { e.stopPropagation(); showDutyHistory(dateStr, duty); });
+                div.appendChild(histBtn);
+            }
+
             return div;
         }
+
+        // ────────────────────────────────────────
+        // 日直変更履歴ポップアップ
+        // ────────────────────────────────────────
+        function showDutyHistory(dateStr, duty) {
+            const popup = document.getElementById('duty-history-popup');
+            document.getElementById('duty-history-date').textContent = dateStr + ' の変更前ログ';
+            const list = document.getElementById('duty-history-list');
+            list.innerHTML = '';
+            const history = [...(duty.history || [])].sort((a, b) => b.changedAt.localeCompare(a.changedAt));
+            history.forEach(h => {
+                const names = [h.duty1, h.duty2].filter(n => n).join('・');
+                const d = new Date(h.changedAt);
+                const label = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} 変更前`;
+                const row = document.createElement('div');
+                row.className = 'duty-hist-row';
+                row.innerHTML = `<div class="duty-hist-meta">${label}</div><div>${names || '（なし）'}</div>`;
+                list.appendChild(row);
+            });
+            popup.style.display = 'block';
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+        }
+        document.getElementById('duty-history-close').addEventListener('click', () => {
+            document.getElementById('duty-history-popup').style.display = 'none';
+        });
 
         // ────────────────────────────────────────
         // 行事タグの構築
@@ -610,7 +676,18 @@
             const duty2 = document.getElementById('duty-modal-2').value.trim();
             const btn = document.getElementById('duty-modal-submit');
             btn.disabled = true; btn.textContent = '保存中...';
-            db.collection('daily_duty').doc(dutyEditDate).set({ duty1, duty2 })
+
+            const existing = dutyMap[dutyEditDate];
+            const isEdit = existing && (existing.duty1 !== duty1 || existing.duty2 !== duty2);
+            const ref = db.collection('daily_duty').doc(dutyEditDate);
+            const savePromise = isEdit
+                ? ref.update({ duty1, duty2, history: firebase.firestore.FieldValue.arrayUnion({
+                    duty1: existing.duty1 || '', duty2: existing.duty2 || '',
+                    changedAt: new Date().toISOString()
+                  }) })
+                : ref.set({ duty1, duty2 });
+
+            savePromise
                 .then(() => { btn.disabled = false; btn.textContent = '保存'; dutyModal.classList.add('hidden'); })
                 .catch(() => { btn.disabled = false; btn.textContent = 'エラー'; });
         });
@@ -1076,7 +1153,9 @@
                     const ex = dutyMap[row.date];
                     if (row.duty1 || row.duty2) {
                         if (!ex || ex.duty1 !== row.duty1 || ex.duty2 !== row.duty2) {
-                            ops.push({ type: 'set', ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2 } });
+                            ops.push(ex
+                                ? { type: 'update', ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2 }, old: { duty1: ex.duty1 || '', duty2: ex.duty2 || '' } }
+                                : { type: 'set',    ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2 } });
                         } else { unchanged++; }
                     } else {
                         if (ex) ops.push({ type: 'delete', ref: col.doc(row.date) });
@@ -1095,13 +1174,20 @@
                 for (let i = 0; i < ops.length; i += BATCH_MAX) {
                     const batch = db.batch();
                     ops.slice(i, i + BATCH_MAX).forEach(op => {
-                        if (op.type === 'set')    batch.set(op.ref, op.data);
+                        if (op.type === 'set') batch.set(op.ref, op.data);
+                        else if (op.type === 'update') batch.update(op.ref, {
+                            ...op.data,
+                            history: firebase.firestore.FieldValue.arrayUnion({
+                                duty1: op.old.duty1, duty2: op.old.duty2,
+                                changedAt: new Date().toISOString()
+                            })
+                        });
                         else if (op.type === 'delete') batch.delete(op.ref);
                     });
                     await batch.commit();
                 }
 
-                const saved  = ops.filter(o => o.type === 'set').length;
+                const saved  = ops.filter(o => o.type === 'set' || o.type === 'update').length;
                 const deleted = ops.filter(o => o.type === 'delete').length;
                 document.getElementById('duty-csv-spinner').style.display = 'none';
                 document.getElementById('duty-csv-loading-text').innerHTML =

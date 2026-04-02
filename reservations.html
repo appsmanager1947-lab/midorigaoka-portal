@@ -635,9 +635,15 @@ function computeLayout(items) {
 
 // ========== Firestore 取得 ==========
 async function fetchWeekData() {
-    const dates = getWeekDates(currentMonday).map(toDateStr);
+    const weekDates = getWeekDates(currentMonday);
+    const dates = weekDates.map(toDateStr);
+    const startSlash = toSlashDate(dates[0]);
+    const endSlash   = toSlashDate(dates[5]);
     const colName = activeTab === 'room' ? 'reservations' : 'special_rooms';
-    const snap = await db.collection(colName).get();
+    const snap = await db.collection(colName)
+        .where('date', '>=', startSlash)
+        .where('date', '<=', endSlash)
+        .get();
     weekData = [];
     snap.forEach(doc => {
         const d = { id: doc.id, ...doc.data() };

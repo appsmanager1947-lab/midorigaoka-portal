@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // どのファイルからでもアクセスできるように、グローバル変数にセット
     db = firebase.firestore();
+    // オフラインキャッシュを有効化（同一データの再読み取りを大幅削減）
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
     storage = firebase.storage();
     auth = firebase.auth();
 

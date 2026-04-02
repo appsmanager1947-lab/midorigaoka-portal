@@ -6,11 +6,27 @@
     "headers": [
       {
         "source": "**/*.html",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        ]
       },
       {
-        "source": "**/*.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+        "source": "static/js/*.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=3600" }
+        ]
+      },
+      {
+        "source": "static/css/*.css",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "source": "static/**/*.png",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=604800" }
+        ]
       }
     ]
   }

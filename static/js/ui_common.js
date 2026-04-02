@@ -1,11 +1,3 @@
-// ブラウザキャッシュ強制クリア
-if ('caches' in window) {
-    caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
-}
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
-}
-
 // ==========================================
 // 2. 共通UIとサイドバー (ショートカット機能含む)
 // ==========================================
@@ -118,25 +110,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderApps(); 
 
-        setTimeout(() => {
-            if(typeof db !== 'undefined') {
-                db.collection('shortcuts').onSnapshot((snapshot) => {
-                    customApps = []; 
-                    snapshot.forEach((doc) => customApps.push({ id: doc.id, ...doc.data() })); 
-                    
-                    // 並び替え処理（orderがあればそれで、なければ作成順）
-                    customApps.sort((a, b) => {
-                        const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
-                        const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
-                        return orderA - orderB;
-                    });
-                    
-                    // ローカル上で正確な順番を振り直す
-                    customApps.forEach((app, index) => { app.order = index; });
-                    renderApps();
+        // shortcuts を1回だけ取得（onSnapshot→.get()に変更してFirestore読み取りを削減）
+        // 追加・編集・削除の操作後は loadShortcuts() を呼んで手動再取得する
+        async function loadShortcuts() {
+            if (typeof db === 'undefined') return;
+            try {
+                const snapshot = await db.collection('shortcuts').get();
+                customApps = [];
+                snapshot.forEach((doc) => customApps.push({ id: doc.id, ...doc.data() }));
+                customApps.sort((a, b) => {
+                    const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
+                    const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
+                    return orderA - orderB;
                 });
-            }
-        }, 500);
+                customApps.forEach((app, index) => { app.order = index; });
+                renderApps();
+            } catch(e) { console.warn('shortcuts 取得エラー', e); }
+        }
+
+        setTimeout(loadShortcuts, 300);
 
         editAppBtn.addEventListener('click', () => { isAppEditMode = !isAppEditMode; editAppBtn.textContent = isAppEditMode ? '完了' : '編集'; editAppBtn.style.color = isAppEditMode ? '#d9534f' : '#aaa'; editAppBtn.style.textDecoration = isAppEditMode ? 'none' : 'underline'; renderApps(); });
 
@@ -178,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const batch = db.batch();
             arr.forEach((app, idx) => { batch.update(db.collection('shortcuts').doc(app.id), { order: idx }); });
             await batch.commit();
+            loadShortcuts();
         });
         
         appList.addEventListener('click', async (e) => {
@@ -191,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (app && app.icon && app.icon.startsWith('https://firebasestorage')) {
                         try { await storage.refFromURL(app.icon).delete(); } catch(e) {}
                     }
-                    db.collection('shortcuts').doc(appId).delete();
+                    db.collection('shortcuts').doc(appId).delete().then(() => loadShortcuts());
                 }
             }
             if (btn.classList.contains('edit-app-item-btn')) {
@@ -253,11 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(iconUrl !== null) data.icon = iconUrl;
 
                 if (editingAppId) {
-                    db.collection('shortcuts').doc(editingAppId).update(data).then(() => { finishSave(); });
+                    db.collection('shortcuts').doc(editingAppId).update(data).then(() => { finishSave(); loadShortcuts(); });
                 } else {
                     data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     data.order = customApps.length; // 一番下に追加
-                    db.collection('shortcuts').add(data).then(() => { finishSave(); });
+                    db.collection('shortcuts').add(data).then(() => { finishSave(); loadShortcuts(); });
                 }
             };
 

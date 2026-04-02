@@ -71,13 +71,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ★追加: リアルタイム監視 (作成日時の降順＝新しい順で取得)
-    db.collection('submissions').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-        submissions = [];
-        snapshot.forEach((doc) => { submissions.push({ id: doc.id, ...doc.data() }); });
-        renderSubmissions(indexTableBody, false);
-        renderSubmissions(allSubmissionsBody, true);
-    });
+    // DOMガード: submissions関連の要素がないページでは起動しない
+    if (indexTableBody || allSubmissionsBody) {
+        db.collection('submissions').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+            submissions = [];
+            snapshot.forEach((doc) => { submissions.push({ id: doc.id, ...doc.data() }); });
+            renderSubmissions(indexTableBody, false);
+            renderSubmissions(allSubmissionsBody, true);
+        });
+    }
 
     // ボタン操作（終了・削除）
     document.addEventListener('click', (e) => {
@@ -687,10 +689,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDashboard();
         });
 
-        db.collection('settings').doc('dashboardTagOrder').onSnapshot(doc => {
-            dashTagOrder = (doc.exists && Array.isArray(doc.data().order)) ? doc.data().order : [];
-            renderDashboard();
-        });
+        async function loadDashboardTagOrder() {
+            try {
+                const doc = await db.collection('settings').doc('dashboardTagOrder').get();
+                dashTagOrder = (doc.exists && Array.isArray(doc.data().order)) ? doc.data().order : [];
+                renderDashboard();
+            } catch(e) {}
+        }
+        loadDashboardTagOrder();
 
         editDashBtn.addEventListener('click', () => {
             isDashEditMode = !isDashEditMode;
@@ -790,6 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 arr.splice(insertIdx, 0, moved);
                 _dashSectionDndSrc = null;
                 await db.collection('settings').doc('dashboardTagOrder').set({ order: arr });
+                loadDashboardTagOrder();
             } else if (_dashDndSrcId) {
                 // 同タグ内アイテムの順番入れ替え
                 const targetRow = e.target.closest('[draggable][data-id]');
@@ -1183,27 +1190,30 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // リアルタイム監視
-        if (resBody) {
-            db.collection('reservations').onSnapshot(snapshot => {
-                reservations = []; snapshot.forEach(doc => reservations.push({ id: doc.id, ...doc.data() }));
-                renderTable(resBody, reservations, 'room');
-            });
+        // .get()で1回取得
+        async function loadReservations() {
+            try {
+                if (resBody) {
+                    const snap = await db.collection('reservations').get();
+                    reservations = []; snap.forEach(doc => reservations.push({ id: doc.id, ...doc.data() }));
+                    renderTable(resBody, reservations, 'room');
+                }
+                if (spBody) {
+                    const snap = await db.collection('special_rooms').get();
+                    specialRooms = []; snap.forEach(doc => specialRooms.push({ id: doc.id, ...doc.data() }));
+                    renderTable(spBody, specialRooms, 'special');
+                }
+            } catch(e) { console.warn('reservations 取得エラー', e); }
         }
-        if (spBody) {
-            db.collection('special_rooms').onSnapshot(snapshot => {
-                specialRooms = []; snapshot.forEach(doc => specialRooms.push({ id: doc.id, ...doc.data() }));
-                renderTable(spBody, specialRooms, 'special');
-            });
-        }
+        loadReservations();
 
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-res-btn')) {
                 if(confirm('この予約を完全に削除しますか？')) {
                     const id = e.target.getAttribute('data-id');
                     const type = e.target.getAttribute('data-type');
-                    if (type === 'room') db.collection('reservations').doc(id).delete();
-                    else if (type === 'special') db.collection('special_rooms').doc(id).delete();
+                    if (type === 'room') db.collection('reservations').doc(id).delete().then(() => loadReservations());
+                    else if (type === 'special') db.collection('special_rooms').doc(id).delete().then(() => loadReservations());
                 }
             }
         });
@@ -1228,7 +1238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 purpose: purpose, location: location, date: dateStr, 
                 startTime: start || '-', endTime: end || '-', user: user,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => modalElement.classList.add('hidden'));
+            }).then(() => { modalElement.classList.add('hidden'); loadReservations(); });
         }
 
         const resModal = document.getElementById('reservation-modal');
@@ -1340,10 +1350,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // リアルタイム監視
-        db.collection('attendances').onSnapshot(snap => { attendances = []; snap.forEach(doc => attendances.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
-        db.collection('visitors').onSnapshot(snap => { visitors = []; snap.forEach(doc => visitors.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
-        db.collection('trips').onSnapshot(snap => { trips = []; snap.forEach(doc => trips.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
+        // リアルタイム監視（DOMガード付き：status.html / status_archive.html のみ実行）
+        if (attBody || visBody || tripBody || arcAttBody || arcVisBody || arcTripBody) {
+            db.collection('attendances').onSnapshot(snap => { attendances = []; snap.forEach(doc => attendances.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
+            db.collection('visitors').onSnapshot(snap => { visitors = []; snap.forEach(doc => visitors.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
+            db.collection('trips').onSnapshot(snap => { trips = []; snap.forEach(doc => trips.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
+        }
 
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-status-btn')) {
@@ -1454,12 +1466,29 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // リアルタイム監視
-        db.collection('timetables').onSnapshot(snapshot => {
-            timetables = [];
-            snapshot.forEach(doc => timetables.push({ id: doc.id, ...doc.data() }));
-            renderTimetable();
-        });
+        // .get()で1回取得（enablePersistenceにより2回目以降はキャッシュから返る）
+        async function loadTimetables() {
+            try {
+                const snapshot = await db.collection('timetables').get();
+                timetables = [];
+                snapshot.forEach(doc => timetables.push({ id: doc.id, ...doc.data() }));
+                renderTimetable();
+            } catch(e) { console.warn('timetables 取得エラー', e); }
+        }
+        loadTimetables();
+
+        const ttReloadBtn = document.getElementById('tt-reload-btn');
+        if (ttReloadBtn) {
+            ttReloadBtn.addEventListener('click', async () => {
+                ttReloadBtn.classList.add('loading');
+                // キャッシュを無視してサーバーから強制取得
+                const snapshot = await db.collection('timetables').get({ source: 'server' });
+                timetables = [];
+                snapshot.forEach(doc => timetables.push({ id: doc.id, ...doc.data() }));
+                renderTimetable();
+                ttReloadBtn.classList.remove('loading');
+            });
+        }
 
         const editBtn = document.getElementById('edit-tt-btn');
         const ttModal = document.getElementById('tt-modal');
@@ -1493,14 +1522,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!subject) { alert('科目名は必ず入力してください。'); return; }
 
             db.collection('timetables').add({ day, period, className, subject, teacher })
-              .then(() => closeTtModal());
+              .then(() => { closeTtModal(); loadTimetables(); });
         });
 
         ttBody.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-tt-btn')) {
                 const id = e.target.getAttribute('data-id');
                 if (confirm('この授業を時間割から削除しますか？')) {
-                    db.collection('timetables').doc(id).delete();
+                    db.collection('timetables').doc(id).delete().then(() => loadTimetables());
                 }
             }
         });
@@ -1604,6 +1633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 ttCsvModal.classList.add('hidden');
                 alert(`${parsedTtRows.length}件の時間割を登録しました。`);
+                loadTimetables();
             } catch (err) {
                 alert('登録中にエラーが発生しました。');
             } finally {
@@ -1755,16 +1785,34 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        db.collection('notices').orderBy('createdAt', 'asc').onSnapshot((snapshot) => {
-            notices = [];
-            snapshot.forEach((doc) => { notices.push({ id: doc.id, ...doc.data() }); });
-            renderNotices(); 
-        });
+        // notices をリアルタイム同期しつつ、表示日付でフィルタしてFirestore読み取りを削減
+        // onSnapshotのリスナーを日付ごとに張り直す方式
+        let unsubscribeNotices = null;
 
-        prevBtn.addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() - 1); renderNotices(); });
-        nextBtn.addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() + 1); renderNotices(); });
-        todayBtn.addEventListener('click', () => { currentViewDate = new Date(); renderNotices(); });
-        dateInput.addEventListener('change', (e) => { if (e.target.value) { currentViewDate = new Date(e.target.value); renderNotices(); } });
+        function subscribeNotices() {
+            // 既存のリスナーを解除してから張り直す
+            if (unsubscribeNotices) {
+                unsubscribeNotices();
+                unsubscribeNotices = null;
+            }
+            const viewDateStr = getFormattedDateStr(currentViewDate);
+            unsubscribeNotices = db.collection('notices')
+                .where('date', '==', viewDateStr)
+                .orderBy('createdAt', 'asc')
+                .onSnapshot((snapshot) => {
+                    notices = [];
+                    snapshot.forEach((doc) => { notices.push({ id: doc.id, ...doc.data() }); });
+                    renderNotices();
+                });
+        }
+
+        // 初回取得
+        subscribeNotices();
+
+        prevBtn.addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() - 1); subscribeNotices(); });
+        nextBtn.addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() + 1); subscribeNotices(); });
+        todayBtn.addEventListener('click', () => { currentViewDate = new Date(); subscribeNotices(); });
+        dateInput.addEventListener('change', (e) => { if (e.target.value) { currentViewDate = new Date(e.target.value + 'T00:00:00'); subscribeNotices(); } });
 
         postBtn.addEventListener('click', () => {
             const content = noticeContent.innerHTML.trim();

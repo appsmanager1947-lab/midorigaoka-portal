@@ -3,7 +3,7 @@
 // ==========================================
 let db, storage, auth;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const firebaseConfig = {
       apiKey: "AIzaSyC0Av1pu-j2_j3FWwGAEg_Db7dZoLMEeIA",
       authDomain: "portalsite-midorigaoka-77f17.firebaseapp.com",
@@ -20,7 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // どのファイルからでもアクセスできるように、グローバル変数にセット
     db = firebase.firestore();
     // オフラインキャッシュを有効化（同一データの再読み取りを大幅削減）
-    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    try {
+        await db.enablePersistence({ synchronizeTabs: true });
+    } catch(e) {
+        // failed-precondition: 複数タブ起動中、unimplemented: ブラウザ非対応
+        // どちらも無視して続行
+    }
     storage = firebase.storage();
     auth = firebase.auth();
 

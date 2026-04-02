@@ -88,6 +88,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const tagPresetWrap = document.getElementById('tag-preset-buttons');
             const tagChipWrap = document.getElementById('tag-chip-wrap');
             const tagInput = document.getElementById('tag-text-input');
+            const customTagDatalist = document.getElementById('custom-tag-options');
+            let customTagList = [];
+
+            // カスタムタグをFirestoreから読み込みdatalistを更新
+            async function loadCustomTags() {
+                try {
+                    const doc = await db.collection('meta').doc('column_custom_tags').get();
+                    customTagList = (doc.exists && Array.isArray(doc.data().tags)) ? doc.data().tags : [];
+                    refreshCustomTagDatalist();
+                } catch(e) {}
+            }
+
+            function refreshCustomTagDatalist() {
+                if (!customTagDatalist) return;
+                customTagDatalist.innerHTML = '';
+                customTagList.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    customTagDatalist.appendChild(opt);
+                });
+            }
+
+            // 新しいカスタムタグをFirestoreに保存
+            async function saveCustomTag(tag) {
+                if (COLUMN_TAG_LIST.includes(tag) || customTagList.includes(tag)) return;
+                customTagList.push(tag);
+                refreshCustomTagDatalist();
+                try {
+                    await db.collection('meta').doc('column_custom_tags').set(
+                        { tags: customTagList },
+                        { merge: true }
+                    );
+                } catch(e) {}
+            }
 
             function syncValueFromUI() {
                 const presetTags = Array.from(tagPresetWrap.querySelectorAll('.tag-preset-btn.active')).map(b => b.dataset.tag);
@@ -103,7 +137,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 chip.querySelector('.tag-chip-remove').addEventListener('click', () => { chip.remove(); syncValueFromUI(); });
                 tagChipWrap.insertBefore(chip, tagInput);
                 syncValueFromUI();
+                saveCustomTag(text);
             }
+
+            // カスタムタグ読み込み
+            loadCustomTags();
 
             // プリセットボタン生成
             COLUMN_TAG_LIST.forEach(tag => {

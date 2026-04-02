@@ -636,26 +636,23 @@ function computeLayout(items) {
 // ========== Firestore 取得 ==========
 async function fetchWeekData() {
     const weekDates = getWeekDates(currentMonday);
-    const dates = weekDates.map(toDateStr);          // YYYY-MM-DD (ISO)
-    const startSlash = toSlashDate(dates[0]);         // YYYY/MM/DD
+    const dates = weekDates.map(toDateStr);
+    const startSlash = toSlashDate(dates[0]);
     const endSlash   = toSlashDate(dates[5]);
     const colName = activeTab === 'room' ? 'reservations' : 'special_rooms';
-    // Firestoreにスラッシュ形式・ハイフン形式が混在しているため両方クエリ
-    const [snapSlash, snapISO] = await Promise.all([
-        db.collection(colName).where('date', '>=', startSlash).where('date', '<=', endSlash).get(),
-        db.collection(colName).where('date', '>=', dates[0]).where('date', '<=', dates[5]).get()
-    ]);
-    const seen = new Set();
+    const snap = await db.collection(colName)
+        .where('date', '>=', startSlash)
+        .where('date', '<=', endSlash)
+        .get();
     weekData = [];
-    for (const snap of [snapSlash, snapISO]) {
-        snap.forEach(doc => {
-            if (seen.has(doc.id)) return;
-            seen.add(doc.id);
-            const d = { id: doc.id, ...doc.data() };
-            const nd = normDate(d.date || '');
-            if (dates.includes(nd)) { d._date = nd; weekData.push(d); }
-        });
-    }
+    snap.forEach(doc => {
+        const d = { id: doc.id, ...doc.data() };
+        const nd = normDate(d.date || '');
+        if (dates.includes(nd)) {
+            d._date = nd;
+            weekData.push(d);
+        }
+    });
 }
 
 // ========== デフォルト取得 ==========

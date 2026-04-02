@@ -1288,9 +1288,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let attendances = []; let visitors = []; let trips = [];
 
         const now = new Date();
-        const jstFormatter = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' });
-        const todayParts = jstFormatter.formatToParts(now);
-        const todayStr = `${todayParts.find(p=>p.type==='year').value}-${todayParts.find(p=>p.type==='month').value}-${todayParts.find(p=>p.type==='day').value}`;
+        // ja-JP ロケールは元号年を返す場合があるため UTC+9 オフセットで直接計算
+        const todayStr = (() => { const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000); return jst.toISOString().slice(0, 10); })();
         const isArchivePage = window.location.pathname.includes('status_archive');
         const sortByDate = (arr) => [...arr].sort((a, b) => (a.date > b.date ? 1 : -1));
 
@@ -1696,9 +1695,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const orderedCategories = ['全教職員', '中学', '高１', '高２', '高３'];
 
         function getFormattedDateStr(dateObj) {
-            const jstFormatter = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' });
-            const parts = jstFormatter.formatToParts(dateObj);
-            return `${parts.find(p=>p.type==='year').value}-${parts.find(p=>p.type==='month').value}-${parts.find(p=>p.type==='day').value}`;
+            // ja-JP ロケールは元号年を返す場合があるため UTC+9 オフセットで直接計算
+            const jst = new Date(dateObj.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().slice(0, 10); // 'YYYY-MM-DD'
         }
 
         function getFormattedTimeStr(dateObj) {

@@ -1363,14 +1363,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setupModal('add-att-btn', 'att-modal', 'att-cancel', 'att-submit', 'att-date',
-            () => { ['name','start','end','note'].forEach(id => document.getElementById(`att-${id}`).value = ''); document.getElementById('att-type').selectedIndex = 0; },
+            () => {
+                ['name','start','end','note'].forEach(id => document.getElementById(`att-${id}`).value = '');
+                document.getElementById('att-type').selectedIndex = 0;
+                document.getElementById('att-other-text').value = '';
+                document.getElementById('att-other-wrap').style.display = 'none';
+            },
             () => {
                 const name = document.getElementById('att-name').value.trim(); const date = document.getElementById('att-date').value;
                 if(!name || !date) { alert('対象日と名前は必ず入力してください'); return false; }
-                db.collection('attendances').add({ date, name, type: document.getElementById('att-type').value, start: document.getElementById('att-start').value || '-', end: document.getElementById('att-end').value || '-', note: document.getElementById('att-note').value.trim() });
+                const selectedType = document.getElementById('att-type').value;
+                const type = selectedType === 'その他'
+                    ? (document.getElementById('att-other-text').value.trim() || 'その他')
+                    : selectedType;
+                db.collection('attendances').add({ date, name, type, start: document.getElementById('att-start').value || '-', end: document.getElementById('att-end').value || '-', note: document.getElementById('att-note').value.trim() });
                 return true;
             }
         );
+        document.getElementById('att-type').addEventListener('change', function() {
+            document.getElementById('att-other-wrap').style.display = this.value === 'その他' ? '' : 'none';
+        });
 
         setupModal('add-vis-btn', 'vis-modal', 'vis-cancel', 'vis-submit', 'vis-date',
             () => { ['org','count','rep','purpose','host','loc','time','note'].forEach(id => document.getElementById(`vis-${id}`).value = ''); },

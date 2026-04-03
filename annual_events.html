@@ -539,7 +539,7 @@
             delBtn.addEventListener('click', e => {
                 e.stopPropagation();
                 if (confirm('この日の日直を削除しますか？')) {
-                    db.collection('daily_duty').doc(dateStr).delete();
+                    db.collection('daily_duty').doc(dateStr).delete().then(() => reloadCalendarData());
                 }
             });
 
@@ -688,38 +688,70 @@
                 : ref.set({ duty1, duty2 });
 
             savePromise
-                .then(() => { btn.disabled = false; btn.textContent = '保存'; dutyModal.classList.add('hidden'); })
+                .then(() => { btn.disabled = false; btn.textContent = '保存'; dutyModal.classList.add('hidden'); reloadCalendarData(); })
                 .catch(() => { btn.disabled = false; btn.textContent = 'エラー'; });
         });
 
         // ────────────────────────────────────────
-        // Firestore リアルタイム取得
+        // localStorage キャッシュ (TTL: 60分)
         // ────────────────────────────────────────
-        function startEventsListener() {
-            if (typeof db === 'undefined' || !db) { setTimeout(startEventsListener, 200); return; }
-            db.collection('annual_events').onSnapshot(snap => {
-                allEvents = [];
-                snap.forEach(doc => allEvents.push({ id: doc.id, ...doc.data() }));
+        const CAL_CACHE_TTL = 60 * 60 * 1000;
+        function getCachedData(key) {
+            try {
+                const ts = parseInt(localStorage.getItem(key + '_ts') || '0');
+                if (Date.now() - ts > CAL_CACHE_TTL) return null;
+                const raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : null;
+            } catch(e) { return null; }
+        }
+        function setCachedData(key, data) {
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+                localStorage.setItem(key + '_ts', String(Date.now()));
+            } catch(e) {}
+        }
+        function clearCalendarCache() {
+            ['cache_annual_events', 'cache_daily_duty'].forEach(k => {
+                localStorage.removeItem(k); localStorage.removeItem(k + '_ts');
+            });
+        }
+
+        // ────────────────────────────────────────
+        // Firestore 取得（キャッシュ優先）
+        // ────────────────────────────────────────
+        async function loadCalendarData() {
+            if (typeof db === 'undefined' || !db) { setTimeout(loadCalendarData, 200); return; }
+            try {
+                let evData   = getCachedData('cache_annual_events');
+                let dutyData = getCachedData('cache_daily_duty');
+                // キャッシュがない分だけFirestoreから取得
+                const [evSnap, dutySnap] = await Promise.all([
+                    evData   ? Promise.resolve(null) : db.collection('annual_events').get(),
+                    dutyData ? Promise.resolve(null) : db.collection('daily_duty').get()
+                ]);
+                if (evSnap) {
+                    evData = [];
+                    evSnap.forEach(doc => evData.push({ id: doc.id, ...doc.data() }));
+                    setCachedData('cache_annual_events', evData);
+                }
+                if (dutySnap) {
+                    dutyData = {};
+                    dutySnap.forEach(doc => { dutyData[doc.id] = doc.data(); });
+                    setCachedData('cache_daily_duty', dutyData);
+                }
+                allEvents = evData || [];
                 allEvents.sort((a, b) => (normDate(a.dateFrom || a.date || '')).localeCompare(normDate(b.dateFrom || b.date || '')));
+                dutyMap = dutyData || {};
                 renderCalendar();
                 const countEl = document.getElementById('ev-total-count');
                 if (countEl) countEl.textContent = allEvents.length ? `全 ${allEvents.length} 件` : '';
-            }, err => {
-                console.error('annual_events onSnapshot error:', err);
-                const countEl = document.getElementById('ev-total-count');
-                if (countEl) countEl.textContent = '読み込みエラー: ' + err.code;
-            });
+            } catch (err) {
+                console.error('loadCalendarData error:', err);
+            }
         }
-        function startDutiesListener() {
-            if (typeof db === 'undefined' || !db) { setTimeout(startDutiesListener, 200); return; }
-            db.collection('daily_duty').onSnapshot(snap => {
-                dutyMap = {};
-                snap.forEach(doc => { dutyMap[doc.id] = doc.data(); });
-                renderCalendar();
-            }, err => console.error('daily_duty onSnapshot error:', err));
-        }
-        startEventsListener();
-        startDutiesListener();
+        // 書き込み後にキャッシュをクリアして再取得する
+        function reloadCalendarData() { clearCalendarCache(); return loadCalendarData(); }
+        loadCalendarData();
 
         // ────────────────────────────────────────
         // 月ナビゲーション
@@ -812,7 +844,7 @@
             const data = { dateFrom, dateTo, date: dateFrom, title, targets, target: targets.join(','), note, color };
             const col  = db.collection('annual_events');
             const saveDuty = () => db.collection('daily_duty').doc(dateFrom).set({ duty1, duty2 });
-            const done = () => { btn.disabled = false; btn.textContent = editId ? '更新' : '追加'; evModal.classList.add('hidden'); };
+            const done = () => { btn.disabled = false; btn.textContent = editId ? '更新' : '追加'; evModal.classList.add('hidden'); reloadCalendarData(); };
             const fail = () => { btn.disabled = false; btn.textContent = 'エラー'; };
 
             if (editId) {
@@ -825,7 +857,7 @@
 
         function deleteEvent(id) {
             if (confirm('この行事を削除しますか？')) {
-                db.collection('annual_events').doc(id).delete();
+                db.collection('annual_events').doc(id).delete().then(() => reloadCalendarData());
             }
         }
 
@@ -1033,6 +1065,7 @@
                     await batch.commit();
                 }
 
+                await reloadCalendarData();
                 showDone(`完了：追加 ${toAdd.length} ・更新 ${toUpdate.length} ・削除 ${toDelete.length} ・変更なし ${unchanged}`);
                 setTimeout(() => { hideLoading(); csvModal.classList.add('hidden'); btn.disabled = false; }, 2200);
 
@@ -1187,6 +1220,7 @@
                     await batch.commit();
                 }
 
+                await reloadCalendarData();
                 const saved  = ops.filter(o => o.type === 'set' || o.type === 'update').length;
                 const deleted = ops.filter(o => o.type === 'delete').length;
                 document.getElementById('duty-csv-spinner').style.display = 'none';

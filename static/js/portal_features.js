@@ -1700,6 +1700,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return jst.toISOString().slice(0, 10); // 'YYYY-MM-DD'
         }
 
+        // Firestore 応答を待たず日付入力を即時初期化
+        if (dateInput) dateInput.value = getFormattedDateStr(currentViewDate);
+
         function getFormattedTimeStr(dateObj) {
             return `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
         }
@@ -1795,14 +1798,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 unsubscribeNotices = null;
             }
             const viewDateStr = getFormattedDateStr(currentViewDate);
+            // 日付を即時反映（Firestore 応答前に表示を確定させる）
+            if (dateInput) dateInput.value = viewDateStr;
+            // orderBy を外してコンポジットインデックス不要に。ソートはクライアント側で行う
             unsubscribeNotices = db.collection('notices')
                 .where('date', '==', viewDateStr)
-                .orderBy('createdAt', 'asc')
                 .onSnapshot((snapshot) => {
                     notices = [];
                     snapshot.forEach((doc) => { notices.push({ id: doc.id, ...doc.data() }); });
+                    // createdAt の昇順にクライアント側でソート
+                    notices.sort((a, b) => {
+                        const ta = a.createdAt ? a.createdAt.toMillis() : 0;
+                        const tb = b.createdAt ? b.createdAt.toMillis() : 0;
+                        return ta - tb;
+                    });
                     renderNotices();
-                });
+                }, (err) => { console.error('notices listener error:', err); });
         }
 
         // 初回取得
@@ -1920,7 +1931,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let allEventsCache = [];
-        let unsubscribeEvents = null;
 
         function renderEventsWidget() {
             monthLabel.textContent = `${viewYear}年${MONTHS_JP[viewMonth]}`;
@@ -1996,16 +2006,34 @@ document.addEventListener('DOMContentLoaded', () => {
             if (todayEl) todayEl.scrollIntoView({ block: 'center' });
         }
 
-        // Firestoreから全件取得してキャッシュ、月表示を更新
-        function startSidebarEventsListener() {
+        // localStorage キャッシュ優先（annual_events.html と同じキーを共有）
+        // TTL 60分: 変更がない限り何度開いても Firestore 読み取りゼロ
+        const SIDEBAR_EV_KEY = 'cache_annual_events';
+        const SIDEBAR_EV_TTL = 60 * 60 * 1000;
+        async function startSidebarEventsListener() {
             if (typeof db === 'undefined' || !db) { setTimeout(startSidebarEventsListener, 200); return; }
-            if (unsubscribeEvents) unsubscribeEvents();
+            try {
+                const ts  = parseInt(localStorage.getItem(SIDEBAR_EV_KEY + '_ts') || '0');
+                const raw = Date.now() - ts <= SIDEBAR_EV_TTL ? localStorage.getItem(SIDEBAR_EV_KEY) : null;
+                if (raw) {
+                    allEventsCache = JSON.parse(raw);
+                    renderEventsWidget();
+                    return;
+                }
+            } catch(e) {}
             eventsWidgetList.innerHTML = '<li style="font-size:12px;color:#aaa;padding:6px 4px;">読み込み中...</li>';
-            unsubscribeEvents = db.collection('annual_events').onSnapshot(snap => {
+            try {
+                const snap = await db.collection('annual_events').get();
                 allEventsCache = [];
                 snap.forEach(doc => allEventsCache.push(doc.data()));
+                try {
+                    localStorage.setItem(SIDEBAR_EV_KEY, JSON.stringify(allEventsCache));
+                    localStorage.setItem(SIDEBAR_EV_KEY + '_ts', String(Date.now()));
+                } catch(e) {}
                 renderEventsWidget();
-            });
+            } catch (err) {
+                console.error('sidebar events load error:', err);
+            }
         }
 
         prevBtn.addEventListener('click', () => {

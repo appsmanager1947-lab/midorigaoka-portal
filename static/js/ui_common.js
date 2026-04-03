@@ -108,27 +108,52 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        renderApps(); 
+        // localStorage キャッシュ (TTL: 30分)
+        const SC_KEY = 'cache_shortcuts';
+        const SC_TTL = 30 * 60 * 1000;
+        function getShortcutsCache() {
+            try {
+                const ts = parseInt(localStorage.getItem(SC_KEY + '_ts') || '0');
+                if (Date.now() - ts > SC_TTL) return null;
+                const raw = localStorage.getItem(SC_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch(e) { return null; }
+        }
+        function setShortcutsCache(data) {
+            try { localStorage.setItem(SC_KEY, JSON.stringify(data)); localStorage.setItem(SC_KEY + '_ts', String(Date.now())); } catch(e) {}
+        }
+        function clearShortcutsCache() {
+            localStorage.removeItem(SC_KEY); localStorage.removeItem(SC_KEY + '_ts');
+        }
 
-        // shortcuts を1回だけ取得（onSnapshot→.get()に変更してFirestore読み取りを削減）
-        // 追加・編集・削除の操作後は loadShortcuts() を呼んで手動再取得する
+        function applyShortcuts(apps) {
+            customApps = apps;
+            customApps.sort((a, b) => {
+                const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
+                const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
+                return orderA - orderB;
+            });
+            customApps.forEach((app, index) => { app.order = index; });
+            renderApps();
+        }
+
+        // キャッシュがあれば即時表示、なければFirestoreから取得
+        const cached = getShortcutsCache();
+        if (cached) { applyShortcuts(cached); } else { renderApps(); }
+
         async function loadShortcuts() {
             if (typeof db === 'undefined') return;
             try {
                 const snapshot = await db.collection('shortcuts').get();
-                customApps = [];
-                snapshot.forEach((doc) => customApps.push({ id: doc.id, ...doc.data() }));
-                customApps.sort((a, b) => {
-                    const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
-                    const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
-                    return orderA - orderB;
-                });
-                customApps.forEach((app, index) => { app.order = index; });
-                renderApps();
+                const apps = [];
+                snapshot.forEach((doc) => apps.push({ id: doc.id, ...doc.data() }));
+                setShortcutsCache(apps);
+                applyShortcuts(apps);
             } catch(e) { console.warn('shortcuts 取得エラー', e); }
         }
+        function reloadShortcuts() { clearShortcutsCache(); loadShortcuts(); }
 
-        setTimeout(loadShortcuts, 300);
+        if (!cached) setTimeout(loadShortcuts, 300);
 
         editAppBtn.addEventListener('click', () => { isAppEditMode = !isAppEditMode; editAppBtn.textContent = isAppEditMode ? '完了' : '編集'; editAppBtn.style.color = isAppEditMode ? '#d9534f' : '#aaa'; editAppBtn.style.textDecoration = isAppEditMode ? 'none' : 'underline'; renderApps(); });
 
@@ -170,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const batch = db.batch();
             arr.forEach((app, idx) => { batch.update(db.collection('shortcuts').doc(app.id), { order: idx }); });
             await batch.commit();
-            loadShortcuts();
+            reloadShortcuts();
         });
         
         appList.addEventListener('click', async (e) => {
@@ -184,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (app && app.icon && app.icon.startsWith('https://firebasestorage')) {
                         try { await storage.refFromURL(app.icon).delete(); } catch(e) {}
                     }
-                    db.collection('shortcuts').doc(appId).delete().then(() => loadShortcuts());
+                    db.collection('shortcuts').doc(appId).delete().then(() => reloadShortcuts());
                 }
             }
             if (btn.classList.contains('edit-app-item-btn')) {
@@ -246,11 +271,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(iconUrl !== null) data.icon = iconUrl;
 
                 if (editingAppId) {
-                    db.collection('shortcuts').doc(editingAppId).update(data).then(() => { finishSave(); loadShortcuts(); });
+                    db.collection('shortcuts').doc(editingAppId).update(data).then(() => { finishSave(); reloadShortcuts(); });
                 } else {
                     data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     data.order = customApps.length; // 一番下に追加
-                    db.collection('shortcuts').add(data).then(() => { finishSave(); loadShortcuts(); });
+                    db.collection('shortcuts').add(data).then(() => { finishSave(); reloadShortcuts(); });
                 }
             };
 

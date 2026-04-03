@@ -1,5 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    // セッションキャッシュヘルパー（タブを閉じると自動消去・書き込み後は手動クリア）
+    const getSC = k => { try { const v = sessionStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
+    const setSC = (k, d) => { try { sessionStorage.setItem(k, JSON.stringify(d)); } catch(e) {} };
+    const clearSC = k => { try { sessionStorage.removeItem(k); } catch(e) {} };
+
     // 対象ラベル → 色マップ（annual_events と共通）
     const EV_TARGET_COLORS = {
         '全校':'#FADBD8','中学':'#D6EAF8','高１':'#D5F5E3',
@@ -37,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSubmit = document.getElementById('modal-submit');
 
     let submissions = [];
+    let loadSubmissions = async () => {};
 
     // 描画関数
     function renderSubmissions(tbody, showAll) {
@@ -73,26 +79,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOMガード: submissions関連の要素がないページでは起動しない
     if (indexTableBody || allSubmissionsBody) {
-        db.collection('submissions').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-            submissions = [];
-            snapshot.forEach((doc) => { submissions.push({ id: doc.id, ...doc.data() }); });
+        loadSubmissions = async function() {
+            const cached = getSC('sc_submissions');
+            if (cached) {
+                submissions = cached;
+                renderSubmissions(indexTableBody, false);
+                renderSubmissions(allSubmissionsBody, true);
+                return;
+            }
+            try {
+                const snap = await db.collection('submissions').orderBy('createdAt', 'desc').get();
+                submissions = [];
+                snap.forEach(doc => submissions.push({ id: doc.id, ...doc.data() }));
+                setSC('sc_submissions', submissions);
+            } catch(e) { console.error('loadSubmissions error:', e); }
             renderSubmissions(indexTableBody, false);
             renderSubmissions(allSubmissionsBody, true);
-        });
+        };
+        loadSubmissions();
     }
 
     // ボタン操作（終了・削除）
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('complete-btn')) {
             if(confirm('このタスクを終了済みにしますか？（トップページからは非表示になります）')) {
-                const id = e.target.getAttribute('data-id'); // ★parseIntを削除
-                db.collection('submissions').doc(id).update({ status: 'completed' });
+                const id = e.target.getAttribute('data-id');
+                db.collection('submissions').doc(id).update({ status: 'completed' }).then(() => { clearSC('sc_submissions'); loadSubmissions(); });
             }
         }
         if (e.target.classList.contains('delete-submission-btn')) {
             if(confirm('このタスクを完全に削除しますか？（元に戻せません）')) {
-                const id = e.target.getAttribute('data-id'); // ★parseIntを削除
-                db.collection('submissions').doc(id).delete();
+                const id = e.target.getAttribute('data-id');
+                db.collection('submissions').doc(id).delete().then(() => { clearSC('sc_submissions'); loadSubmissions(); });
             }
         }
     });
@@ -129,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 modal.classList.add('hidden');
+                clearSC('sc_submissions'); loadSubmissions();
             });
         });
     }
@@ -140,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const allBoardsBody = document.getElementById('all-boards-body'); 
 
     let boards = [];
+    let loadBoards = async () => {};
 
     function renderBoards(tbody, showAll) {
         if (!tbody) return;
@@ -169,27 +189,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // リアルタイム監視 (新しい順)
     if (boardTableBody || allBoardsBody) {
-        db.collection('boards').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-            boards = [];
-            snapshot.forEach((doc) => { boards.push({ id: doc.id, ...doc.data() }); });
-            renderBoards(boardTableBody, false); 
+        loadBoards = async function() {
+            const cached = getSC('sc_boards');
+            if (cached) {
+                boards = cached;
+                renderBoards(boardTableBody, false);
+                renderBoards(allBoardsBody, true);
+                return;
+            }
+            try {
+                const snap = await db.collection('boards').orderBy('createdAt', 'desc').get();
+                boards = [];
+                snap.forEach(doc => boards.push({ id: doc.id, ...doc.data() }));
+                setSC('sc_boards', boards);
+            } catch(e) { console.error('loadBoards error:', e); }
+            renderBoards(boardTableBody, false);
             renderBoards(allBoardsBody, true);
-        });
+        };
+        loadBoards();
     }
 
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('complete-board-btn')) {
             if(confirm('この掲示を終了済みにしますか？')) {
                 const id = e.target.getAttribute('data-id');
-                db.collection('boards').doc(id).update({ status: 'completed' });
+                db.collection('boards').doc(id).update({ status: 'completed' }).then(() => { clearSC('sc_boards'); loadBoards(); });
             }
         }
         if (e.target.classList.contains('delete-board-btn')) {
             if(confirm('完全に削除しますか？')) {
                 const id = e.target.getAttribute('data-id');
-                db.collection('boards').doc(id).delete();
+                db.collection('boards').doc(id).delete().then(() => { clearSC('sc_boards'); loadBoards(); });
             }
         }
     });
@@ -199,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     let columns = [];
     let drafts = [];
+    let loadColumns = async () => {};
 
     function makeTitleIcon(title) {
         const chars = (title || '無題').slice(0, 2);
@@ -248,9 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (e.target.classList.contains('delete-col-btn')) {
                 if (confirm('このコラムを削除してもよろしいですか？')) {
-                    db.collection('columns').doc(colId).delete();
+                    db.collection('columns').doc(colId).delete().then(() => { clearSC('sc_columns'); loadColumns(); });
                 }
-                return; 
+                return;
             }
             if (e.target.classList.contains('edit-col-btn')) {
                 window.location.href = `./column_edit.html?edit_id=${colId}`;
@@ -263,17 +295,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const colContainer = document.getElementById('column-list-container');
     const allColContainer = document.getElementById('all-columns-container');
 
-    // コラムのリアルタイム取得
     if (colContainer || allColContainer) {
-        db.collection('columns').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-            columns = [];
-            snapshot.forEach((doc) => {
-                const d = doc.data();
-                if (!d.isDashboardPage) columns.push({ id: doc.id, ...d });
-            });
-            
+        loadColumns = async function() {
+            const cached = getSC('sc_columns');
+            if (cached) {
+                columns = cached;
+            } else {
+                try {
+                    const snap = await db.collection('columns').orderBy('createdAt', 'desc').get();
+                    columns = [];
+                    snap.forEach(doc => { const d = doc.data(); if (!d.isDashboardPage) columns.push({ id: doc.id, ...d }); });
+                    setSC('sc_columns', columns);
+                } catch(e) { console.error('loadColumns error:', e); }
+            }
             if (colContainer) {
-                const sortedCols = [...columns].slice(0, 4); // 最新4件
+                const sortedCols = [...columns].slice(0, 4);
                 if (sortedCols.length === 0) {
                     colContainer.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px; grid-column:1/-1;">コラムはありません<br><small>右上の「＋ 新規」から追加できます</small></div>';
                 } else {
@@ -281,11 +317,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     setupColumnCardEvents('column-list-container');
                 }
             }
-            
-            if (allColContainer && typeof renderAllColumns === 'function') {
-                renderAllColumns(); // 全一覧ページ用（フィルター再描画）
-            }
-        });
+            if (allColContainer && typeof renderAllColumns === 'function') { renderAllColumns(); }
+        };
+        loadColumns();
     }
 
     // ★フィルター＆ソート機能（一覧ページのみ）
@@ -350,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const editWebappBtn = document.getElementById('edit-webapp-btn');
         const addWebappBtn = document.getElementById('add-webapp-btn');
         let webappItems = [];
+        let loadWebapps = async () => {};
         let isWebappEditMode = false;
         let editingWebappId = null;
         const WEBAPP_TAG_COLORS = {
@@ -437,17 +472,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        db.collection('webapps').onSnapshot((snapshot) => {
-            webappItems = [];
-            snapshot.forEach((doc) => { webappItems.push({ id: doc.id, ...doc.data() }); });
-            webappItems.sort((a, b) => {
-                const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
-                const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
-                return orderA - orderB;
-            });
-            webappItems.forEach((item, index) => { item.order = index; });
+        loadWebapps = async function() {
+            const cached = getSC('sc_webapps');
+            if (cached) {
+                webappItems = cached;
+                renderWebapps();
+                return;
+            }
+            try {
+                const snap = await db.collection('webapps').get();
+                webappItems = [];
+                snap.forEach(doc => webappItems.push({ id: doc.id, ...doc.data() }));
+                webappItems.sort((a, b) => {
+                    const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
+                    const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
+                    return orderA - orderB;
+                });
+                webappItems.forEach((item, idx) => { item.order = idx; });
+                setSC('sc_webapps', webappItems);
+            } catch(e) { console.error('loadWebapps error:', e); }
             renderWebapps();
-        });
+        };
+        loadWebapps();
 
         editWebappBtn.addEventListener('click', () => {
             isWebappEditMode = !isWebappEditMode;
@@ -463,7 +509,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (e.target.classList.contains('delete-webapp-btn')) {
                 const item = webappItems.find(i => i.id === id);
-                if (item && confirm(`アプリ「${item.title}」を削除しますか？`)) { db.collection('webapps').doc(id).delete(); }
+                if (item && confirm(`アプリ「${item.title}」を削除しますか？`)) {
+                    db.collection('webapps').doc(id).delete().then(() => { clearSC('sc_webapps'); loadWebapps(); });
+                }
             }
             if (e.target.classList.contains('edit-webapp-item-btn')) {
                 const item = webappItems.find(i => i.id === id);
@@ -515,6 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const batch = db.batch();
             arr.forEach((item, idx) => { batch.update(db.collection('webapps').doc(item.id), { order: idx }); });
             await batch.commit();
+            clearSC('sc_webapps'); loadWebapps();
         });
 
         const webappModal = document.createElement('div');
@@ -555,11 +604,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = { title, tag, description: desc, url };
 
             if (editingWebappId) {
-                db.collection('webapps').doc(editingWebappId).update(data).then(() => { webappModal.classList.add('hidden'); });
+                db.collection('webapps').doc(editingWebappId).update(data).then(() => { webappModal.classList.add('hidden'); clearSC('sc_webapps'); loadWebapps(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = webappItems.length;
-                db.collection('webapps').add(data).then(() => { webappModal.classList.add('hidden'); });
+                db.collection('webapps').add(data).then(() => { webappModal.classList.add('hidden'); clearSC('sc_webapps'); loadWebapps(); });
             }
         });
     }
@@ -677,26 +726,36 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        db.collection('dashboards').onSnapshot((snapshot) => {
-            dashboardItems = [];
-            snapshot.forEach((doc) => { dashboardItems.push({ id: doc.id, ...doc.data() }); });
-            dashboardItems.sort((a, b) => {
-                const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
-                const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
-                return orderA - orderB;
-            });
-            dashboardItems.forEach((item, index) => { item.order = index; });
-            renderDashboard();
-        });
-
-        async function loadDashboardTagOrder() {
-            try {
-                const doc = await db.collection('settings').doc('dashboardTagOrder').get();
-                dashTagOrder = (doc.exists && Array.isArray(doc.data().order)) ? doc.data().order : [];
+        let loadDashboard = async () => {};
+        loadDashboard = async function() {
+            const cachedItems = getSC('sc_dashboards');
+            const cachedTagOrder = getSC('sc_dash_tagorder');
+            if (cachedItems !== null && cachedTagOrder !== null) {
+                dashboardItems = cachedItems;
+                dashTagOrder = cachedTagOrder;
                 renderDashboard();
-            } catch(e) {}
-        }
-        loadDashboardTagOrder();
+                return;
+            }
+            try {
+                const [snap, tagDoc] = await Promise.all([
+                    db.collection('dashboards').get(),
+                    db.collection('settings').doc('dashboardTagOrder').get()
+                ]);
+                dashboardItems = [];
+                snap.forEach(doc => dashboardItems.push({ id: doc.id, ...doc.data() }));
+                dashboardItems.sort((a, b) => {
+                    const orderA = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
+                    const orderB = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
+                    return orderA - orderB;
+                });
+                dashboardItems.forEach((item, index) => { item.order = index; });
+                dashTagOrder = (tagDoc.exists && Array.isArray(tagDoc.data().order)) ? tagDoc.data().order : [];
+                setSC('sc_dashboards', dashboardItems);
+                setSC('sc_dash_tagorder', dashTagOrder);
+            } catch(e) { console.error('loadDashboard error:', e); }
+            renderDashboard();
+        };
+        loadDashboard();
 
         editDashBtn.addEventListener('click', () => {
             isDashEditMode = !isDashEditMode;
@@ -717,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item.type === 'page' && item.columnId) {
                         db.collection('columns').doc(item.columnId).delete().catch(() => {});
                     }
-                    db.collection('dashboards').doc(id).delete();
+                    db.collection('dashboards').doc(id).delete().then(() => { clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
                 }
             }
             if (btn.classList.contains('edit-dash-item-btn')) {
@@ -796,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 arr.splice(insertIdx, 0, moved);
                 _dashSectionDndSrc = null;
                 await db.collection('settings').doc('dashboardTagOrder').set({ order: arr });
-                loadDashboardTagOrder();
+                clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard();
             } else if (_dashDndSrcId) {
                 // 同タグ内アイテムの順番入れ替え
                 const targetRow = e.target.closest('[draggable][data-id]');
@@ -812,6 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const batch = db.batch();
                 arr.forEach((item, idx) => { batch.update(db.collection('dashboards').doc(item.id), { order: idx }); });
                 await batch.commit();
+                clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard();
             }
         });
 
@@ -961,11 +1021,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!title || !url) { alert('タイトルとリンクは必ず入力してください。'); return; }
             const data = { type: 'simple', title, tag, url };
             if (editingDashId) {
-                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashModal.classList.add('hidden'); });
+                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = dashboardItems.length;
-                db.collection('dashboards').add(data).then(() => { dashModal.classList.add('hidden'); });
+                db.collection('dashboards').add(data).then(() => { dashModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
             }
         });
 
@@ -1015,11 +1075,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (links.length === 0) { alert('リンクを1件以上入力してください。'); return; }
             const data = { type: 'multi', title, tag, links };
             if (editingDashId) {
-                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashMultiModal.classList.add('hidden'); });
+                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashMultiModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = dashboardItems.length;
-                db.collection('dashboards').add(data).then(() => { dashMultiModal.classList.add('hidden'); });
+                db.collection('dashboards').add(data).then(() => { dashMultiModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
             }
         });
 
@@ -1049,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = document.getElementById('dash-page-edit-title').value.trim();
             const tag = document.getElementById('dash-page-edit-tag').value.trim() || 'その他';
             if (!title) { alert('タイトルを入力してください。'); return; }
-            db.collection('dashboards').doc(editingDashId).update({ title, tag }).then(() => { editingDashId = null; dashPageEditModal.classList.add('hidden'); });
+            db.collection('dashboards').doc(editingDashId).update({ title, tag }).then(() => { editingDashId = null; dashPageEditModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
         });
 
         // リンク選択（マルチリンクカードクリック時）
@@ -1108,6 +1168,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 batch.delete(db.collection('dashboards').doc(detailDashId));
                             }
                             batch.commit().then(() => {
+                                ['sc_columns','sc_dashboards','sc_dash_tagorder'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
                                 window.location.href = detailSource === 'dashboard' ? './index.html' : './columns.html';
                             });
                         }
@@ -1465,12 +1526,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // .get()で1回取得（enablePersistenceにより2回目以降はキャッシュから返る）
         async function loadTimetables() {
+            const cached = getSC('sc_timetables');
+            if (cached) { timetables = cached; renderTimetable(); return; }
             try {
                 const snapshot = await db.collection('timetables').get();
                 timetables = [];
                 snapshot.forEach(doc => timetables.push({ id: doc.id, ...doc.data() }));
+                setSC('sc_timetables', timetables);
                 renderTimetable();
             } catch(e) { console.warn('timetables 取得エラー', e); }
         }
@@ -1480,11 +1543,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ttReloadBtn) {
             ttReloadBtn.addEventListener('click', async () => {
                 ttReloadBtn.classList.add('loading');
-                // キャッシュを無視してサーバーから強制取得
-                const snapshot = await db.collection('timetables').get({ source: 'server' });
-                timetables = [];
-                snapshot.forEach(doc => timetables.push({ id: doc.id, ...doc.data() }));
-                renderTimetable();
+                clearSC('sc_timetables');
+                await loadTimetables();
                 ttReloadBtn.classList.remove('loading');
             });
         }
@@ -1521,14 +1581,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!subject) { alert('科目名は必ず入力してください。'); return; }
 
             db.collection('timetables').add({ day, period, className, subject, teacher })
-              .then(() => { closeTtModal(); loadTimetables(); });
+              .then(() => { clearSC('sc_timetables'); closeTtModal(); loadTimetables(); });
         });
 
         ttBody.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-tt-btn')) {
                 const id = e.target.getAttribute('data-id');
                 if (confirm('この授業を時間割から削除しますか？')) {
-                    db.collection('timetables').doc(id).delete().then(() => loadTimetables());
+                    db.collection('timetables').doc(id).delete().then(() => { clearSC('sc_timetables'); loadTimetables(); });
                 }
             }
         });
@@ -1632,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 ttCsvModal.classList.add('hidden');
                 alert(`${parsedTtRows.length}件の時間割を登録しました。`);
-                loadTimetables();
+                clearSC('sc_timetables'); loadTimetables();
             } catch (err) {
                 alert('登録中にエラーが発生しました。');
             } finally {

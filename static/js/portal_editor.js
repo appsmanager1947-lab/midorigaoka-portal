@@ -821,10 +821,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
 
+                const clearEditorCaches = () => {
+                    ['sc_boards','sc_columns','sc_dashboards','sc_dash_tagorder'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                };
+
                 if (editingColId) {
                     db.collection(collectionName).doc(editingColId).update(saveData).then(() => {
                         afterPublish();
                         alert(isBoardMode ? '掲示を更新しました！' : 'コラムを更新しました！');
+                        clearEditorCaches();
                         window.location.href = isBoardMode ? './boards.html' :
                             (isDashboardEdit ? './index.html' : './columns.html');
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
@@ -842,10 +847,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 order: 9999
                             }).then(() => {
                                 alert('フリーページカードを作成しました！');
+                                clearEditorCaches();
                                 window.location.href = './index.html';
                             }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                         } else {
                             alert(isBoardMode ? '掲示を公開しました！' : 'コラムを公開しました！');
+                            clearEditorCaches();
                             window.location.href = isBoardMode ? './boards.html' : './columns.html';
                         }
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });

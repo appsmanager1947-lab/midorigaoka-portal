@@ -19,13 +19,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // どのファイルからでもアクセスできるように、グローバル変数にセット
     db = firebase.firestore();
-    // オフラインキャッシュを有効化（同一データの再読み取りを大幅削減）
-    try {
-        await db.enablePersistence({ synchronizeTabs: true });
-    } catch(e) {
-        // failed-precondition: 複数タブ起動中、unimplemented: ブラウザ非対応
-        // どちらも無視して続行
-    }
     storage = firebase.storage();
     auth = firebase.auth();
 

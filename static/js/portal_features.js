@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const setSC = (k, d) => { try { sessionStorage.setItem(k, JSON.stringify(d)); } catch(e) {} };
     const clearSC = k => { try { sessionStorage.removeItem(k); } catch(e) {} };
 
+
     // 対象ラベル → 色マップ（annual_events と共通）
     const EV_TARGET_COLORS = {
         '全校':'#FADBD8','中学':'#D6EAF8','高１':'#D5F5E3',
@@ -66,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.status === 'completed') {
                 statusHtml = `<span style="background-color: #e0e0e0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 8px;">終了済み</span>`;
-                actionHtml = `<span style="color:#ccc; font-size: 12px;">操作不可</span>` + deleteBtnHtml;
+                actionHtml = `<button class="reactivate-submission-btn" data-id="${data.id}" style="background-color: transparent; color: #2c8c5a; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">取り消し</button>` + deleteBtnHtml;
             } else {
                 actionHtml = `<button class="complete-btn" data-id="${data.id}" style="background-color: transparent; color: #aaa; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">終了</button>` + deleteBtnHtml;
             }
@@ -105,6 +106,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if(confirm('このタスクを終了済みにしますか？（トップページからは非表示になります）')) {
                 const id = e.target.getAttribute('data-id');
                 db.collection('submissions').doc(id).update({ status: 'completed' }).then(() => { clearSC('sc_submissions'); loadSubmissions(); });
+            }
+        }
+        if (e.target.classList.contains('reactivate-submission-btn')) {
+            if(confirm('終了済みを取り消して、進行中に戻しますか？')) {
+                const id = e.target.getAttribute('data-id');
+                db.collection('submissions').doc(id).update({ status: 'active' }).then(() => { clearSC('sc_submissions'); loadSubmissions(); });
             }
         }
         if (e.target.classList.contains('delete-submission-btn')) {
@@ -755,7 +762,24 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch(e) { console.error('loadDashboard error:', e); }
             renderDashboard();
         };
-        loadDashboard();
+        loadDashboard().then(() => {
+            // 他ページ用データをバックグラウンドでプリフェッチ（MDM環境対策）
+            const prefetchTargets = [
+                { key: 'sc_boards',      fetch: () => db.collection('boards').orderBy('createdAt', 'desc').get(), filter: null },
+                { key: 'sc_submissions', fetch: () => db.collection('submissions').get(), filter: null },
+                { key: 'sc_timetables', fetch: () => db.collection('timetables').get(), filter: null },
+                { key: 'sc_columns',     fetch: () => db.collection('columns').get(), filter: d => !d.isDashboardPage },
+            ];
+            Promise.all(prefetchTargets.map(async ({ key, fetch, filter }) => {
+                if (getSC(key) !== null) return;
+                try {
+                    const snap = await fetch();
+                    const items = [];
+                    snap.forEach(doc => { const d = doc.data(); if (!filter || filter(d)) items.push({ id: doc.id, ...d }); });
+                    setSC(key, items);
+                } catch(e) {}
+            }));
+        });
 
         editDashBtn.addEventListener('click', () => {
             isDashEditMode = !isDashEditMode;
@@ -1347,6 +1371,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (attBody || visBody || tripBody || arcAttBody) {
         let attendances = []; let visitors = []; let trips = [];
+        let editingAttId = null, editingVisId = null, editingTripId = null;
+        let clearVisLoc = null, setVisLoc = null;
 
         const now = new Date();
         // ja-JP ロケールは元号年を返す場合があるため UTC+9 オフセットで直接計算
@@ -1367,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sortByDate(filtered).forEach(d => {
                     const tr = document.createElement('tr');
                     const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
-                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.type}</span></td><td>${d.start}</td><td>${d.end}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="delete-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
+                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.type}</span></td><td>${d.start}</td><td>${d.end}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                     targetAttBody.appendChild(tr);
                 });
                 }
@@ -1385,7 +1411,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sortByDate(filtered).forEach(d => {
                     const tr = document.createElement('tr');
                     const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
-                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="delete-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
+                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                     targetVisBody.appendChild(tr);
                 });
                 }
@@ -1403,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sortByDate(filtered).forEach(d => {
                     const tr = document.createElement('tr');
                     const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
-                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
+                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                     targetTripBody.appendChild(tr);
                 });
                 }
@@ -1427,6 +1453,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (type === 'trip') db.collection('trips').doc(id).delete();
                 }
             }
+            if (e.target.classList.contains('edit-status-btn')) {
+                const id = e.target.getAttribute('data-id');
+                const type = e.target.getAttribute('data-type');
+                if (type === 'att') openEditAttModal(id);
+                if (type === 'vis') openEditVisModal(id);
+                if (type === 'trip') openEditTripModal(id);
+            }
         });
 
         function setupModal(btnId, modalId, cancelId, submitId, dateId, onOpen, onSubmit) {
@@ -1438,8 +1471,87 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById(submitId).addEventListener('click', () => { if(onSubmit()) modal.classList.add('hidden'); });
         }
 
+        // ── vis-loc 複数場所チップ UI ──────────────────────────
+        (function() {
+            const visLocInput = document.getElementById('vis-loc');
+            if (!visLocInput) return;
+            visLocInput.style.display = 'none';
+            let chips = [];
+            const container = document.createElement('div');
+            container.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; padding:6px 8px; border:1px solid #E6E4DF; border-radius:6px; background:#fff; min-height:38px; align-items:center; cursor:text;';
+            const chipInput = document.createElement('input');
+            chipInput.type = 'text';
+            chipInput.setAttribute('list', 'vis-loc-options');
+            chipInput.placeholder = '場所を選択（複数可、Enterで確定）';
+            chipInput.style.cssText = 'border:none; outline:none; flex:1; min-width:120px; font-size:14px; padding:2px 0; background:transparent;';
+            container.appendChild(chipInput);
+            visLocInput.parentNode.insertBefore(container, visLocInput);
+
+            function renderChips() {
+                container.querySelectorAll('.vis-loc-chip').forEach(c => c.remove());
+                chips.forEach(chip => {
+                    const span = document.createElement('span');
+                    span.className = 'vis-loc-chip';
+                    span.style.cssText = 'background:#e8f5e9; border:1px solid #a5d6a7; padding:2px 10px 2px 8px; border-radius:12px; font-size:13px; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;';
+                    const text = document.createElement('span');
+                    text.textContent = chip;
+                    const btn = document.createElement('button');
+                    btn.type = 'button'; btn.textContent = '×';
+                    btn.style.cssText = 'background:none; border:none; cursor:pointer; color:#888; padding:0 0 0 2px; font-size:13px; line-height:1;';
+                    btn.addEventListener('click', () => { chips = chips.filter(c => c !== chip); visLocInput.value = chips.join('、') || ''; renderChips(); });
+                    span.appendChild(text); span.appendChild(btn);
+                    container.insertBefore(span, chipInput);
+                });
+            }
+
+            function addChip(val) {
+                val = val.trim();
+                if (!val || chips.includes(val)) { chipInput.value = ''; return; }
+                chips.push(val);
+                visLocInput.value = chips.join('、');
+                renderChips();
+                chipInput.value = '';
+            }
+
+            clearVisLoc = function() { chips = []; visLocInput.value = ''; chipInput.value = ''; renderChips(); };
+            setVisLoc = function(val) {
+                clearVisLoc();
+                if (val && val !== '-') { val.split(/[、,]/).forEach(v => { if (v.trim()) addChip(v.trim()); }); }
+            };
+
+            container.addEventListener('click', () => chipInput.focus());
+            chipInput.addEventListener('change', () => { if (chipInput.value.trim()) addChip(chipInput.value); });
+            chipInput.addEventListener('keydown', (e) => {
+                if (!e.isComposing && (e.key === 'Enter' || e.key === ',') && chipInput.value.trim()) { e.preventDefault(); addChip(chipInput.value); }
+                else if (e.key === 'Backspace' && chipInput.value === '' && chips.length > 0) { chips.pop(); visLocInput.value = chips.join('、'); renderChips(); }
+            });
+        })();
+
+        function resetAttModal() {
+            editingAttId = null;
+            const title = document.getElementById('att-modal-title');
+            const submit = document.getElementById('att-submit');
+            if (title) title.textContent = '出勤状況を追加';
+            if (submit) submit.textContent = '追加';
+        }
+        function resetVisModal() {
+            editingVisId = null;
+            const title = document.getElementById('vis-modal-title');
+            const submit = document.getElementById('vis-submit');
+            if (title) title.textContent = '来客状況を追加';
+            if (submit) submit.textContent = '追加';
+        }
+        function resetTripModal() {
+            editingTripId = null;
+            const title = document.getElementById('trip-modal-title');
+            const submit = document.getElementById('trip-submit');
+            if (title) title.textContent = '出張状況を追加';
+            if (submit) submit.textContent = '追加';
+        }
+
         setupModal('add-att-btn', 'att-modal', 'att-cancel', 'att-submit', 'att-date',
             () => {
+                resetAttModal();
                 ['name','start','end','note'].forEach(id => document.getElementById(`att-${id}`).value = '');
                 document.getElementById('att-type').selectedIndex = 0;
                 document.getElementById('att-other-text').value = '';
@@ -1452,33 +1564,126 @@ document.addEventListener('DOMContentLoaded', () => {
                 const type = selectedType === 'その他'
                     ? (document.getElementById('att-other-text').value.trim() || 'その他')
                     : selectedType;
-                db.collection('attendances').add({ date, name, type, start: document.getElementById('att-start').value || '-', end: document.getElementById('att-end').value || '-', note: document.getElementById('att-note').value.trim() });
+                const data = { date, name, type, start: document.getElementById('att-start').value || '-', end: document.getElementById('att-end').value || '-', note: document.getElementById('att-note').value.trim() };
+                if (editingAttId) { db.collection('attendances').doc(editingAttId).update(data); }
+                else { db.collection('attendances').add(data); }
+                resetAttModal();
                 return true;
             }
         );
-        document.getElementById('att-type').addEventListener('change', function() {
+        const attCancelBtn = document.getElementById('att-cancel');
+        if (attCancelBtn) attCancelBtn.addEventListener('click', resetAttModal);
+        const attTypeEl = document.getElementById('att-type');
+        if (attTypeEl) attTypeEl.addEventListener('change', function() {
             document.getElementById('att-other-wrap').style.display = this.value === 'その他' ? '' : 'none';
         });
 
+        function openEditAttModal(id) {
+            const d = attendances.find(a => a.id === id);
+            if (!d) return;
+            const modal = document.getElementById('att-modal');
+            if (!modal) return;
+            editingAttId = id;
+            document.getElementById('att-date').value = d.date || '';
+            document.getElementById('att-name').value = d.name || '';
+            const attTypeEl2 = document.getElementById('att-type');
+            const knownTypes = Array.from(attTypeEl2.options).map(o => o.value);
+            if (knownTypes.includes(d.type)) {
+                attTypeEl2.value = d.type;
+                document.getElementById('att-other-wrap').style.display = 'none';
+            } else {
+                attTypeEl2.value = 'その他';
+                document.getElementById('att-other-text').value = d.type || '';
+                document.getElementById('att-other-wrap').style.display = '';
+            }
+            document.getElementById('att-start').value = (d.start === '-') ? '' : (d.start || '');
+            document.getElementById('att-end').value = (d.end === '-') ? '' : (d.end || '');
+            document.getElementById('att-note').value = d.note || '';
+            const title = document.getElementById('att-modal-title');
+            const submit = document.getElementById('att-submit');
+            if (title) title.textContent = '出勤状況を編集';
+            if (submit) submit.textContent = '更新';
+            modal.classList.remove('hidden');
+        }
+
         setupModal('add-vis-btn', 'vis-modal', 'vis-cancel', 'vis-submit', 'vis-date',
-            () => { ['org','count','rep','purpose','host','loc','time','note'].forEach(id => document.getElementById(`vis-${id}`).value = ''); },
+            () => {
+                resetVisModal();
+                ['org','count','rep','purpose','host','time','note'].forEach(id => document.getElementById(`vis-${id}`).value = '');
+                if (clearVisLoc) clearVisLoc();
+            },
             () => {
                 const date = document.getElementById('vis-date').value; const org = document.getElementById('vis-org').value.trim(); const rep = document.getElementById('vis-rep').value.trim();
                 if(!date || (!org && !rep)) { alert('対象日と、来客所属または代表者名のいずれかを入力してください'); return false; }
-                db.collection('visitors').add({ date, org: org||'-', count: document.getElementById('vis-count').value||'-', rep: rep||'-', purpose: document.getElementById('vis-purpose').value||'-', host: document.getElementById('vis-host').value||'-', loc: document.getElementById('vis-loc').value||'-', time: document.getElementById('vis-time').value||'-', note: document.getElementById('vis-note').value.trim() });
+                const locVal = document.getElementById('vis-loc').value || '-';
+                const data = { date, org: org||'-', count: document.getElementById('vis-count').value||'-', rep: rep||'-', purpose: document.getElementById('vis-purpose').value||'-', host: document.getElementById('vis-host').value||'-', loc: locVal||'-', time: document.getElementById('vis-time').value||'-', note: document.getElementById('vis-note').value.trim() };
+                if (editingVisId) { db.collection('visitors').doc(editingVisId).update(data); }
+                else { db.collection('visitors').add(data); }
+                resetVisModal();
                 return true;
             }
         );
+        const visCancelBtn = document.getElementById('vis-cancel');
+        if (visCancelBtn) visCancelBtn.addEventListener('click', resetVisModal);
+
+        function openEditVisModal(id) {
+            const d = visitors.find(v => v.id === id);
+            if (!d) return;
+            const modal = document.getElementById('vis-modal');
+            if (!modal) return;
+            editingVisId = id;
+            document.getElementById('vis-date').value = d.date || '';
+            document.getElementById('vis-org').value = (d.org === '-') ? '' : (d.org || '');
+            document.getElementById('vis-count').value = (d.count === '-') ? '' : (d.count || '');
+            document.getElementById('vis-rep').value = (d.rep === '-') ? '' : (d.rep || '');
+            document.getElementById('vis-purpose').value = (d.purpose === '-') ? '' : (d.purpose || '');
+            document.getElementById('vis-host').value = (d.host === '-') ? '' : (d.host || '');
+            if (setVisLoc) { setVisLoc(d.loc); } else { document.getElementById('vis-loc').value = (d.loc === '-') ? '' : (d.loc || ''); }
+            document.getElementById('vis-time').value = (d.time === '-') ? '' : (d.time || '');
+            document.getElementById('vis-note').value = d.note || '';
+            const title = document.getElementById('vis-modal-title');
+            const submit = document.getElementById('vis-submit');
+            if (title) title.textContent = '来客状況を編集';
+            if (submit) submit.textContent = '更新';
+            modal.classList.remove('hidden');
+        }
 
         setupModal('add-trip-btn', 'trip-modal', 'trip-cancel', 'trip-submit', 'trip-date',
-            () => { ['name','purpose','loc','time','note'].forEach(id => document.getElementById(`trip-${id}`).value = ''); },
+            () => {
+                resetTripModal();
+                ['name','purpose','loc','time','note'].forEach(id => document.getElementById(`trip-${id}`).value = '');
+            },
             () => {
                 const date = document.getElementById('trip-date').value; const name = document.getElementById('trip-name').value.trim();
                 if(!date || !name) { alert('対象日と名前は必ず入力してください'); return false; }
-                db.collection('trips').add({ date, name, purpose: document.getElementById('trip-purpose').value||'-', loc: document.getElementById('trip-loc').value||'-', time: document.getElementById('trip-time').value||'-', note: document.getElementById('trip-note').value.trim() });
+                const data = { date, name, purpose: document.getElementById('trip-purpose').value||'-', loc: document.getElementById('trip-loc').value||'-', time: document.getElementById('trip-time').value||'-', note: document.getElementById('trip-note').value.trim() };
+                if (editingTripId) { db.collection('trips').doc(editingTripId).update(data); }
+                else { db.collection('trips').add(data); }
+                resetTripModal();
                 return true;
             }
         );
+        const tripCancelBtn = document.getElementById('trip-cancel');
+        if (tripCancelBtn) tripCancelBtn.addEventListener('click', resetTripModal);
+
+        function openEditTripModal(id) {
+            const d = trips.find(t => t.id === id);
+            if (!d) return;
+            const modal = document.getElementById('trip-modal');
+            if (!modal) return;
+            editingTripId = id;
+            document.getElementById('trip-date').value = d.date || '';
+            document.getElementById('trip-name').value = d.name || '';
+            document.getElementById('trip-purpose').value = (d.purpose === '-') ? '' : (d.purpose || '');
+            document.getElementById('trip-loc').value = (d.loc === '-') ? '' : (d.loc || '');
+            document.getElementById('trip-time').value = (d.time === '-') ? '' : (d.time || '');
+            document.getElementById('trip-note').value = d.note || '';
+            const title = document.getElementById('trip-modal-title');
+            const submit = document.getElementById('trip-submit');
+            if (title) title.textContent = '出張状況を編集';
+            if (submit) submit.textContent = '更新';
+            modal.classList.remove('hidden');
+        }
     }
 
     // ==========================================
@@ -1921,13 +2126,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         noticeTimeline.addEventListener('click', (e) => {
-            const id = e.target.getAttribute('data-id');
-            if (!id) return;
+            const delBtn = e.target.closest('.delete-notice-btn');
+            const editBtn = e.target.closest('.edit-notice-btn');
 
-            if (e.target.classList.contains('delete-notice-btn')) {
-                if (confirm('この連絡を削除しますか？')) { db.collection('notices').doc(id).delete(); }
+            if (delBtn) {
+                const id = delBtn.getAttribute('data-id');
+                if (id && confirm('この連絡を削除しますか？')) { db.collection('notices').doc(id).delete(); }
             }
-            if (e.target.classList.contains('edit-notice-btn')) {
+            if (editBtn) {
+                const id = editBtn.getAttribute('data-id');
                 const targetNotice = notices.find(n => n.id === id);
                 if (targetNotice) {
                     editingNoticeId = targetNotice.id;

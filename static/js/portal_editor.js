@@ -144,15 +144,17 @@ document.addEventListener('DOMContentLoaded', () => {
             loadCustomTags();
 
             // プリセットボタン生成
-            COLUMN_TAG_LIST.forEach(tag => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'tag-preset-btn';
-                btn.dataset.tag = tag;
-                btn.textContent = tag;
-                btn.addEventListener('click', () => { btn.classList.toggle('active'); syncValueFromUI(); });
-                tagPresetWrap.appendChild(btn);
-            });
+            if (tagPresetWrap) {
+                COLUMN_TAG_LIST.forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'tag-preset-btn';
+                    btn.dataset.tag = tag;
+                    btn.textContent = tag;
+                    btn.addEventListener('click', () => { btn.classList.toggle('active'); syncValueFromUI(); });
+                    tagPresetWrap.appendChild(btn);
+                });
+            }
 
             syncTagsFromValue = function() {
                 tagPresetWrap.querySelectorAll('.tag-preset-btn').forEach(b => b.classList.remove('active'));
@@ -518,6 +520,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (editContent && slashMenu) {
             editContent.addEventListener('keydown', (e) => {
+                // ── Ctrl+B / Ctrl+I / Ctrl+K ショートカット ──────────────
+                if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+                    if (e.key === 'b' || e.key === 'B') { e.preventDefault(); document.execCommand('bold', false, null); return; }
+                    if (e.key === 'i' || e.key === 'I') { e.preventDefault(); document.execCommand('italic', false, null); return; }
+                    if (e.key === 'u' || e.key === 'U') { e.preventDefault(); document.execCommand('underline', false, null); return; }
+                    if (e.key === 'k' || e.key === 'K') {
+                        e.preventDefault();
+                        const sel = window.getSelection();
+                        if (sel.rangeCount > 0) savedSelectionRange = sel.getRangeAt(0).cloneRange();
+                        const selText = sel.toString();
+                        document.getElementById('link-text').value = selText;
+                        document.getElementById('link-url').value = '';
+                        linkModal.classList.remove('hidden');
+                        setTimeout(() => document.getElementById(selText ? 'link-url' : 'link-text').focus(), 100);
+                        return;
+                    }
+                }
                 // checkbox-row 内で Enter → 空なら段落に抜ける、テキストありなら次のチェックボックス行を作成
                 if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !isSlashMenuOpen) {
                     const sel = window.getSelection();
@@ -633,6 +652,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 floatingColor.addEventListener('input', (e) => { document.execCommand('foreColor', false, e.target.value); });
             }
         }
+
+        // ⑤-0 ペースト時のURL→リンク自動変換
+        editContent.addEventListener('paste', (e) => {
+            const clip = e.clipboardData || window.clipboardData;
+            const plainText = clip.getData('text/plain');
+            const htmlText = clip.getData('text/html');
+
+            // Case 1: 単体URL → <a> リンクに変換
+            if (/^https?:\/\/\S+$/.test(plainText.trim())) {
+                e.preventDefault();
+                const url = plainText.trim().replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E');
+                document.execCommand('insertHTML', false,
+                    `<a href="${url}" target="_blank" style="color: #0066cc; text-decoration: underline;">${plainText.trim()}</a>`);
+                return;
+            }
+
+            // Case 2: HTMLペーストに <a> が含まれる → リンクを保持してクリーンな HTML を挿入
+            if (htmlText && /<a[\s>]/i.test(htmlText)) {
+                e.preventDefault();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                function extractHtml(node) {
+                    let out = '';
+                    node.childNodes.forEach(child => {
+                        if (child.nodeType === 3) {
+                            out += child.textContent.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        } else if (child.tagName === 'A') {
+                            const href = (child.getAttribute('href') || '').replace(/"/g, '%22');
+                            out += `<a href="${href}" target="_blank" style="color: #0066cc; text-decoration: underline;">${child.textContent}</a>`;
+                        } else if (child.tagName === 'BR') {
+                            out += '<br>';
+                        } else if (['P','DIV','LI'].includes(child.tagName || '')) {
+                            out += extractHtml(child) + '<br>';
+                        } else {
+                            out += extractHtml(child);
+                        }
+                    });
+                    return out;
+                }
+                document.execCommand('insertHTML', false, extractHtml(doc.body));
+                return;
+            }
+
+            // Case 3: プレーンテキスト中にURLが含まれる → URLをリンク化
+            if (/https?:\/\/\S+/.test(plainText)) {
+                e.preventDefault();
+                const parts = plainText.split(/(https?:\/\/\S+)/g);
+                const html = parts.map(part =>
+                    /^https?:\/\/\S+$/.test(part)
+                        ? `<a href="${part.replace(/"/g,'%22').replace(/</g,'%3C').replace(/>/g,'%3E')}" target="_blank" style="color: #0066cc; text-decoration: underline;">${part}</a>`
+                        : part.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')
+                ).join('');
+                document.execCommand('insertHTML', false, html);
+                return;
+            }
+            // Default: ブラウザのデフォルト処理に任せる
+        });
 
         // ⑤ エディタ内画像（インライン画像）のクラウドアップロード処理
         const hiddenImgUpload = document.getElementById('hidden-img-upload');

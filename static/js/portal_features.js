@@ -2147,7 +2147,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (timingSelect && targetNotice.timing) timingSelect.value = targetNotice.timing;
                     }
                     postBtn.textContent = '更新する';
-                    window.scrollTo({ top: noticeContent.offsetTop - 100, behavior: 'smooth' });
+                    noticeContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    setTimeout(() => noticeContent.focus(), 400);
                 }
             }
         });

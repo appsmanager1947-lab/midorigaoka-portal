@@ -714,14 +714,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 colorPopup.id = 'color-picker-popup';
                 colorPopup.style.cssText = 'position:fixed;z-index:10000;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.18);padding:10px 12px;min-width:220px;display:none;';
                 colorPopup.innerHTML = `
-                    <div id="cp-history-section" style="margin-bottom:8px;">
-                        <div style="font-size:11px;color:#888;margin-bottom:4px;">最近使った色</div>
-                        <div id="cp-history-swatches" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+                    <div id="cp-main-panel">
+                        <div id="cp-history-section" style="margin-bottom:8px;">
+                            <div style="font-size:11px;color:#888;margin-bottom:4px;">最近使った色</div>
+                            <div id="cp-history-swatches" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+                        </div>
+                        <div style="font-size:11px;color:#888;margin-bottom:4px;">標準の色</div>
+                        <div id="cp-preset-swatches" style="display:grid;grid-template-columns:repeat(10,20px);gap:2px;margin-bottom:8px;"></div>
+                        <div style="border-top:1px solid #eee;padding-top:8px;">
+                            <button id="cp-custom-btn" style="width:100%;padding:5px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f9f9f9;color:#333;">🎨 その他の色...</button>
+                        </div>
                     </div>
-                    <div style="font-size:11px;color:#888;margin-bottom:4px;">標準の色</div>
-                    <div id="cp-preset-swatches" style="display:grid;grid-template-columns:repeat(10,20px);gap:2px;margin-bottom:8px;"></div>
-                    <div style="border-top:1px solid #eee;padding-top:8px;">
-                        <button id="cp-custom-btn" style="width:100%;padding:5px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f9f9f9;color:#333;">🎨 その他の色...</button>
+                    <div id="cp-custom-panel" style="display:none;">
+                        <div style="font-size:11px;color:#888;margin-bottom:6px;">カスタムカラー</div>
+                        <input type="color" id="cp-custom-input" value="#e53e3e" style="width:100%;height:64px;border:1px solid #ddd;padding:2px;cursor:pointer;border-radius:4px;box-sizing:border-box;">
+                        <div style="display:flex;gap:6px;margin-top:8px;">
+                            <button id="cp-custom-ok" style="flex:1;padding:6px;font-size:13px;cursor:pointer;border:1px solid #0066cc;border-radius:4px;background:#0066cc;color:#fff;font-weight:bold;">決定</button>
+                            <button id="cp-custom-cancel" style="flex:1;padding:6px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f9f9f9;color:#333;">キャンセル</button>
+                        </div>
                     </div>
                 `;
                 document.body.appendChild(colorPopup);
@@ -781,6 +791,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 function closeColorPopup() {
                     colorPopup.style.display = 'none';
+                    // サブパネルを閉じた状態に戻す
+                    const mp = colorPopup.querySelector('#cp-main-panel');
+                    const cp = colorPopup.querySelector('#cp-custom-panel');
+                    if (mp) mp.style.display = '';
+                    if (cp) cp.style.display = 'none';
                 }
 
                 floatingColorBtn.addEventListener('mousedown', (e) => {
@@ -792,18 +807,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
+                const cpMainPanel = colorPopup.querySelector('#cp-main-panel');
+                const cpCustomPanel = colorPopup.querySelector('#cp-custom-panel');
+                const cpCustomInput = colorPopup.querySelector('#cp-custom-input');
+
                 colorPopup.querySelector('#cp-custom-btn').addEventListener('mousedown', (e) => {
                     e.preventDefault();
-                    closeColorPopup();
-                    floatingColor.click();
+                    cpMainPanel.style.display = 'none';
+                    cpCustomPanel.style.display = '';
                 });
 
-                floatingColor.addEventListener('input', (e) => {
-                    const color = e.target.value;
-                    if (floatingColorBar) floatingColorBar.style.background = color;
-                    restoreSelection();
-                    document.execCommand('foreColor', false, color);
-                    saveColorHistory(color);
+                colorPopup.querySelector('#cp-custom-ok').addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    applyColor(cpCustomInput.value);
+                    cpCustomPanel.style.display = 'none';
+                    cpMainPanel.style.display = '';
+                    closeColorPopup();
+                });
+
+                colorPopup.querySelector('#cp-custom-cancel').addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    cpCustomPanel.style.display = 'none';
+                    cpMainPanel.style.display = '';
                 });
 
                 document.addEventListener('mousedown', (e) => {

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>連絡事項 比較 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section"><h2 class="sidebar-title">ショートカット</h2><ul class="app-list"></ul></div>
+        </aside>
+
+        <main class="main-content">
+            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 24px;">
+                <h2 class="section-title" style="margin: 0; font-size: 24px; color: #d9534f;">■ 連絡事項 2カテゴリ比較</h2>
+            </div>
+
+            <div class="date-controller">
+                <button id="prev-day-btn" class="date-btn">◀ 前の日</button>
+                <input type="date" id="current-view-date" class="modal-input" style="width: auto; margin: 0; font-weight: bold; font-size: 16px;">
+                <button id="next-day-btn" class="date-btn">次の日 ▶</button>
+                <button id="today-btn" class="date-btn" style="background-color: #fce4e4; color: #d9534f; border-color: #f5c6c6;">今日に戻る</button>
+            </div>
+
+            <div id="notice-compare-container" style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+
+                <div style="flex: 1; min-width: 280px;">
+                    <select id="cat-select-left" class="modal-input" style="width: 100%; margin: 0 0 12px 0; background: #fff; font-size: 15px; font-weight: bold; cursor: pointer;">
+                        <option value="全教職員">全教職員</option>
+                        <option value="中学">中学</option>
+                        <option value="高１">高１</option>
+                        <option value="高２">高２</option>
+                        <option value="高３">高３</option>
+                    </select>
+                    <div id="timeline-left"></div>
+                </div>
+
+                <div style="flex: 1; min-width: 280px;">
+                    <select id="cat-select-right" class="modal-input" style="width: 100%; margin: 0 0 12px 0; background: #fff; font-size: 15px; font-weight: bold; cursor: pointer;">
+                        <option value="全教職員">全教職員</option>
+                        <option value="中学">中学</option>
+                        <option value="高１">高１</option>
+                        <option value="高２">高２</option>
+                        <option value="高３">高３</option>
+                    </select>
+                    <div id="timeline-right"></div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+</body>
+</html>

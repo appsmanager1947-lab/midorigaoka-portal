@@ -92,7 +92,12 @@
             <div id="floating-toolbar" class="floating-toolbar hidden">
                 <button data-command="bold"><b>B</b></button>
                 <button data-command="italic"><i>I</i></button>
-                <input type="color" id="floating-color" title="文字色">
+                <button data-command="strikeThrough"><s>S</s></button>
+                <button id="floating-color-btn" title="文字色" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 8px;">
+                    <span style="font-weight:bold;font-size:13px;line-height:1;">A</span>
+                    <span id="floating-color-bar" style="display:block;width:14px;height:3px;background:#e53e3e;border-radius:1px;"></span>
+                </button>
+                <input type="color" id="floating-color" value="#e53e3e" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;border:none;">
             </div>
 
             <input type="file" id="hidden-img-upload" accept="image/png, image/jpeg" style="display: none;">

@@ -2313,4 +2313,138 @@ document.addEventListener('DOMContentLoaded', () => {
         startSidebarEventsListener();
     }
 
+    // ==========================================
+    // 連絡事項 2カテゴリ比較ページ
+    // ==========================================
+    const compareContainer = document.getElementById('notice-compare-container');
+    if (compareContainer) {
+        const NOTICE_CAT_COLORS = {
+            '全教職員': '#FADBD8', '中学': '#D6EAF8', '高１': '#D5F5E3',
+            '高２': '#FCF3CF', '高３': '#E8DAEF'
+        };
+
+        let compareDate = new Date();
+        let compareNotices = [];
+        let unsubscribeCompare = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        let cat1 = urlParams.get('cat1') || '中学';
+        let cat2 = urlParams.get('cat2') || '高１';
+
+        const dateInput   = document.getElementById('current-view-date');
+        const prevBtn     = document.getElementById('prev-day-btn');
+        const nextBtn     = document.getElementById('next-day-btn');
+        const todayBtn    = document.getElementById('today-btn');
+        const catLeft     = document.getElementById('cat-select-left');
+        const catRight    = document.getElementById('cat-select-right');
+        const tlLeft      = document.getElementById('timeline-left');
+        const tlRight     = document.getElementById('timeline-right');
+
+        catLeft.value  = cat1;
+        catRight.value = cat2;
+
+        function getDateStr(d) {
+            const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().slice(0, 10);
+        }
+        if (dateInput) dateInput.value = getDateStr(compareDate);
+
+        function createCard(notice) {
+            const card = document.createElement('div');
+            card.className = 'notice-card';
+            card.innerHTML = `
+                <div class="notice-header">
+                    <span class="notice-author">👤 ${notice.author}</span>
+                    <span class="notice-time">🕒 ${notice.time}</span>
+                </div>
+                <div class="rich-textarea" style="border:none; padding:0; min-height:auto;">${notice.content}</div>
+            `;
+            return card;
+        }
+
+        function renderPanel(timeline, category) {
+            timeline.innerHTML = '';
+            const viewDateStr = getDateStr(compareDate);
+            const color = NOTICE_CAT_COLORS[category] || '#F0F0F0';
+            const catNotices = compareNotices.filter(n => n.date === viewDateStr && n.category === category);
+
+            const header = document.createElement('div');
+            header.style.cssText = `background:${color}; padding:8px 16px; border-radius:6px; margin-bottom:16px; font-weight:bold; font-size:15px; color:#4A4643;`;
+            header.textContent = `▼ ${category}`;
+            timeline.appendChild(header);
+
+            if (['中学', '高１', '高２', '高３'].includes(category)) {
+                const morning = catNotices.filter(n => n.timing === '朝の連絡');
+                const evening = catNotices.filter(n => n.timing === '帰りの連絡');
+                const others  = catNotices.filter(n => n.timing !== '朝の連絡' && n.timing !== '帰りの連絡');
+
+                const createSection = (title, items) => {
+                    const sec = document.createElement('h4');
+                    sec.style.cssText = 'margin:16px 0 12px; font-size:14px; color:#4A4643; border-bottom:1px solid #E6E4DF; padding-bottom:4px;';
+                    sec.textContent = title;
+                    timeline.appendChild(sec);
+                    if (items.length === 0) {
+                        const empty = document.createElement('div');
+                        empty.style.cssText = 'color:#888; font-size:12px; margin-bottom:16px; padding-left:8px;';
+                        empty.textContent = 'この時間帯の連絡はありません。';
+                        timeline.appendChild(empty);
+                    } else {
+                        items.forEach(n => timeline.appendChild(createCard(n)));
+                    }
+                };
+                createSection('▶ 朝の連絡', morning);
+                createSection('▶ 帰りの連絡', evening);
+                if (others.length > 0) createSection('▶ その他の連絡', others);
+            } else {
+                if (catNotices.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.style.cssText = 'text-align:center; color:#888; padding:20px; background:#fafafa; border-radius:8px;';
+                    empty.textContent = '連絡事項はありません。';
+                    timeline.appendChild(empty);
+                } else {
+                    catNotices.forEach(n => timeline.appendChild(createCard(n)));
+                }
+            }
+        }
+
+        function renderBoth() {
+            renderPanel(tlLeft, cat1);
+            renderPanel(tlRight, cat2);
+        }
+
+        function subscribeCompare() {
+            if (unsubscribeCompare) { unsubscribeCompare(); unsubscribeCompare = null; }
+            const viewDateStr = getDateStr(compareDate);
+            if (dateInput) dateInput.value = viewDateStr;
+            unsubscribeCompare = db.collection('notices')
+                .where('date', '==', viewDateStr)
+                .onSnapshot(snapshot => {
+                    compareNotices = [];
+                    snapshot.forEach(doc => compareNotices.push({ id: doc.id, ...doc.data() }));
+                    compareNotices.sort((a, b) => {
+                        const ta = a.createdAt ? a.createdAt.toMillis() : 0;
+                        const tb = b.createdAt ? b.createdAt.toMillis() : 0;
+                        return ta - tb;
+                    });
+                    renderBoth();
+                }, err => console.error('compare notices error:', err));
+        }
+
+        function updateUrl() {
+            const url = new URL(window.location);
+            url.searchParams.set('cat1', cat1);
+            url.searchParams.set('cat2', cat2);
+            window.history.replaceState({}, '', url);
+        }
+
+        catLeft.addEventListener('change',  () => { cat1 = catLeft.value;  updateUrl(); renderBoth(); });
+        catRight.addEventListener('change', () => { cat2 = catRight.value; updateUrl(); renderBoth(); });
+        prevBtn.addEventListener('click',   () => { compareDate.setDate(compareDate.getDate() - 1); subscribeCompare(); });
+        nextBtn.addEventListener('click',   () => { compareDate.setDate(compareDate.getDate() + 1); subscribeCompare(); });
+        todayBtn.addEventListener('click',  () => { compareDate = new Date(); subscribeCompare(); });
+        dateInput.addEventListener('change', e => { if (e.target.value) { compareDate = new Date(e.target.value + 'T00:00:00'); subscribeCompare(); } });
+
+        subscribeCompare();
+    }
+
 }); // ← ファイルの最後を閉じるカッコです

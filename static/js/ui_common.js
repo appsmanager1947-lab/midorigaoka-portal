@@ -20,15 +20,33 @@ document.addEventListener('DOMContentLoaded', () => {
         openBtn.style.cssText = `position: fixed; top: 16px; left: -50px; background: #FFF; border: 1px solid #E6E4DF; font-size: 20px; cursor: pointer; color: #4A4643; padding: 4px 10px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); z-index: 1000; transition: left 0.3s ease;`;
         document.body.appendChild(openBtn);
 
-        closeBtn.addEventListener('click', () => layoutSidebar.style.display = 'none');
-        openBtn.addEventListener('click', () => { layoutSidebar.style.display = ''; openBtn.style.left = '-50px'; });
+        if (window.innerWidth <= 768) {
+            // モバイル：openBtn を常時表示のトグルボタンとして使用、closeBtn は非表示
+            closeBtn.style.display = 'none';
+            openBtn.style.left = '16px';
+            openBtn.style.top = '12px';
+            layoutSidebar.style.display = 'none'; // デフォルトで閉じる
 
-        document.addEventListener('mousemove', (e) => {
-            if (layoutSidebar.style.display === 'none') {
-                if (e.clientX <= 20) openBtn.style.left = '16px';
-                else if (e.clientX > 80) openBtn.style.left = '-50px';
-            }
-        });
+            openBtn.addEventListener('click', () => {
+                const isHidden = layoutSidebar.style.display === 'none';
+                layoutSidebar.style.display = isHidden ? '' : 'none';
+            });
+        } else {
+            // PC：元の動作（閉じるボタン＋左端ホバーで開くボタン）
+            closeBtn.addEventListener('click', () => {
+                layoutSidebar.style.display = 'none';
+            });
+            openBtn.addEventListener('click', () => {
+                layoutSidebar.style.display = '';
+                openBtn.style.left = '-50px';
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (layoutSidebar.style.display === 'none') {
+                    if (e.clientX <= 20) openBtn.style.left = '16px';
+                    else if (e.clientX > 80) openBtn.style.left = '-50px';
+                }
+            });
+        }
 
         // ──────────────────────────────
         // ホームに戻るボタン（ホーム以外のページで表示）

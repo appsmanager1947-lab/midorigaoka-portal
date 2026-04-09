@@ -59,11 +59,16 @@
     </div>
 
     <div id="slash-menu" class="hidden" style="position: absolute; background: #fff; border: 1px solid #E6E4DF; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 8px; z-index: 1000; width: 200px;"></div>
-    <div id="floating-toolbar" class="hidden" style="position: absolute; background: #2F2F2F; color: #FFF; padding: 6px 12px; border-radius: 6px; display: flex; gap: 8px; z-index: 1000;">
-        <button data-command="bold" style="background:none; border:none; color:#FFF; cursor:pointer; font-weight:bold;">B</button>
-        <button data-command="italic" style="background:none; border:none; color:#FFF; cursor:pointer; font-style:italic;">I</button>
-        <button data-command="underline" style="background:none; border:none; color:#FFF; cursor:pointer; text-decoration:underline;">U</button>
-        <input type="color" id="floating-color" style="width: 20px; height: 20px; border: none; cursor: pointer; padding: 0;">
+    <div id="floating-toolbar" class="hidden" style="position:fixed; background:#2F2F2F; color:#FFF; padding:4px 8px; border-radius:6px; display:flex; gap:4px; z-index:1000; align-items:center;">
+        <button data-command="bold" style="background:none;border:none;color:#FFF;cursor:pointer;font-weight:bold;font-size:14px;padding:4px 6px;border-radius:3px;" onmouseover="this.style.background='#555'" onmouseout="this.style.background='none'">B</button>
+        <button data-command="italic" style="background:none;border:none;color:#FFF;cursor:pointer;font-style:italic;font-size:14px;padding:4px 6px;border-radius:3px;" onmouseover="this.style.background='#555'" onmouseout="this.style.background='none'">I</button>
+        <button data-command="underline" style="background:none;border:none;color:#FFF;cursor:pointer;text-decoration:underline;font-size:14px;padding:4px 6px;border-radius:3px;" onmouseover="this.style.background='#555'" onmouseout="this.style.background='none'">U</button>
+        <button data-command="strikeThrough" style="background:none;border:none;color:#FFF;cursor:pointer;text-decoration:line-through;font-size:14px;padding:4px 6px;border-radius:3px;" onmouseover="this.style.background='#555'" onmouseout="this.style.background='none'">S</button>
+        <button id="floating-color-btn" title="文字色" style="background:none;border:none;color:#FFF;cursor:pointer;padding:4px 6px;border-radius:3px;display:flex;flex-direction:column;align-items:center;gap:2px;" onmouseover="this.style.background='#555'" onmouseout="this.style.background='none'">
+            <span style="font-weight:bold;font-size:13px;line-height:1;">A</span>
+            <span id="floating-color-bar" style="display:block;width:14px;height:3px;background:#f6ad55;border-radius:1px;"></span>
+        </button>
+        <input type="color" id="floating-color" value="#f6ad55" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;border:none;">
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>

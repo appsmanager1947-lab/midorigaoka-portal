@@ -840,16 +840,16 @@ body {
 
 /* フローティングメニュー & スラッシュメニュー */
 .floating-toolbar, .slash-menu {
-    position: absolute; background: #fff; border: 1px solid var(--border-color);
+    position: fixed; background: #fff; border: 1px solid var(--border-color);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 6px; z-index: 1000;
 }
-.floating-toolbar { display: flex; padding: 4px; gap: 4px; transform: translateY(-120%); }
+.floating-toolbar { display: flex; padding: 4px; gap: 4px; align-items: center; }
 .floating-toolbar button {
     background: transparent; border: none; padding: 6px 10px; border-radius: 4px;
     cursor: pointer; color: var(--text-main); font-size: 14px;
 }
 .floating-toolbar button:hover { background: var(--hover-bg); }
-#floating-color { width: 24px; height: 24px; border: none; cursor: pointer; padding: 0; background: transparent; align-self: center;}
+#floating-color { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; border: none; }
 
 .slash-menu { flex-direction: column; min-width: 180px; padding: 6px 0; }
 .slash-menu-item {

@@ -600,13 +600,19 @@ document.addEventListener('DOMContentLoaded', () => {
             editContent.addEventListener('keyup', (e) => {
                 if (e.isComposing) return;
                 if (e.key === '/') {
+                    // カーソル直前の文字が実際に '/' かどうか確認（日本語IMEで「・」を入力した場合の誤作動防止）
+                    const sel = window.getSelection();
+                    if (sel.anchorNode && sel.anchorNode.nodeType === 3) {
+                        const offset = sel.anchorOffset;
+                        if (offset === 0 || sel.anchorNode.textContent[offset - 1] !== '/') return;
+                    }
                     const coords = getCaretCoordinates();
                     if (coords) {
                         slashMenu.style.left = `${coords.x}px`;
                         slashMenu.style.top = `${coords.y + window.scrollY + 20}px`;
                         slashMenu.classList.remove('hidden');
                         slashTargetNode = window.getSelection().anchorNode;
-                        isSlashMenuOpen = true; slashMenuIndex = 0; 
+                        isSlashMenuOpen = true; slashMenuIndex = 0;
                         updateSlashMenuHighlight(slashMenu.querySelectorAll('.slash-menu-item'));
                     }
                 } else if (e.key === 'Escape') {
@@ -624,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             document.addEventListener('mousedown', (e) => {
-                if (isSlashMenuOpen && !slashMenu.contains(e.target) && !editContent.contains(e.target)) {
+                if (isSlashMenuOpen && !slashMenu.contains(e.target)) {
                     closeSlashMenu();
                 }
             });
@@ -635,21 +641,176 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selection = window.getSelection();
                 if (!selection.isCollapsed && editContent.contains(selection.anchorNode)) {
                     const rect = selection.getRangeAt(0).getBoundingClientRect();
-                    floatingToolbar.style.left = `${rect.left + (rect.width / 2) - 40}px`;
-                    floatingToolbar.style.top = `${rect.top + window.scrollY - 10}px`;
+                    // 高さ取得のため一時的にvisibility:hiddenで表示
+                    floatingToolbar.style.visibility = 'hidden';
                     floatingToolbar.classList.remove('hidden');
+                    const tbW = floatingToolbar.offsetWidth;
+                    const tbH = floatingToolbar.offsetHeight;
+                    floatingToolbar.style.visibility = '';
+                    let left = rect.left + rect.width / 2 - tbW / 2;
+                    let top = rect.top - tbH - 6;
+                    if (left < 4) left = 4;
+                    if (left + tbW > window.innerWidth - 4) left = window.innerWidth - tbW - 4;
+                    if (top < 4) top = rect.bottom + 6;
+                    floatingToolbar.style.left = `${left}px`;
+                    floatingToolbar.style.top = `${top}px`;
                 } else {
                     floatingToolbar.classList.add('hidden');
                 }
             });
-            floatingToolbar.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', (e) => {
+            floatingToolbar.querySelectorAll('button[data-command]').forEach(btn => {
+                btn.addEventListener('mousedown', (e) => {
                     e.preventDefault(); document.execCommand(e.currentTarget.getAttribute('data-command'), false, null);
                 });
             });
+            const floatingColorBtn = document.getElementById('floating-color-btn');
             const floatingColor = document.getElementById('floating-color');
-            if(floatingColor){
-                floatingColor.addEventListener('input', (e) => { document.execCommand('foreColor', false, e.target.value); });
+            const floatingColorBar = document.getElementById('floating-color-bar');
+            if (floatingColorBtn && floatingColor) {
+                const COLOR_HISTORY_KEY = 'portalColorHistory';
+                const PRESET_COLORS = [
+                    // Row 1: Dark colors
+                    '#000000','#1F2020','#263238','#1A237E','#311B92','#4A148C','#880E4F','#B71C1C','#BF360C','#E65100',
+                    // Row 2: Mid-dark
+                    '#424242','#37474F','#1565C0','#283593','#6A1B9A','#AD1457','#C62828','#D84315','#EF6C00','#F9A825',
+                    // Row 3: Standard
+                    '#0D47A1','#1976D2','#0288D1','#00838F','#2E7D32','#558B2F','#F57F17','#E65100','#BF360C','#4E342E',
+                    // Row 4: Mid
+                    '#1E88E5','#039BE5','#00ACC1','#00897B','#43A047','#7CB342','#FDD835','#FB8C00','#F4511E','#6D4C41',
+                    // Row 5: Light-mid
+                    '#42A5F5','#29B6F6','#26C6DA','#26A69A','#66BB6A','#9CCC65','#FFEE58','#FFA726','#FF7043','#8D6E63',
+                    // Row 6: Light
+                    '#90CAF9','#81D4FA','#80DEEA','#80CBC4','#A5D6A7','#C5E1A5','#FFF59D','#FFCC80','#FFAB91','#BCAAA4',
+                    // Row 7: Very light / pastel
+                    '#BBDEFB','#B3E5FC','#B2EBF2','#B2DFDB','#C8E6C9','#DCEDC8','#FFF9C4','#FFE0B2','#FBE9E7','#D7CCC8',
+                    // Row 8: Near white
+                    '#E3F2FD','#E1F5FE','#E0F7FA','#E0F2F1','#E8F5E9','#F1F8E9','#FFFFF0','#FFF8E1','#FBE9E7','#EFEBE9',
+                ];
+
+                function getColorHistory() {
+                    try { return JSON.parse(localStorage.getItem(COLOR_HISTORY_KEY) || '[]'); } catch { return []; }
+                }
+                function saveColorHistory(color) {
+                    let hist = getColorHistory().filter(c => c.toLowerCase() !== color.toLowerCase());
+                    hist.unshift(color);
+                    if (hist.length > 10) hist = hist.slice(0, 10);
+                    localStorage.setItem(COLOR_HISTORY_KEY, JSON.stringify(hist));
+                }
+
+                let savedRange = null;
+                function saveSelection() {
+                    const sel = window.getSelection();
+                    if (sel && sel.rangeCount > 0) savedRange = sel.getRangeAt(0).cloneRange();
+                }
+                function restoreSelection() {
+                    if (!savedRange) return;
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(savedRange);
+                }
+
+                // Build popup
+                const colorPopup = document.createElement('div');
+                colorPopup.id = 'color-picker-popup';
+                colorPopup.style.cssText = 'position:fixed;z-index:10000;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.18);padding:10px 12px;min-width:220px;display:none;';
+                colorPopup.innerHTML = `
+                    <div id="cp-history-section" style="margin-bottom:8px;">
+                        <div style="font-size:11px;color:#888;margin-bottom:4px;">最近使った色</div>
+                        <div id="cp-history-swatches" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+                    </div>
+                    <div style="font-size:11px;color:#888;margin-bottom:4px;">標準の色</div>
+                    <div id="cp-preset-swatches" style="display:grid;grid-template-columns:repeat(10,20px);gap:2px;margin-bottom:8px;"></div>
+                    <div style="border-top:1px solid #eee;padding-top:8px;">
+                        <button id="cp-custom-btn" style="width:100%;padding:5px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#f9f9f9;color:#333;">🎨 その他の色...</button>
+                    </div>
+                `;
+                document.body.appendChild(colorPopup);
+
+                function makeSwatch(color, size = 20) {
+                    const s = document.createElement('div');
+                    s.style.cssText = `width:${size}px;height:${size}px;background:${color};border-radius:2px;cursor:pointer;border:1px solid rgba(0,0,0,0.12);box-sizing:border-box;flex-shrink:0;`;
+                    s.title = color;
+                    s.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        applyColor(color);
+                        closeColorPopup();
+                    });
+                    return s;
+                }
+
+                function applyColor(color) {
+                    restoreSelection();
+                    document.execCommand('foreColor', false, color);
+                    if (floatingColorBar) floatingColorBar.style.background = color;
+                    saveColorHistory(color);
+                }
+
+                function renderHistory() {
+                    const hist = getColorHistory();
+                    const section = colorPopup.querySelector('#cp-history-section');
+                    const container = colorPopup.querySelector('#cp-history-swatches');
+                    container.innerHTML = '';
+                    if (hist.length === 0) { section.style.display = 'none'; return; }
+                    section.style.display = '';
+                    hist.forEach(c => container.appendChild(makeSwatch(c)));
+                }
+
+                function renderPresets() {
+                    const container = colorPopup.querySelector('#cp-preset-swatches');
+                    container.innerHTML = '';
+                    PRESET_COLORS.forEach(c => container.appendChild(makeSwatch(c)));
+                }
+
+                function openColorPopup() {
+                    saveSelection();
+                    renderHistory();
+                    renderPresets();
+                    colorPopup.style.display = 'block';
+                    // Position below the A button
+                    const btnRect = floatingColorBtn.getBoundingClientRect();
+                    const popW = 244;
+                    const popH = 280;
+                    let left = btnRect.left;
+                    let top = btnRect.bottom + 4;
+                    if (left + popW > window.innerWidth - 4) left = window.innerWidth - popW - 4;
+                    if (top + popH > window.innerHeight - 4) top = btnRect.top - popH - 4;
+                    if (left < 4) left = 4;
+                    colorPopup.style.left = left + 'px';
+                    colorPopup.style.top = top + 'px';
+                }
+
+                function closeColorPopup() {
+                    colorPopup.style.display = 'none';
+                }
+
+                floatingColorBtn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    if (colorPopup.style.display === 'none') {
+                        openColorPopup();
+                    } else {
+                        closeColorPopup();
+                    }
+                });
+
+                colorPopup.querySelector('#cp-custom-btn').addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    closeColorPopup();
+                    floatingColor.click();
+                });
+
+                floatingColor.addEventListener('input', (e) => {
+                    const color = e.target.value;
+                    if (floatingColorBar) floatingColorBar.style.background = color;
+                    restoreSelection();
+                    document.execCommand('foreColor', false, color);
+                    saveColorHistory(color);
+                });
+
+                document.addEventListener('mousedown', (e) => {
+                    if (colorPopup.style.display !== 'none' && !colorPopup.contains(e.target) && e.target !== floatingColorBtn) {
+                        closeColorPopup();
+                    }
+                });
             }
         }
 

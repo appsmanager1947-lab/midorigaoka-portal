@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日直報告一覧 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        .report-nav {
+            display: flex; align-items: center; justify-content: center;
+            gap: 16px; margin-bottom: 20px;
+        }
+        .report-nav-btn {
+            background: transparent; border: 1px solid #E6E4DF;
+            border-radius: 4px; padding: 4px 16px; cursor: pointer;
+            font-size: 16px; color: #4A4643;
+        }
+        .report-nav-btn:hover { background: #E6E4DF; }
+        .report-month-label {
+            font-size: 20px; font-weight: bold; color: #4A4643;
+            min-width: 140px; text-align: center;
+        }
+        .report-table {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+        }
+        .report-table th {
+            background: #F7F7F5; padding: 8px 12px; text-align: left;
+            border: 1px solid #E6E4DF; white-space: nowrap;
+            position: sticky; top: 0; z-index: 1;
+        }
+        .report-table td {
+            padding: 8px 12px; border: 1px solid #E6E4DF;
+            vertical-align: top; word-break: break-all;
+        }
+        .report-table tr:hover td { background: #FAFAF8; }
+        .report-table td.date-col { white-space: nowrap; color: #4A4643; font-weight: 600; }
+        .report-table td.name-col { white-space: nowrap; }
+        .report-empty {
+            text-align: center; padding: 40px; color: #aaa; font-size: 14px;
+        }
+        .csv-dl-btn {
+            background: #2c8c5a; color: #fff; border: none;
+            border-radius: 4px; padding: 6px 16px; cursor: pointer;
+            font-size: 13px; font-weight: 600;
+        }
+        .csv-dl-btn:hover { background: #247a4e; }
+        .report-count { font-size: 13px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width:40px;height:40px;object-fit:contain;margin-right:12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin:0;font-size:18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section"><h2 class="sidebar-title">ショートカット</h2><ul class="app-list"></ul></div>
+        </aside>
+
+        <main class="main-content">
+            <section class="column-section" style="margin-top:0; margin-bottom:40px;">
+                <div class="column-header">
+                    <h2 class="section-title">日直報告一覧</h2>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <span id="report-count" class="report-count"></span>
+                        <button id="csv-dl-btn" class="csv-dl-btn">CSV ダウンロード</button>
+                        <a href="./annual_events.html" class="btn-cancel" style="text-decoration:none;display:inline-flex;align-items:center;">← 年間行事予定</a>
+                    </div>
+                </div>
+
+                <div class="report-nav">
+                    <button id="prev-btn" class="report-nav-btn">◀</button>
+                    <span id="month-label" class="report-month-label"></span>
+                    <button id="next-btn" class="report-nav-btn">▶</button>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>担当者</th>
+                                <th>未施錠・未消灯箇所報告</th>
+                                <th>その他報告</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-tbody"></tbody>
+                    </table>
+                </div>
+                <div id="report-empty" class="report-empty" style="display:none;">この月の報告はありません</div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+
+    <script>
+    (function () {
+        let curYear  = new Date().getFullYear();
+        let curMonth = new Date().getMonth(); // 0-indexed
+        let allReports = []; // 全報告データ
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+
+        function updateLabel() {
+            document.getElementById('month-label').textContent = `${curYear}年 ${curMonth + 1}月`;
+        }
+
+        function getMonthReports() {
+            const prefix = `${curYear}-${pad(curMonth + 1)}`;
+            return allReports
+                .filter(r => (r.date || '').startsWith(prefix))
+                .sort((a, b) => a.date.localeCompare(b.date));
+        }
+
+        function renderTable() {
+            updateLabel();
+            const rows = getMonthReports();
+            const tbody = document.getElementById('report-tbody');
+            const emptyEl = document.getElementById('report-empty');
+            const countEl = document.getElementById('report-count');
+            tbody.innerHTML = '';
+
+            if (rows.length === 0) {
+                emptyEl.style.display = '';
+                countEl.textContent = '';
+                return;
+            }
+            emptyEl.style.display = 'none';
+            countEl.textContent = `${rows.length} 件`;
+
+            rows.forEach(r => {
+                const names = [r.duty1, r.duty2].filter(n => n).join('・');
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="date-col">${r.date || ''}</td>
+                    <td class="name-col">${escHtml(names)}</td>
+                    <td>${escHtml(r.unlockReport || '')}</td>
+                    <td>${escHtml(r.otherReport  || '')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+        }
+
+        async function loadReports() {
+            if (typeof db === 'undefined' || !db) { setTimeout(loadReports, 200); return; }
+            try {
+                const snap = await db.collection('duty_reports').get();
+                allReports = [];
+                snap.forEach(doc => allReports.push({ id: doc.id, ...doc.data() }));
+                renderTable();
+            } catch(err) {
+                console.error('loadReports error:', err);
+            }
+        }
+
+        document.getElementById('prev-btn').addEventListener('click', () => {
+            curMonth--;
+            if (curMonth < 0) { curMonth = 11; curYear--; }
+            renderTable();
+        });
+        document.getElementById('next-btn').addEventListener('click', () => {
+            curMonth++;
+            if (curMonth > 11) { curMonth = 0; curYear++; }
+            renderTable();
+        });
+
+        document.getElementById('csv-dl-btn').addEventListener('click', () => {
+            const rows = getMonthReports();
+            if (rows.length === 0) { alert('この月の報告はありません。'); return; }
+            const header = '日付,担当者,未施錠・未消灯箇所報告,その他報告';
+            const csvRows = rows.map(r => {
+                const names = [r.duty1, r.duty2].filter(n => n).join('・');
+                const q = s => `"${(s || '').replace(/"/g, '""')}"`;
+                return `${r.date},${q(names)},${q(r.unlockReport || '')},${q(r.otherReport || '')}`;
+            });
+            const content = '\uFEFF' + header + '\n' + csvRows.join('\n');
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = `duty_report_${curYear}${pad(curMonth + 1)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        updateLabel();
+        loadReports();
+    })();
+    </script>
+</body>
+</html>

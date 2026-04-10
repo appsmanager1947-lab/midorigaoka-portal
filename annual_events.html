@@ -56,7 +56,7 @@
             font-size: 11px; padding: 2px 5px; margin-bottom: 3px;
             background: #E8F5E9; border-left: 3px solid #2c8c5a;
             border-radius: 3px; overflow: hidden;
-            color: #1a5c3a; font-weight: 600; cursor: default;
+            color: #1a5c3a; font-weight: 600; cursor: pointer;
         }
         .duty-item > span {
             display: block; white-space: nowrap;
@@ -111,6 +111,25 @@
         .target-checkbox-group label:hover { background:#f0f0f0; }
         .target-checkbox-group input[type=checkbox] { cursor:pointer; }
 
+        /* ── 日直報告 ── */
+        .duty-report-dot {
+            position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+            width: 7px; height: 7px; background: #e67e22; border-radius: 50%;
+            pointer-events: none; z-index: 1;
+        }
+        .duty-item:hover .duty-report-dot { display: none; }
+        #duty-report-popup {
+            position: fixed; background: #fff;
+            border: 1px solid #ccc; border-radius: 8px;
+            padding: 16px 18px 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 2200; min-width: 260px; max-width: 340px; display: none;
+        }
+        #duty-report-popup h4 { font-size: 14px; font-weight: bold; margin: 0 0 8px; padding-right: 20px; }
+        .drp-label { font-size: 11px; color: #888; margin-bottom: 2px; margin-top: 8px; }
+        .drp-value { font-size: 13px; color: #333; white-space: pre-wrap; word-break: break-all; min-height: 18px; padding: 4px 0; }
+        .drp-actions { display: flex; gap: 8px; margin-top: 12px; }
+        textarea.modal-input { resize: vertical; }
+
         /* ── ローディングオーバーレイ ── */
         @keyframes csv-spin { to { transform: rotate(360deg); } }
         .csv-loading {
@@ -150,6 +169,7 @@
                     <div style="display:flex; gap:8px;">
                         <button id="csv-btn" class="btn-cancel">CSVアップロード</button>
                         <button id="duty-csv-btn" class="btn-cancel">日直CSV</button>
+                        <a href="./duty_report_list.html" class="btn-cancel" style="text-decoration:none;display:inline-flex;align-items:center;">📋 報告一覧</a>
                         <button id="add-btn" class="add-button">＋ 追加</button>
                     </div>
                 </div>
@@ -312,7 +332,7 @@
                 <p id="duty-csv-count" style="font-size:13px;color:#555;margin:0 0 8px;"></p>
                 <div style="max-height:260px;overflow-y:auto;border:1px solid #E6E4DF;border-radius:4px;">
                     <table id="duty-csv-preview-table">
-                        <thead><tr><th>日付</th><th>日直1</th><th>日直2</th></tr></thead>
+                        <thead><tr><th>日付</th><th>日直1</th><th>日直2</th><th>開始時間</th></tr></thead>
                         <tbody id="duty-csv-tbody"></tbody>
                     </table>
                 </div>
@@ -321,6 +341,49 @@
                 <button id="duty-csv-cancel" class="btn-cancel">キャンセル</button>
                 <button id="duty-csv-register" class="btn-submit" disabled>登録する</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ── 日直報告入力モーダル ── -->
+    <div id="duty-report-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:420px;">
+            <h3 id="drm-title" class="modal-title">日直報告</h3>
+            <div class="form-group">
+                <label>日付</label>
+                <div id="drm-date" style="font-weight:bold;padding:4px 0;font-size:14px;"></div>
+            </div>
+            <div class="form-group">
+                <label>担当者</label>
+                <div id="drm-names" style="font-size:13px;color:#555;padding:4px 0;"></div>
+            </div>
+            <div class="form-group">
+                <label>未施錠・未消灯箇所報告</label>
+                <textarea id="drm-unlock" class="modal-input" rows="3" placeholder="未施錠・未消灯箇所の報告（なければ「なし」等）"></textarea>
+            </div>
+            <div class="form-group">
+                <label>その他報告</label>
+                <textarea id="drm-other" class="modal-input" rows="3" placeholder="その他の報告（任意）"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button id="drm-cancel" class="btn-cancel">キャンセル</button>
+                <button id="drm-submit" class="btn-submit">報告する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 日直報告確認ポップアップ ── -->
+    <div id="duty-report-popup">
+        <button id="drp-close" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:18px;cursor:pointer;color:#aaa;line-height:1;">×</button>
+        <h4 id="drp-date"></h4>
+        <div class="drp-label">担当者</div>
+        <div id="drp-names" class="drp-value"></div>
+        <div class="drp-label">未施錠・未消灯箇所報告</div>
+        <div id="drp-unlock" class="drp-value"></div>
+        <div class="drp-label">その他報告</div>
+        <div id="drp-other" class="drp-value"></div>
+        <div class="drp-actions">
+            <button id="drp-edit" class="btn-cancel" style="flex:1;padding:6px;">編集</button>
+            <button id="drp-delete" class="btn-cancel" style="flex:1;padding:6px;color:#d9534f;border-color:#d9534f;">削除</button>
         </div>
     </div>
 
@@ -369,10 +432,11 @@
 
         let curYear  = new Date().getFullYear();
         let curMonth = new Date().getMonth(); // 0-indexed
-        let allEvents = [];
-        let dutyMap   = {}; // date string → { duty1, duty2 }
-        let editId    = null;
-        let csvRows   = [];
+        let allEvents  = [];
+        let dutyMap    = {}; // date string → { duty1, duty2, startTime }
+        let reportMap  = {}; // date string → { unlockReport, otherReport, duty1, duty2 }
+        let editId     = null;
+        let csvRows    = [];
 
         function pad(n) { return String(n).padStart(2, '0'); }
         function toDs(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -520,8 +584,18 @@
 
             const span = document.createElement('span');
             const names = [duty.duty1, duty.duty2].filter(n => n);
-            span.textContent = '日直：' + names.join('・');
+            let nameText = '日直：' + names.join('・');
+            if (duty.startTime) nameText += ' ' + duty.startTime;
+            span.textContent = nameText;
             div.appendChild(span);
+
+            // 報告済みドット
+            if (reportMap[dateStr]) {
+                const dot = document.createElement('span');
+                dot.className = 'duty-report-dot';
+                dot.title = '報告済み';
+                div.appendChild(dot);
+            }
 
             const acts = document.createElement('div');
             acts.className = 'duty-actions';
@@ -529,7 +603,7 @@
             const editBtn = document.createElement('button');
             editBtn.className = 'ev-act-btn';
             editBtn.textContent = '✏';
-            editBtn.title = '編集';
+            editBtn.title = '日直を編集';
             editBtn.addEventListener('click', e => { e.stopPropagation(); openDutyModal(dateStr); });
 
             const delBtn = document.createElement('button');
@@ -556,6 +630,16 @@
                 histBtn.addEventListener('click', e => { e.stopPropagation(); showDutyHistory(dateStr, duty); });
                 div.appendChild(histBtn);
             }
+
+            // クリックで報告モーダル／確認ポップアップを開く
+            div.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (reportMap[dateStr]) {
+                    openDutyReportPopup(dateStr);
+                } else {
+                    openDutyReportModal(dateStr);
+                }
+            });
 
             return div;
         }
@@ -693,6 +777,92 @@
         });
 
         // ────────────────────────────────────────
+        // 日直報告
+        // ────────────────────────────────────────
+        const dutyReportModal  = document.getElementById('duty-report-modal');
+        const dutyReportPopup  = document.getElementById('duty-report-popup');
+        let reportEditDate = null;
+        let reportViewDate = null;
+
+        function openDutyReportModal(dateStr) {
+            reportEditDate = dateStr;
+            const duty  = dutyMap[dateStr] || {};
+            const names = [duty.duty1, duty.duty2].filter(n => n).join('・');
+            const existing = reportMap[dateStr];
+            document.getElementById('drm-title').textContent = existing ? '報告を編集' : '日直報告';
+            document.getElementById('drm-date').textContent  = dateStr;
+            document.getElementById('drm-names').textContent = names || '（不明）';
+            document.getElementById('drm-unlock').value = existing ? (existing.unlockReport || '') : '';
+            document.getElementById('drm-other').value  = existing ? (existing.otherReport  || '') : '';
+            dutyReportModal.classList.remove('hidden');
+        }
+
+        function openDutyReportPopup(dateStr) {
+            reportViewDate = dateStr;
+            const report = reportMap[dateStr];
+            if (!report) return;
+            const duty  = dutyMap[dateStr] || {};
+            const names = [duty.duty1, duty.duty2].filter(n => n).join('・');
+            document.getElementById('drp-date').textContent   = dateStr + ' の報告';
+            document.getElementById('drp-names').textContent  = names || '（不明）';
+            document.getElementById('drp-unlock').textContent = report.unlockReport || '（なし）';
+            document.getElementById('drp-other').textContent  = report.otherReport  || '（なし）';
+            dutyReportPopup.style.display = 'block';
+            dutyReportPopup.style.left    = '50%';
+            dutyReportPopup.style.top     = '50%';
+            dutyReportPopup.style.transform = 'translate(-50%, -50%)';
+        }
+
+        document.getElementById('drm-cancel').addEventListener('click', () => dutyReportModal.classList.add('hidden'));
+        document.getElementById('drp-close').addEventListener('click', () => { dutyReportPopup.style.display = 'none'; });
+        dutyReportPopup.addEventListener('click', e => e.stopPropagation());
+
+        document.getElementById('drm-submit').addEventListener('click', async () => {
+            if (!reportEditDate) return;
+            const unlockReport = document.getElementById('drm-unlock').value.trim();
+            const otherReport  = document.getElementById('drm-other').value.trim();
+            const btn  = document.getElementById('drm-submit');
+            const duty = dutyMap[reportEditDate] || {};
+            btn.disabled = true; btn.textContent = '保存中...';
+            try {
+                const isNew = !reportMap[reportEditDate];
+                const data  = {
+                    date: reportEditDate,
+                    duty1: duty.duty1 || '', duty2: duty.duty2 || '',
+                    unlockReport, otherReport,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                if (isNew) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                await db.collection('duty_reports').doc(reportEditDate).set(data, { merge: true });
+                reportMap[reportEditDate] = { date: reportEditDate, duty1: duty.duty1 || '', duty2: duty.duty2 || '', unlockReport, otherReport };
+                setCachedData('cache_duty_reports', reportMap);
+                btn.disabled = false; btn.textContent = '報告する';
+                dutyReportModal.classList.add('hidden');
+                renderCalendar();
+            } catch(e) {
+                btn.disabled = false; btn.textContent = 'エラー';
+            }
+        });
+
+        document.getElementById('drp-edit').addEventListener('click', () => {
+            dutyReportPopup.style.display = 'none';
+            openDutyReportModal(reportViewDate);
+        });
+
+        document.getElementById('drp-delete').addEventListener('click', async () => {
+            if (!reportViewDate || !confirm('この日の報告を削除しますか？')) return;
+            try {
+                await db.collection('duty_reports').doc(reportViewDate).delete();
+                delete reportMap[reportViewDate];
+                setCachedData('cache_duty_reports', reportMap);
+                dutyReportPopup.style.display = 'none';
+                renderCalendar();
+            } catch(e) { alert('削除に失敗しました。'); }
+        });
+
+        document.addEventListener('click', () => { dutyReportPopup.style.display = 'none'; });
+
+        // ────────────────────────────────────────
         // localStorage キャッシュ (TTL: 60分)
         // ────────────────────────────────────────
         const CAL_CACHE_TTL = 60 * 60 * 1000;
@@ -711,7 +881,7 @@
             } catch(e) {}
         }
         function clearCalendarCache() {
-            ['cache_annual_events', 'cache_daily_duty'].forEach(k => {
+            ['cache_annual_events', 'cache_daily_duty', 'cache_duty_reports'].forEach(k => {
                 localStorage.removeItem(k); localStorage.removeItem(k + '_ts');
             });
         }
@@ -722,12 +892,14 @@
         async function loadCalendarData() {
             if (typeof db === 'undefined' || !db) { setTimeout(loadCalendarData, 200); return; }
             try {
-                let evData   = getCachedData('cache_annual_events');
-                let dutyData = getCachedData('cache_daily_duty');
+                let evData     = getCachedData('cache_annual_events');
+                let dutyData   = getCachedData('cache_daily_duty');
+                let reportData = getCachedData('cache_duty_reports');
                 // キャッシュがない分だけFirestoreから取得
-                const [evSnap, dutySnap] = await Promise.all([
-                    evData   ? Promise.resolve(null) : db.collection('annual_events').get(),
-                    dutyData ? Promise.resolve(null) : db.collection('daily_duty').get()
+                const [evSnap, dutySnap, reportSnap] = await Promise.all([
+                    evData     ? Promise.resolve(null) : db.collection('annual_events').get(),
+                    dutyData   ? Promise.resolve(null) : db.collection('daily_duty').get(),
+                    reportData ? Promise.resolve(null) : db.collection('duty_reports').get()
                 ]);
                 if (evSnap) {
                     evData = [];
@@ -739,9 +911,15 @@
                     dutySnap.forEach(doc => { dutyData[doc.id] = doc.data(); });
                     setCachedData('cache_daily_duty', dutyData);
                 }
+                if (reportSnap) {
+                    reportData = {};
+                    reportSnap.forEach(doc => { reportData[doc.id] = doc.data(); });
+                    setCachedData('cache_duty_reports', reportData);
+                }
                 allEvents = evData || [];
                 allEvents.sort((a, b) => (normDate(a.dateFrom || a.date || '')).localeCompare(normDate(b.dateFrom || b.date || '')));
-                dutyMap = dutyData || {};
+                dutyMap   = dutyData   || {};
+                reportMap = reportData || {};
                 renderCalendar();
                 const countEl = document.getElementById('ev-total-count');
                 if (countEl) countEl.textContent = allEvents.length ? `全 ${allEvents.length} 件` : '';
@@ -1102,11 +1280,11 @@
         document.getElementById('duty-template-btn').addEventListener('click', () => {
             const year = parseInt(document.getElementById('duty-template-year').value);
             if (!year || year < 2000 || year > 2100) { alert('年度を正しく入力してください（例：2026）'); return; }
-            const rows = ['\uFEFF日付,日直1,日直2'];
+            const rows = ['\uFEFF日付,日直1,日直2,開始時間'];
             let d = new Date(year, 3, 1); // 4月1日
             const end = new Date(year + 1, 2, 31); // 翌年3月31日
             while (d <= end) {
-                rows.push(`${toDs(d)},,`);
+                rows.push(`${toDs(d)},,,`);
                 d.setDate(d.getDate() + 1);
             }
             const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -1141,15 +1319,16 @@
 
                 for (let i = 1; i < lines.length; i++) {
                     const cols = parseCSVLine(lines[i]);
-                    const date  = normDate(cols[0] || '');
-                    const duty1 = (cols[1] || '').trim();
-                    const duty2 = (cols[2] || '').trim();
+                    const date      = normDate(cols[0] || '');
+                    const duty1     = (cols[1] || '').trim();
+                    const duty2     = (cols[2] || '').trim();
+                    const startTime = (cols[3] || '').trim();
                     if (!date) continue;
-                    dutyCsvRows.push({ date, duty1, duty2 });
+                    dutyCsvRows.push({ date, duty1, duty2, startTime });
                     if (duty1 || duty2) {
                         withDuty++;
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${date}</td><td>${duty1}</td><td>${duty2}</td>`;
+                        tr.innerHTML = `<td>${date}</td><td>${duty1}</td><td>${duty2}</td><td>${startTime}</td>`;
                         tbody.appendChild(tr);
                     }
                 }
@@ -1185,10 +1364,14 @@
                 dutyCsvRows.forEach(row => {
                     const ex = dutyMap[row.date];
                     if (row.duty1 || row.duty2) {
-                        if (!ex || ex.duty1 !== row.duty1 || ex.duty2 !== row.duty2) {
+                        const changed = !ex
+                            || ex.duty1 !== row.duty1
+                            || ex.duty2 !== row.duty2
+                            || (ex.startTime || '') !== row.startTime;
+                        if (changed) {
                             ops.push(ex
-                                ? { type: 'update', ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2 }, old: { duty1: ex.duty1 || '', duty2: ex.duty2 || '' } }
-                                : { type: 'set',    ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2 } });
+                                ? { type: 'update', ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2, startTime: row.startTime }, old: { duty1: ex.duty1 || '', duty2: ex.duty2 || '' } }
+                                : { type: 'set',    ref: col.doc(row.date), data: { duty1: row.duty1, duty2: row.duty2, startTime: row.startTime } });
                         } else { unchanged++; }
                     } else {
                         if (ex) ops.push({ type: 'delete', ref: col.doc(row.date) });

@@ -303,6 +303,10 @@
                     <input type="text" id="duty-modal-2" class="modal-input" placeholder="日直2" style="margin:0;">
                 </div>
             </div>
+            <div class="form-group">
+                <label>開始時間（任意）</label>
+                <input type="text" id="duty-modal-time" class="modal-input" placeholder="例：8:30">
+            </div>
             <div class="modal-actions">
                 <button id="duty-modal-cancel" class="btn-cancel">キャンセル</button>
                 <button id="duty-modal-submit" class="btn-submit">保存</button>
@@ -747,8 +751,9 @@
             dutyEditDate = dateStr;
             document.getElementById('duty-modal-date').textContent = dateStr;
             const duty = dutyMap[dateStr] || {};
-            document.getElementById('duty-modal-1').value = duty.duty1 || '';
-            document.getElementById('duty-modal-2').value = duty.duty2 || '';
+            document.getElementById('duty-modal-1').value    = duty.duty1     || '';
+            document.getElementById('duty-modal-2').value    = duty.duty2     || '';
+            document.getElementById('duty-modal-time').value = duty.startTime || '';
             dutyModal.classList.remove('hidden');
         }
 
@@ -756,8 +761,9 @@
 
         document.getElementById('duty-modal-submit').addEventListener('click', () => {
             if (!dutyEditDate) return;
-            const duty1 = document.getElementById('duty-modal-1').value.trim();
-            const duty2 = document.getElementById('duty-modal-2').value.trim();
+            const duty1     = document.getElementById('duty-modal-1').value.trim();
+            const duty2     = document.getElementById('duty-modal-2').value.trim();
+            const startTime = document.getElementById('duty-modal-time').value.trim();
             const btn = document.getElementById('duty-modal-submit');
             btn.disabled = true; btn.textContent = '保存中...';
 
@@ -765,11 +771,11 @@
             const isEdit = existing && (existing.duty1 !== duty1 || existing.duty2 !== duty2);
             const ref = db.collection('daily_duty').doc(dutyEditDate);
             const savePromise = isEdit
-                ? ref.update({ duty1, duty2, history: firebase.firestore.FieldValue.arrayUnion({
+                ? ref.update({ duty1, duty2, startTime, history: firebase.firestore.FieldValue.arrayUnion({
                     duty1: existing.duty1 || '', duty2: existing.duty2 || '',
                     changedAt: new Date().toISOString()
                   }) })
-                : ref.set({ duty1, duty2 });
+                : ref.set({ duty1, duty2, startTime });
 
             savePromise
                 .then(() => { btn.disabled = false; btn.textContent = '保存'; dutyModal.classList.add('hidden'); reloadCalendarData(); })

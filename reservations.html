@@ -434,7 +434,8 @@
     <div class="detail-row">日付：<span id="detail-date"></span></div>
     <div class="detail-row">時間：<span id="detail-time"></span></div>
     <div class="detail-row">使用者：<span id="detail-user"></span></div>
-    <div style="margin-top:12px;text-align:right;">
+    <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:12px;">
+        <button id="detail-edit-btn" style="background:transparent;color:#2c8c5a;border:none;font-size:13px;cursor:pointer;text-decoration:underline;padding:4px;">編集</button>
         <button id="detail-delete-btn" style="background:transparent;color:#d9534f;border:none;font-size:13px;cursor:pointer;text-decoration:underline;padding:4px;">削除</button>
     </div>
 </div>
@@ -931,7 +932,10 @@ function populateLocationSelect() {
     });
 }
 
+let editingId = null; // 編集中の予約ID（null = 新規）
+
 function openModal(dateStr = '', startTime = '', locationName = '') {
+    editingId = null;
     populateLocationSelect();
     document.getElementById('m-purpose').value = '';
     document.getElementById('m-date').value    = dateStr;
@@ -946,6 +950,25 @@ function openModal(dateStr = '', startTime = '', locationName = '') {
     }
     document.getElementById('modal-title').textContent =
         activeTab === 'room' ? '会議室等を予約' : '特別教室等を予約';
+    document.getElementById('m-submit').textContent = '予約する';
+    document.getElementById('res-modal').classList.remove('hidden');
+}
+
+function openEditModal(r) {
+    editingId = r.id;
+    populateLocationSelect();
+    document.getElementById('m-purpose').value = r.purpose  || '';
+    document.getElementById('m-date').value    = normDate(r.date || ''); // YYYY-MM-DD
+    document.getElementById('m-start').value   = r.startTime || '';
+    document.getElementById('m-end').value     = r.endTime   || '';
+    document.getElementById('m-user').value    = r.user      || '';
+    const sel = document.getElementById('m-location');
+    for (const opt of sel.options) {
+        if (opt.value === r.location) { sel.value = r.location; break; }
+    }
+    document.getElementById('modal-title').textContent =
+        activeTab === 'room' ? '会議室等を編集' : '特別教室等を編集';
+    document.getElementById('m-submit').textContent = '保存する';
     document.getElementById('res-modal').classList.remove('hidden');
 }
 
@@ -975,23 +998,32 @@ async function submitReservation() {
         db.collection(colName).where('date', '==', dateISO).where('location', '==', location).get(),
     ]);
     const existing = [];
-    snap1.forEach(doc => existing.push(doc.data()));
+    snap1.forEach(doc => existing.push({ id: doc.id, ...doc.data() }));
     snap2.forEach(doc => {
         const d = doc.data();
-        if (normDate(d.date) !== dateISO) existing.push(d); // 重複回避
+        if (normDate(d.date) !== dateISO) existing.push({ id: doc.id, ...d }); // 重複回避
     });
-    const conflict = existing.filter(r => r.startTime < end && r.endTime > start);
+    // 編集中は自分自身を重複チェックから除外
+    const conflict = existing.filter(r => r.id !== editingId && r.startTime < end && r.endTime > start);
     if (conflict.length > 0) {
         alert('この時間帯はすでに予約が入っています。');
         return;
     }
 
-    await db.collection(colName).add({
-        purpose, location,
-        date: slashDate,
-        startTime: start, endTime: end, user,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    if (editingId) {
+        await db.collection(colName).doc(editingId).update({
+            purpose, location,
+            date: slashDate,
+            startTime: start, endTime: end, user
+        });
+    } else {
+        await db.collection(colName).add({
+            purpose, location,
+            date: slashDate,
+            startTime: start, endTime: end, user,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    }
 
     document.getElementById('res-modal').classList.add('hidden');
     await fetchWeekData();
@@ -1068,6 +1100,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.addEventListener('click', e => {
         if (!e.target.closest('#detail-popup') && !e.target.closest('.res-block'))
             hideDetail();
+    });
+    document.getElementById('detail-edit-btn').addEventListener('click', () => {
+        if (!currentDetail) return;
+        hideDetail();
+        openEditModal(currentDetail);
     });
     document.getElementById('detail-delete-btn').addEventListener('click', async () => {
         if (!currentDetail) return;

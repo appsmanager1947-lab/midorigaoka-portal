@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部活動予定 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        .main-content {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 14px 20px 0;
+        }
+
+        /* ページヘッダー */
+        .cs-page-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        /* 月ナビ */
+        .month-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            justify-content: center;
+        }
+        .month-nav-btn {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 5px 14px;
+            font-size: 16px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-family: inherit;
+            line-height: 1;
+        }
+        .month-nav-btn:hover { background: var(--hover-bg); }
+        #month-label {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-main);
+            min-width: 140px;
+            text-align: center;
+        }
+        #today-month-btn, #scroll-today-btn {
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--accent-color);
+            font-family: inherit;
+        }
+        #today-month-btn:hover, #scroll-today-btn:hover { background: #E8F4F3; }
+
+        /* アクションバー */
+        .cs-action-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* テーブルラッパー */
+        .club-table-wrap {
+            flex: 1;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        /* 部活テーブル */
+        .club-table {
+            border-collapse: collapse;
+            font-size: 12px;
+            width: max-content;
+            min-width: 100%;
+        }
+        .club-table th,
+        .club-table td {
+            border: 1px solid #D1EAE7;
+            padding: 4px 6px;
+            white-space: nowrap;
+        }
+
+        /* ヘッダー行 */
+        .club-table thead th {
+            background: #E8F4F3;
+            font-weight: 700;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .club-table thead th.th-name {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            min-width: 120px;
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        /* 曜日色 */
+        .th-sun { color: #c0392b !important; background: #FFF0EE !important; }
+        .th-sat { color: #1a5276 !important; background: #EEF5FF !important; }
+        .th-today-col { box-shadow: inset 0 -3px 0 0 #0AA294; }
+
+        /* ボディ行 */
+        .club-table tbody td.td-name {
+            position: sticky;
+            left: 0;
+            background: #F0FAF8;
+            font-weight: 600;
+            min-width: 120px;
+            z-index: 1;
+        }
+        .club-table tbody tr:hover td.td-name { background: #D6EFEA; }
+
+        /* イベントセル */
+        .event-cell {
+            text-align: center;
+            min-width: 68px;
+            cursor: pointer;
+            vertical-align: top;
+            padding: 3px 4px !important;
+        }
+        .event-cell:hover { background: #F0FAF8 !important; }
+        .td-sun { background: #FFF8F8; }
+        .td-sat { background: #F5F8FF; }
+        .td-today { background: #E8FAF5 !important; }
+
+        /* イベントチップ */
+        .ev-chip {
+            display: block;
+            background: #0AA294;
+            color: white;
+            font-size: 10px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            margin: 2px auto;
+            cursor: pointer;
+            white-space: nowrap;
+            max-width: 96px;
+            overflow: hidden;
+            line-height: 1.4;
+            text-align: left;
+        }
+        .ev-chip:hover { background: #087a6e; }
+        .ev-chip-time { display: block; font-weight: 600; }
+        .ev-chip-loc  { display: block; font-size: 9px; opacity: 0.88; overflow: hidden; text-overflow: ellipsis; }
+
+
+        /* モーダル幅 */
+        #cs-modal .modal-content      { max-width: 460px; width: 100%; }
+        #cs-cell-modal .modal-content  { max-width: 400px; width: 100%; }
+        #cs-club-modal .modal-content  { max-width: 340px; width: 100%; }
+        #cs-csv-modal .modal-content   { max-width: 580px; width: 100%; }
+
+        .time-row { display: flex; gap: 12px; }
+        .time-row .form-group { flex: 1; }
+
+        /* セルモーダルのイベントカード */
+        .cell-ev-card {
+            border: 1px solid #D1EAE7;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .cell-ev-info { flex: 1; }
+        .cell-ev-time { font-weight: 600; font-size: 13px; }
+        .cell-ev-loc  { font-size: 11px; color: #888; margin-top: 2px; }
+        .cell-ev-btns { display: flex; gap: 6px; flex-shrink: 0; }
+        .btn-edit-small {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-edit-small:hover { background: var(--hover-bg); }
+        .btn-del-small {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-del-small:hover { background: #c82333; }
+
+        /* CSV preview */
+        #cs-csv-preview { margin-bottom: 12px; display: none; max-height: 200px; overflow-y: auto; }
+        #cs-csv-preview table { font-size: 11px; }
+
+        /* ローディング */
+        #cs-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section"><h2 class="sidebar-title">ショートカット</h2><ul class="app-list"></ul></div>
+        </aside>
+
+        <main class="main-content">
+            <!-- ページヘッダー -->
+            <div class="cs-page-header">
+                <h2 class="section-title" style="margin: 0; flex-shrink: 0;">■部活動予定</h2>
+                <div class="month-nav">
+                    <button class="month-nav-btn" id="prev-month-btn">&#8249;</button>
+                    <span id="month-label"></span>
+                    <button class="month-nav-btn" id="next-month-btn">&#8250;</button>
+                    <button id="today-month-btn">今月</button>
+                    <button id="scroll-today-btn">本日</button>
+                </div>
+                <a href="./index.html" class="btn-cancel" style="text-decoration:none; flex-shrink:0;">← ホーム</a>
+            </div>
+
+            <!-- アクションバー -->
+            <div class="cs-action-bar">
+                <button id="cs-add-btn" class="add-button">＋ 予定追加</button>
+                <button id="cs-csv-btn" class="btn-cancel" style="cursor:pointer;">CSV / Excel取込</button>
+                <button id="cs-club-action-btn" class="btn-cancel" style="cursor:pointer;">＋ 部活追加</button>
+            </div>
+
+            <!-- テーブル -->
+            <div class="club-table-wrap" id="cs-table-wrap">
+                <div id="cs-loading">読み込み中...</div>
+                <table class="club-table" id="club-table" style="display:none;">
+                    <thead id="club-thead"></thead>
+                    <tbody id="club-tbody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- ① 予定追加/編集モーダル -->
+    <div id="cs-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title" id="cs-modal-title">部活動予定を追加</h3>
+            <div class="form-group">
+                <label>部活名</label>
+                <input type="text" id="cs-club-name" class="modal-input"
+                       list="cs-club-datalist" autocomplete="off"
+                       placeholder="部活名を入力または選択（新規名も登録可）">
+                <datalist id="cs-club-datalist"></datalist>
+                <span id="cs-club-name-hint" style="font-size:11px; color:#0AA294; display:none;">
+                    ✦ 新しい部活として登録されます
+                </span>
+            </div>
+            <div class="form-group">
+                <label>日付</label>
+                <input type="date" id="cs-date" class="modal-input">
+            </div>
+            <div class="time-row">
+                <div class="form-group">
+                    <label>開始時間</label>
+                    <input type="time" id="cs-start" class="modal-input">
+                </div>
+                <div class="form-group">
+                    <label>終了時間</label>
+                    <input type="time" id="cs-end" class="modal-input">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>場所</label>
+                <input type="text" id="cs-location" class="modal-input"
+                       list="cs-location-list" autocomplete="off"
+                       placeholder="選択または自由入力">
+                <datalist id="cs-location-list">
+                    <option value="体育館">
+                    <option value="体育室">
+                    <option value="中庭">
+                    <option value="視聴覚室">
+                    <option value="音楽室">
+                    <option value="美術室">
+                    <option value="調理室">
+                    <option value="12号教室">
+                    <option value="22号教室">
+                    <option value="23号教室">
+                    <option value="31号教室">
+                    <option value="32号教室">
+                    <option value="PC室">
+                    <option value="理科実験室">
+                </datalist>
+            </div>
+            <div class="modal-actions">
+                <button id="cs-modal-cancel" class="btn-cancel">キャンセル</button>
+                <button id="cs-modal-submit" class="btn-submit">登録</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ② セルクリック詳細モーダル -->
+    <div id="cs-cell-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title" id="cs-cell-modal-title">予定の詳細</h3>
+            <div id="cs-cell-event-list" style="max-height: 320px; overflow-y: auto; margin-bottom: 4px;"></div>
+            <div class="modal-actions">
+                <button id="cs-cell-modal-close" class="btn-cancel">閉じる</button>
+                <button id="cs-cell-add-btn" class="btn-submit">＋ この日に追加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ③ 部活名追加モーダル -->
+    <div id="cs-club-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">部活名を追加</h3>
+            <div class="form-group">
+                <label>部活名</label>
+                <input type="text" id="cs-new-club-name" class="modal-input" placeholder="例：バスケットボール部">
+            </div>
+            <div class="modal-actions">
+                <button id="cs-club-cancel" class="btn-cancel">キャンセル</button>
+                <button id="cs-club-submit" class="btn-submit">追加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ④ CSV取込モーダル -->
+    <div id="cs-csv-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">CSV / Excel 取込</h3>
+            <p style="font-size:12px; color:#888; margin-bottom:4px;">
+                <strong>CSV形式</strong>（1行目はヘッダーとして読み飛ばします）：<br>
+                <code style="background:#f5f5f5; padding:2px 6px; border-radius:3px; font-size:11px;">
+                    部活名,日付(YYYY-MM-DD),開始時間(HH:MM),終了時間(HH:MM),場所
+                </code>
+            </p>
+            <p style="font-size:12px; color:#888; margin-bottom:8px;">
+                <strong>Excelファイル（.xlsx）</strong>も対応。テンプレートDLのシート形式のまま取込み可。<br>
+                <span style="font-size:11px; color:#aaa;">複数シートがある場合は全シートの内容を一括登録します。<br>新しい部活名は自動登録されます。</span>
+            </p>
+            <div class="form-group">
+                <label>ファイル選択</label>
+                <input type="file" id="cs-csv-file" accept=".csv,.txt,.xlsx" class="modal-input" style="padding:8px;">
+            </div>
+            <div id="cs-csv-preview">
+                <table class="active-table" id="cs-csv-preview-table" style="font-size:11px; width:100%;">
+                    <thead>
+                        <tr>
+                            <th>部活名</th><th>日付</th><th>開始</th><th>終了</th><th>場所</th><th>状態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cs-csv-preview-body"></tbody>
+                </table>
+            </div>
+            <div style="font-size:12px; color:#888;" id="cs-csv-count"></div>
+            <div class="modal-actions" style="justify-content: space-between;">
+                <button id="cs-template-btn" class="btn-cancel" style="cursor:pointer;">テンプレートDL</button>
+                <div style="display:flex; gap:8px;">
+                    <button id="cs-csv-cancel" class="btn-cancel">キャンセル</button>
+                    <button id="cs-csv-import" class="btn-submit" disabled>取込実行</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SheetJS: Excelテンプレート生成用 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+
+    <script>
+    // ==================================================
+    // 部活動予定ページ
+    // Firestore collections:
+    //   club_names  : { name, order, createdAt }
+    //   club_events : { clubName, date(YYYY-MM-DD), startTime(HH:MM), endTime(HH:MM), location, createdAt }
+    // ==================================================
+
+    const DOW_JA = ['日','月','火','水','木','金','土'];
+
+    // 状態
+    let currentYear, currentMonth;
+    let clubs  = [];   // { id, name, order }
+    let events = [];   // { id, clubName, date, startTime, endTime, location }
+    let editingEventId = null;
+    let cellModalClub  = null;
+    let cellModalDate  = null;
+    let csvValidRows   = [];
+
+    const _today = new Date();
+    currentYear  = _today.getFullYear();
+    currentMonth = _today.getMonth();
+
+    // ==================================================
+    // ユーティリティ
+    // ==================================================
+    function escHtml(str) {
+        return String(str || '')
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;');
+    }
+
+    function daysInMonth(y, m) {
+        return new Date(y, m + 1, 0).getDate();
+    }
+
+    function toDateStr(y, m, d) {
+        return `${y}-${String(m + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+
+    function todayStr() {
+        return toDateStr(_today.getFullYear(), _today.getMonth(), _today.getDate());
+    }
+
+    // ==================================================
+    // 月ナビ
+    // ==================================================
+    function updateMonthLabel() {
+        document.getElementById('month-label').textContent = `${currentYear}年${currentMonth + 1}月`;
+    }
+
+    document.getElementById('prev-month-btn').addEventListener('click', () => {
+        if (currentMonth === 0) { currentYear--; currentMonth = 11; }
+        else currentMonth--;
+        updateMonthLabel();
+        loadEventsAndRender();
+    });
+
+    document.getElementById('next-month-btn').addEventListener('click', () => {
+        if (currentMonth === 11) { currentYear++; currentMonth = 0; }
+        else currentMonth++;
+        updateMonthLabel();
+        loadEventsAndRender();
+    });
+
+    document.getElementById('today-month-btn').addEventListener('click', () => {
+        currentYear  = _today.getFullYear();
+        currentMonth = _today.getMonth();
+        updateMonthLabel();
+        loadEventsAndRender();
+    });
+
+    document.getElementById('scroll-today-btn').addEventListener('click', scrollToToday);
+
+    function scrollToToday() {
+        // 今月でなければ今月に移動してからスクロール
+        const isCurrentMonth = currentYear  === _today.getFullYear()
+                            && currentMonth === _today.getMonth();
+        if (!isCurrentMonth) {
+            currentYear  = _today.getFullYear();
+            currentMonth = _today.getMonth();
+            updateMonthLabel();
+            loadEventsAndRender().then(centerTodayColumn);
+        } else {
+            centerTodayColumn();
+        }
+    }
+
+    function centerTodayColumn() {
+        const th = document.getElementById('th-today');
+        if (!th) return;
+        const wrap = document.getElementById('cs-table-wrap');
+        // th の左端位置（テーブル内の絶対座標）
+        const thLeft  = th.offsetLeft;
+        const thWidth = th.offsetWidth;
+        // ラッパーの表示幅
+        const wrapWidth = wrap.clientWidth;
+        // 部活名列（sticky left）の幅を考慮してオフセット
+        const nameColWidth = document.querySelector('.th-name') ? document.querySelector('.th-name').offsetWidth : 120;
+        // 今日列の中央がラッパーの中央に来るよう scrollLeft を設定
+        const target = thLeft + thWidth / 2 - wrapWidth / 2;
+        wrap.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    }
+
+    // ==================================================
+    // キャッシュユーティリティ（annual_events と同じ方式）
+    // ==================================================
+    const CS_CACHE_TTL = 60 * 60 * 1000; // 60分
+
+    function csGetCache(key) {
+        try {
+            const ts = parseInt(localStorage.getItem(key + '_ts') || '0');
+            if (Date.now() - ts > CS_CACHE_TTL) return null;
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : null;
+        } catch(e) { return null; }
+    }
+    function csSetCache(key, data) {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+            localStorage.setItem(key + '_ts', String(Date.now()));
+        } catch(e) {}
+    }
+    function csClearCache() {
+        ['cache_club_names', 'cache_club_names_ts',
+         'cache_club_events', 'cache_club_events_ts'].forEach(k => localStorage.removeItem(k));
+    }
+
+    // ==================================================
+    // Firebase 読み込み（キャッシュ優先）
+    // ==================================================
+    // 全イベントをキャッシュ。月切替はクライアント側でフィルタ。
+    let allEvents = []; // 全件キャッシュ
+
+    async function loadAllData() {
+        await ensureCacheVersionChecked();
+
+        let clubData  = csGetCache('cache_club_names');
+        let eventData = csGetCache('cache_club_events');
+
+        const [clubSnap, eventSnap] = await Promise.all([
+            clubData  ? Promise.resolve(null) : db.collection('club_names').orderBy('order','asc').get(),
+            eventData ? Promise.resolve(null) : db.collection('club_events').orderBy('date','asc').get()
+        ]);
+
+        if (clubSnap) {
+            clubData = clubSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            csSetCache('cache_club_names', clubData);
+        }
+        if (eventSnap) {
+            eventData = eventSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            csSetCache('cache_club_events', eventData);
+        }
+
+        clubs     = clubData  || [];
+        allEvents = eventData || [];
+    }
+
+    function filterEventsForMonth(y, m) {
+        const start = toDateStr(y, m, 1);
+        const end   = toDateStr(y, m, daysInMonth(y, m));
+        events = allEvents.filter(ev => ev.date >= start && ev.date <= end);
+    }
+
+    async function loadEventsAndRender() {
+        document.getElementById('cs-loading').style.display = 'flex';
+        document.getElementById('club-table').style.display  = 'none';
+        try {
+            // クラブ一覧はキャッシュ済みのため再取得不要、イベントのみフィルタ
+            filterEventsForMonth(currentYear, currentMonth);
+            renderTable();
+        } catch(e) {
+            document.getElementById('cs-loading').textContent = '読み込みに失敗しました。';
+        }
+    }
+
+    async function refreshAll() {
+        document.getElementById('cs-loading').style.display = 'flex';
+        document.getElementById('club-table').style.display  = 'none';
+        try {
+            await loadAllData();
+            filterEventsForMonth(currentYear, currentMonth);
+            renderTable();
+        } catch(e) {
+            document.getElementById('cs-loading').textContent = '読み込みに失敗しました。';
+        }
+    }
+
+    // 書き込み後：キャッシュ無効化 → 再取得
+    async function invalidateAndRefresh() {
+        csClearCache();
+        await updateCacheVersion();
+        await refreshAll();
+    }
+
+    // ==================================================
+    // テーブル描画
+    // ==================================================
+    function renderTable() {
+        const thead = document.getElementById('club-thead');
+        const tbody = document.getElementById('club-tbody');
+        const days  = daysInMonth(currentYear, currentMonth);
+        const tStr  = todayStr();
+
+        // ---- ヘッダー行 ----
+        let hHTML = '<tr>';
+        hHTML += '<th class="th-name">部活名</th>';
+        for (let d = 1; d <= days; d++) {
+            const ds  = toDateStr(currentYear, currentMonth, d);
+            const dow = new Date(currentYear, currentMonth, d).getDay();
+            let cls = '';
+            if (dow === 0) cls = 'th-sun';
+            else if (dow === 6) cls = 'th-sat';
+            const isToday = ds === tStr;
+            if (isToday) cls += ' th-today-col';
+            hHTML += `<th class="${cls}" style="min-width:68px; text-align:center;"${isToday ? ' id="th-today"' : ''}>`
+                   + `${d}<br><span style="font-size:10px; font-weight:normal;">${DOW_JA[dow]}</span></th>`;
+        }
+        hHTML += '</tr>';
+        thead.innerHTML = hHTML;
+
+        // ---- ボディ ----
+        if (clubs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${days + 2}" style="text-align:center; padding:28px; color:#888;">`
+                + `部活が登録されていません。右上の「＋ 部活追加」から追加してください。</td></tr>`;
+        } else {
+            // clubName+date → events[] のマップ
+            const evMap = {};
+            events.forEach(ev => {
+                const k = ev.clubName + '\x00' + ev.date;
+                if (!evMap[k]) evMap[k] = [];
+                evMap[k].push(ev);
+            });
+
+            tbody.innerHTML = '';
+            clubs.forEach(club => {
+                let rHTML = '<tr>';
+                rHTML += `<td class="td-name">${escHtml(club.name)}</td>`;
+                for (let d = 1; d <= days; d++) {
+                    const ds  = toDateStr(currentYear, currentMonth, d);
+                    const dow = new Date(currentYear, currentMonth, d).getDay();
+                    const k   = club.name + '\x00' + ds;
+                    const ces = evMap[k] || [];
+                    let tdCls = 'event-cell';
+                    if (dow === 0) tdCls += ' td-sun';
+                    else if (dow === 6) tdCls += ' td-sat';
+                    if (ds === tStr) tdCls += ' td-today';
+                    let chips = '';
+                    // 時間順にソート
+                    const sorted = [...ces].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                    sorted.forEach(ev => {
+                        chips += `<span class="ev-chip">`
+                               + `<span class="ev-chip-time">${ev.startTime}〜${ev.endTime}</span>`
+                               + (ev.location ? `<span class="ev-chip-loc">${escHtml(ev.location)}</span>` : '')
+                               + `</span>`;
+                    });
+                    rHTML += `<td class="${tdCls}" data-club="${escHtml(club.name)}" data-date="${ds}">${chips}</td>`;
+                }
+                rHTML += '</tr>';
+                tbody.innerHTML += rHTML;
+            });
+
+            // セルクリック
+            tbody.querySelectorAll('td.event-cell').forEach(cell => {
+                cell.addEventListener('click', () => {
+                    openCellModal(cell.dataset.club, cell.dataset.date);
+                });
+            });
+        }
+
+        document.getElementById('cs-loading').style.display = 'none';
+        document.getElementById('club-table').style.display = '';
+    }
+
+    // ==================================================
+    // ① 予定追加 / 編集モーダル
+    // ==================================================
+    function populateClubDatalist() {
+        const dl = document.getElementById('cs-club-datalist');
+        dl.innerHTML = '';
+        clubs.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.name;
+            dl.appendChild(opt);
+        });
+    }
+
+    function updateClubNameHint() {
+        const val  = document.getElementById('cs-club-name').value.trim();
+        const hint = document.getElementById('cs-club-name-hint');
+        hint.style.display = (val && !clubs.some(c => c.name === val)) ? '' : 'none';
+    }
+
+    function openAddModal(club, date) {
+        editingEventId = null;
+        document.getElementById('cs-modal-title').textContent  = '部活動予定を追加';
+        document.getElementById('cs-modal-submit').textContent = '登録';
+        populateClubDatalist();
+        document.getElementById('cs-club-name').value  = club || '';
+        document.getElementById('cs-club-name-hint').style.display = 'none';
+        document.getElementById('cs-date').value     = date || '';
+        document.getElementById('cs-start').value    = '';
+        document.getElementById('cs-end').value      = '';
+        document.getElementById('cs-location').value = '';
+        document.getElementById('cs-modal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('cs-club-name').focus(), 60);
+    }
+
+    function openEditModal(ev) {
+        editingEventId = ev.id;
+        document.getElementById('cs-modal-title').textContent  = '部活動予定を編集';
+        document.getElementById('cs-modal-submit').textContent = '更新';
+        populateClubDatalist();
+        document.getElementById('cs-club-name').value  = ev.clubName;
+        document.getElementById('cs-club-name-hint').style.display = 'none';
+        document.getElementById('cs-date').value      = ev.date;
+        document.getElementById('cs-start').value     = ev.startTime;
+        document.getElementById('cs-end').value       = ev.endTime;
+        document.getElementById('cs-location').value  = ev.location || '';
+        document.getElementById('cs-modal').classList.remove('hidden');
+    }
+
+    // 入力のたびにヒント表示
+    document.getElementById('cs-club-name').addEventListener('input', updateClubNameHint);
+
+    document.getElementById('cs-add-btn').addEventListener('click', () => openAddModal(null, null));
+
+    document.getElementById('cs-modal-cancel').addEventListener('click', () => {
+        document.getElementById('cs-modal').classList.add('hidden');
+    });
+
+    document.getElementById('cs-modal-submit').addEventListener('click', async () => {
+        const clubName  = document.getElementById('cs-club-name').value.trim();
+        const date      = document.getElementById('cs-date').value;
+        const startTime = document.getElementById('cs-start').value;
+        const endTime   = document.getElementById('cs-end').value;
+        const location  = document.getElementById('cs-location').value.trim();
+
+        if (!clubName || !date || !startTime || !endTime) {
+            alert('部活名・日付・開始時間・終了時間は必須です。');
+            return;
+        }
+        if (startTime >= endTime) {
+            alert('終了時間は開始時間より後にしてください。');
+            return;
+        }
+
+        const btn = document.getElementById('cs-modal-submit');
+        btn.disabled = true;
+        try {
+            // 新規部活名なら club_names に自動追加
+            if (!clubs.some(c => c.name === clubName)) {
+                const order = clubs.length > 0 ? Math.max(...clubs.map(c => c.order ?? 0)) + 1 : 0;
+                const ref = await db.collection('club_names').add({
+                    name: clubName, order,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                clubs.push({ id: ref.id, name: clubName, order });
+            }
+
+            if (editingEventId) {
+                await db.collection('club_events').doc(editingEventId).update(
+                    { clubName, date, startTime, endTime, location }
+                );
+            } else {
+                await db.collection('club_events').add({
+                    clubName, date, startTime, endTime, location,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            document.getElementById('cs-modal').classList.add('hidden');
+            document.getElementById('cs-cell-modal').classList.add('hidden');
+            await invalidateAndRefresh();
+        } catch(e) {
+            alert('保存に失敗しました。\n' + e.message);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // ==================================================
+    // ② セルクリック詳細モーダル
+    // ==================================================
+    function openCellModal(clubName, date) {
+        cellModalClub = clubName;
+        cellModalDate = date;
+
+        const d   = new Date(date + 'T00:00:00');
+        const lbl = `${clubName} ／ ${d.getMonth()+1}月${d.getDate()}日(${DOW_JA[d.getDay()]})`;
+        document.getElementById('cs-cell-modal-title').textContent = lbl;
+
+        const ces = events.filter(ev => ev.clubName === clubName && ev.date === date)
+                          .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+        const listDiv = document.getElementById('cs-cell-event-list');
+        if (ces.length === 0) {
+            listDiv.innerHTML = '<p style="color:#888; font-size:13px; text-align:center; padding:16px;">この日の予定はありません</p>';
+        } else {
+            listDiv.innerHTML = ces.map(ev => `
+                <div class="cell-ev-card">
+                    <div class="cell-ev-info">
+                        <div class="cell-ev-time">${escHtml(ev.startTime)} 〜 ${escHtml(ev.endTime)}</div>
+                        ${ev.location ? `<div class="cell-ev-loc">📍 ${escHtml(ev.location)}</div>` : ''}
+                    </div>
+                    <div class="cell-ev-btns">
+                        <button class="btn-edit-small" onclick="editEventFromCell('${ev.id}')">編集</button>
+                        <button class="btn-del-small" onclick="deleteEvent('${ev.id}')">削除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('cs-cell-modal').classList.remove('hidden');
+    }
+
+    window.editEventFromCell = function(eventId) {
+        const ev = events.find(e => e.id === eventId);
+        if (!ev) return;
+        document.getElementById('cs-cell-modal').classList.add('hidden');
+        openEditModal(ev);
+    };
+
+    window.deleteEvent = async function(eventId) {
+        if (!confirm('この予定を削除しますか？')) return;
+        try {
+            await db.collection('club_events').doc(eventId).delete();
+            document.getElementById('cs-cell-modal').classList.add('hidden');
+            await invalidateAndRefresh();
+        } catch(e) {
+            alert('削除に失敗しました。\n' + e.message);
+        }
+    };
+
+    document.getElementById('cs-cell-modal-close').addEventListener('click', () => {
+        document.getElementById('cs-cell-modal').classList.add('hidden');
+    });
+
+    document.getElementById('cs-cell-add-btn').addEventListener('click', () => {
+        document.getElementById('cs-cell-modal').classList.add('hidden');
+        openAddModal(cellModalClub, cellModalDate);
+    });
+
+    // アクションバーの部活追加ボタン
+    document.getElementById('cs-club-action-btn').addEventListener('click', openClubModal);
+
+    // ==================================================
+    // ③ 部活名追加モーダル
+    // ==================================================
+    function openClubModal() {
+        document.getElementById('cs-new-club-name').value = '';
+        document.getElementById('cs-club-modal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('cs-new-club-name').focus(), 80);
+    }
+
+    document.getElementById('cs-club-cancel').addEventListener('click', () => {
+        document.getElementById('cs-club-modal').classList.add('hidden');
+    });
+
+    document.getElementById('cs-club-submit').addEventListener('click', async () => {
+        const name = document.getElementById('cs-new-club-name').value.trim();
+        if (!name) { alert('部活名を入力してください。'); return; }
+        if (clubs.some(c => c.name === name)) {
+            alert('その部活名はすでに登録されています。');
+            return;
+        }
+        const btn = document.getElementById('cs-club-submit');
+        btn.disabled = true;
+        try {
+            const order = clubs.length > 0 ? Math.max(...clubs.map(c => c.order ?? 0)) + 1 : 0;
+            await db.collection('club_names').add({
+                name, order,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            document.getElementById('cs-club-modal').classList.add('hidden');
+            await invalidateAndRefresh();
+        } catch(e) {
+            alert('追加に失敗しました。\n' + e.message);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // Enterキーで送信
+    document.getElementById('cs-new-club-name').addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('cs-club-submit').click();
+    });
+
+    // ==================================================
+    // ④ CSV取込
+    // ==================================================
+    document.getElementById('cs-csv-btn').addEventListener('click', () => {
+        document.getElementById('cs-csv-file').value   = '';
+        document.getElementById('cs-csv-preview').style.display = 'none';
+        document.getElementById('cs-csv-preview-body').innerHTML = '';
+        document.getElementById('cs-csv-count').textContent = '';
+        document.getElementById('cs-csv-import').disabled  = true;
+        csvValidRows = [];
+        document.getElementById('cs-csv-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('cs-csv-cancel').addEventListener('click', () => {
+        document.getElementById('cs-csv-modal').classList.add('hidden');
+    });
+
+    document.getElementById('cs-csv-file').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'xlsx' || ext === 'xls') {
+            const reader = new FileReader();
+            reader.onload = evt => parseXlsx(evt.target.result);
+            reader.readAsArrayBuffer(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = evt => buildPreview(extractCsvRows(evt.target.result));
+            reader.readAsText(file, 'UTF-8');
+        }
+    });
+
+    // CSV文字列 → 行データ配列
+    function extractCsvRows(text) {
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        const rows = [];
+        lines.forEach((line, i) => {
+            if (i === 0 && /^(部活|club)/i.test(line)) return; // ヘッダー行スキップ
+            const cols = parseCsvLine(line);
+            if (cols.length >= 4) rows.push(cols.map(c => c.trim()));
+        });
+        return rows;
+    }
+
+    // XLSX バイナリ → 行データ配列（全シートを結合）
+    function parseXlsx(arrayBuffer) {
+        try {
+            const wb = XLSX.read(arrayBuffer, { type: 'array', cellText: true, cellDates: false });
+            const rows = [];
+            wb.SheetNames.forEach(sheetName => {
+                const ws = wb.Sheets[sheetName];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+                data.forEach((row, i) => {
+                    if (i === 0 && /^(部活|club)/i.test(String(row[0] || ''))) return;
+                    if (row.length >= 4 && row.some(c => String(c).trim())) {
+                        rows.push(row.map(c => String(c).trim()));
+                    }
+                });
+            });
+            buildPreview(rows);
+        } catch(e) {
+            alert('Excelファイルの読み込みに失敗しました。\n' + e.message);
+        }
+    }
+
+    // 行データ配列 → バリデーション & プレビュー表示
+    function buildPreview(rawRows) {
+        csvValidRows = [];
+        const tbody = document.getElementById('cs-csv-preview-body');
+        tbody.innerHTML = '';
+        let validCount = 0;
+        let errorCount = 0;
+
+        rawRows.forEach(cols => {
+            const clubName  = (cols[0] || '').trim();
+            const date      = (cols[1] || '').trim();
+            const startTime = (cols[2] || '').trim();
+            const endTime   = (cols[3] || '').trim();
+            const location  = (cols[4] || '').trim();
+
+            let status = '✓ OK';
+            let valid  = true;
+
+            if (!clubName) {
+                status = '⚠ 部活名なし'; valid = false;
+            } else if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                status = '⚠ 日付(YYYY-MM-DD)'; valid = false;
+            } else if (!/^\d{2}:\d{2}$/.test(startTime)) {
+                status = '⚠ 開始時間(HH:MM)'; valid = false;
+            } else if (!/^\d{2}:\d{2}$/.test(endTime)) {
+                status = '⚠ 終了時間(HH:MM)'; valid = false;
+            }
+
+            if (valid) { csvValidRows.push({ clubName, date, startTime, endTime, location }); validCount++; }
+            else errorCount++;
+
+            tbody.innerHTML += `<tr>
+                <td>${escHtml(clubName)}</td>
+                <td>${escHtml(date)}</td>
+                <td>${escHtml(startTime)}</td>
+                <td>${escHtml(endTime)}</td>
+                <td>${escHtml(location)}</td>
+                <td style="color:${valid ? '#2c8c5a' : '#c0392b'};">${status}</td>
+            </tr>`;
+        });
+
+        document.getElementById('cs-csv-preview').style.display = rawRows.length ? 'block' : 'none';
+        document.getElementById('cs-csv-count').textContent =
+            rawRows.length ? `有効: ${validCount}件 / エラー: ${errorCount}件` : 'データが見つかりませんでした。';
+        document.getElementById('cs-csv-import').disabled = validCount === 0;
+    }
+
+    function parseCsvLine(line) {
+        const result = [];
+        let cur = '', inQ = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+                if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+                else inQ = !inQ;
+            } else if (ch === ',' && !inQ) {
+                result.push(cur); cur = '';
+            } else {
+                cur += ch;
+            }
+        }
+        result.push(cur);
+        return result;
+    }
+
+    // ==================================================
+    // テンプレートDL（部活ごとにシートを分けた .xlsx）
+    // ==================================================
+    document.getElementById('cs-template-btn').addEventListener('click', downloadTemplate);
+
+    function downloadTemplate() {
+        if (clubs.length === 0) {
+            alert('部活が登録されていません。\n先に「＋ 部活追加」から部活を登録してください。');
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+        const HEADER = ['部活名', '日付(YYYY-MM-DD)', '開始時間(HH:MM)', '終了時間(HH:MM)', '場所'];
+        const COL_W  = [{ wch: 22 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 22 }];
+
+        // 各部活ごとのシート
+        clubs.forEach(club => {
+            const ws = XLSX.utils.aoa_to_sheet([
+                HEADER,
+                [club.name, '', '', '', ''],  // 入力例行
+            ]);
+            ws['!cols'] = COL_W;
+            // シート名は最大31文字（Excelの制限）、特殊文字を除去
+            const sheetName = club.name.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 31);
+            XLSX.utils.book_append_sheet(wb, ws, sheetName || `部活${clubs.indexOf(club)+1}`);
+        });
+
+        // 全部活まとめシート
+        const allData = [HEADER, ...clubs.map(c => [c.name, '', '', '', ''])];
+        const wsAll = XLSX.utils.aoa_to_sheet(allData);
+        wsAll['!cols'] = COL_W;
+        XLSX.utils.book_append_sheet(wb, wsAll, '全部活（まとめ）');
+
+        XLSX.writeFile(wb, '部活動予定テンプレート.xlsx');
+    }
+
+    document.getElementById('cs-csv-import').addEventListener('click', async () => {
+        if (csvValidRows.length === 0) return;
+        const btn = document.getElementById('cs-csv-import');
+        btn.disabled = true;
+        btn.textContent = '取込中...';
+        try {
+            // 新部活名を自動登録
+            const newNames = [...new Set(csvValidRows.map(r => r.clubName))]
+                .filter(n => !clubs.some(c => c.name === n));
+            for (const name of newNames) {
+                const order = clubs.length > 0 ? Math.max(...clubs.map(c => c.order ?? 0)) + 1 : 0;
+                const ref = await db.collection('club_names').add({
+                    name, order,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                clubs.push({ id: ref.id, name, order });
+            }
+
+            // バッチ書き込み（500件以下を想定）
+            const batch = db.batch();
+            csvValidRows.forEach(row => {
+                const ref = db.collection('club_events').doc();
+                batch.set(ref, { ...row, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            });
+            await batch.commit();
+
+            document.getElementById('cs-csv-modal').classList.add('hidden');
+            await invalidateAndRefresh();
+            alert(`${csvValidRows.length} 件の予定を取込みました。${newNames.length > 0 ? `\n新規部活 ${newNames.length} 件も登録しました。` : ''}`);
+        } catch(e) {
+            alert('取込に失敗しました。\n' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '取込実行';
+        }
+    });
+
+    // ==================================================
+    // 初期化
+    // ==================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+        updateMonthLabel();
+        await refreshAll();
+    });
+    </script>
+</body>
+</html>

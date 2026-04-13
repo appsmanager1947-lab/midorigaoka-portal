@@ -19,12 +19,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const editIdParam = urlParams.get('edit_id');
         const isDashboardSource = urlParams.get('source') === 'dashboard';
         const isDashboardEdit   = urlParams.get('source') === 'dashboard_edit';
-        const isBoardItemSource = urlParams.get('source') === 'board';
-        const isBoardItemEdit   = urlParams.get('source') === 'board_edit';
+        const isBoardItemSource  = urlParams.get('source') === 'board';
+        const isBoardItemEdit    = urlParams.get('source') === 'board_edit';
+        const isBoardsListSource = urlParams.get('source') === 'boards_list';
+        const isBoardsListEdit   = urlParams.get('source') === 'boards_list_edit';
         const dashTag    = urlParams.get('dash_tag')    || 'その他';
         const dashTitle  = urlParams.get('dash_title')  || '';
         const boardItemTag   = urlParams.get('board_tag')   || 'その他';
         const boardItemTitle = urlParams.get('board_title') || '';
+        const boardsListTitle  = urlParams.get('bl_title')  || '';
+        const boardsListDept   = urlParams.get('bl_dept')   || '';
+        const boardsListPeriod = urlParams.get('bl_period') || '';
         let syncTagsFromValue = null;
 
         function getTodayStr() {
@@ -35,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // ① クラウドから既存データを読み込む
         if (editIdParam) {
             editingColId = editIdParam;
-            const collectionName = isBoardMode ? 'boards' : (isBoardItemEdit ? 'board_columns' : 'columns');
+            const collectionName = isBoardMode ? 'boards' : ((isBoardItemEdit || isBoardsListEdit) ? 'board_columns' : 'columns');
             
             db.collection(collectionName).doc(editIdParam).get().then((doc) => {
                 if (doc.exists) {
@@ -86,6 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (isBoardItemSource && boardItemTitle && editTitle) {
                 editTitle.value = boardItemTitle;
+            }
+            if (isBoardsListSource && boardsListTitle && editTitle) {
+                editTitle.value = boardsListTitle;
             }
         }
 
@@ -1063,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnPublish.disabled = true;
                 btnPublish.textContent = "保存中...";
 
-                const collectionName = isBoardMode ? 'boards' : ((isBoardItemSource || isBoardItemEdit) ? 'board_columns' : 'columns');
+                const collectionName = isBoardMode ? 'boards' : ((isBoardItemSource || isBoardItemEdit || isBoardsListSource || isBoardsListEdit) ? 'board_columns' : 'columns');
                 const htmlInputSave = document.getElementById('html-input');
                 let saveData = {
                     title: title,
@@ -1092,21 +1100,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const clearEditorCaches = () => {
-                    ['sc_boards','sc_columns','sc_dashboards','sc_dash_tagorder','sc_board_items','sc_board_tag_order'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                    ['sc_boards','sc_columns','sc_dashboards','sc_dash_tagorder','sc_board_items','sc_board_tag_order'].forEach(k => localStorage.removeItem(k));
                 };
 
                 if (editingColId) {
-                    db.collection(collectionName).doc(editingColId).update(saveData).then(() => {
+                    db.collection(collectionName).doc(editingColId).update(saveData).then(async () => {
                         afterPublish();
                         alert(isBoardMode ? '掲示を更新しました！' : 'ページを更新しました！');
                         clearEditorCaches();
+                        await updateCacheVersion();
                         if (isBoardMode) window.location.href = './boards.html';
                         else if (isDashboardEdit) window.location.href = './index.html';
-                        else if (isBoardItemEdit) window.location.href = './boards.html';
+                        else if (isBoardItemEdit || isBoardsListEdit) window.location.href = './boards.html';
                         else window.location.href = './columns.html';
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                 } else {
-                    db.collection(collectionName).add(saveData).then((ref) => {
+                    db.collection(collectionName).add(saveData).then(async (ref) => {
                         editingColId = ref.id;
                         afterPublish();
                         if (!isBoardMode && isDashboardSource) {
@@ -1117,9 +1126,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 columnId: ref.id,
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                                 order: 9999
-                            }).then(() => {
+                            }).then(async () => {
                                 alert('フリーページカードを作成しました！');
                                 clearEditorCaches();
+                                await updateCacheVersion();
                                 window.location.href = './index.html';
                             }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                         } else if (!isBoardMode && isBoardItemSource) {
@@ -1130,14 +1140,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                 columnId: ref.id,
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                                 order: 9999
-                            }).then(() => {
+                            }).then(async () => {
                                 alert('フリーページカードを作成しました！');
                                 clearEditorCaches();
+                                await updateCacheVersion();
+                                window.location.href = './boards.html';
+                            }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
+                        } else if (!isBoardMode && isBoardsListSource) {
+                            db.collection('boards').add({
+                                type: 'page',
+                                title: boardsListTitle || title,
+                                dept: boardsListDept,
+                                period: boardsListPeriod,
+                                columnId: ref.id,
+                                status: 'active',
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }).then(async () => {
+                                alert('フリーページを作成しました！');
+                                clearEditorCaches();
+                                await updateCacheVersion();
                                 window.location.href = './boards.html';
                             }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                         } else {
                             alert(isBoardMode ? '掲示を公開しました！' : 'コラムを公開しました！');
                             clearEditorCaches();
+                            await updateCacheVersion();
                             window.location.href = isBoardMode ? './boards.html' : './columns.html';
                         }
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });

@@ -1,9 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // セッションキャッシュヘルパー（タブを閉じると自動消去・書き込み後は手動クリア）
-    const getSC = k => { try { const v = sessionStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
-    const setSC = (k, d) => { try { sessionStorage.setItem(k, JSON.stringify(d)); } catch(e) {} };
-    const clearSC = k => { try { sessionStorage.removeItem(k); } catch(e) {} };
+    // ローカルストレージキャッシュヘルパー（タブを閉じても保持・バージョン変更時に一括クリア）
+    const getSC = k => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
+    const setSC = (k, d) => { try { localStorage.setItem(k, JSON.stringify(d)); } catch(e) {} };
+    const clearSC = k => { try { localStorage.removeItem(k); } catch(e) {} };
 
 
     // 対象ラベル → 色マップ（annual_events と共通）
@@ -81,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // DOMガード: submissions関連の要素がないページでは起動しない
     if (indexTableBody || allSubmissionsBody) {
         loadSubmissions = async function() {
+            await ensureCacheVersionChecked();
             const cached = getSC('sc_submissions');
             if (cached) {
                 submissions = cached;
@@ -105,19 +106,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('complete-btn')) {
             if(confirm('このタスクを終了済みにしますか？（トップページからは非表示になります）')) {
                 const id = e.target.getAttribute('data-id');
-                db.collection('submissions').doc(id).update({ status: 'completed' }).then(() => { clearSC('sc_submissions'); loadSubmissions(); });
+                db.collection('submissions').doc(id).update({ status: 'completed' }).then(() => { clearSC('sc_submissions'); updateCacheVersion(); loadSubmissions(); });
             }
         }
         if (e.target.classList.contains('reactivate-submission-btn')) {
             if(confirm('終了済みを取り消して、進行中に戻しますか？')) {
                 const id = e.target.getAttribute('data-id');
-                db.collection('submissions').doc(id).update({ status: 'active' }).then(() => { clearSC('sc_submissions'); loadSubmissions(); });
+                db.collection('submissions').doc(id).update({ status: 'active' }).then(() => { clearSC('sc_submissions'); updateCacheVersion(); loadSubmissions(); });
             }
         }
         if (e.target.classList.contains('delete-submission-btn')) {
             if(confirm('このタスクを完全に削除しますか？（元に戻せません）')) {
                 const id = e.target.getAttribute('data-id');
-                db.collection('submissions').doc(id).delete().then(() => { clearSC('sc_submissions'); loadSubmissions(); });
+                db.collection('submissions').doc(id).delete().then(() => { clearSC('sc_submissions'); updateCacheVersion(); loadSubmissions(); });
             }
         }
     });
@@ -154,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
                 modal.classList.add('hidden');
-                clearSC('sc_submissions'); loadSubmissions();
+                clearSC('sc_submissions'); updateCacheVersion(); loadSubmissions();
             });
         });
     }
@@ -163,10 +164,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // ★修正：共有掲示板の処理 (Firebase版)
     // ==========================================
     const boardTableBody = document.getElementById('board-list-body');
-    const allBoardsBody = document.getElementById('all-boards-body'); 
+    const allBoardsBody  = document.getElementById('all-boards-body');
+    const addBoardBtn    = document.getElementById('add-board-btn');
 
     let boards = [];
     let loadBoards = async () => {};
+    let editingBoardId = null;
+
+    const BOARD_DEPT_OPTIONS_HTML = ['教職員','進路指導部','教務部','生徒指導部','入試対策部','総務部','生徒会'].map(d => `<option value="${d}"></option>`).join('');
 
     function renderBoards(tbody, showAll) {
         if (!tbody) return;
@@ -177,27 +182,41 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td colspan="4" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された掲示板はありません</td>`;
             tbody.appendChild(tr);
-        } else {
+            return;
+        }
+
         displayData.forEach(data => {
             const tr = document.createElement('tr');
+            const type = data.type || '';
 
-            // ★ポイント：タイトルをクリックで直接「編集画面」へ飛ぶ
-            const titleHtml = `<a href="./board_edit.html?edit_id=${data.id}" style="color: #4A4643; text-decoration: underline; font-weight: bold;">${data.title}</a>`;
-            let statusHtml = data.status === 'completed' ? `<span style="background-color: #e0e0e0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 8px;">終了済み</span>` : '';
+            let titleHtml;
+            if (type === 'multi') {
+                titleHtml = `<span class="board-multi-link" data-id="${data.id}" style="color:#4A4643; font-weight:bold; cursor:pointer; text-decoration:underline;">${data.title}</span>`;
+            } else if (type === 'page') {
+                titleHtml = `<a href="./column_detail.html?id=${data.columnId}&board_id=${data.id}&source=boards_list" style="color:#4A4643; font-weight:bold; text-decoration:underline;">${data.title}</a>`;
+            } else if (data.url) {
+                titleHtml = `<a href="${data.url}" target="_blank" style="color:#4A4643; font-weight:bold; text-decoration:underline;">${data.title}</a>`;
+            } else {
+                titleHtml = `<a href="./board_edit.html?edit_id=${data.id}" style="color:#4A4643; font-weight:bold; text-decoration:underline;">${data.title}</a>`;
+            }
 
-            let deleteBtnHtml = showAll ? `<button class="delete-board-btn" data-id="${data.id}" style="background-color: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-left: 12px;">削除</button>` : '';
-            let actionHtml = data.status === 'completed'
-                ? `<span style="color:#ccc; font-size: 12px;">操作不可</span>` + deleteBtnHtml
-                : `<button class="complete-board-btn" data-id="${data.id}" style="background-color: transparent; color: #aaa; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">終了</button>` + deleteBtnHtml;
+            const statusHtml = data.status === 'completed' ? `<span style="background-color:#e0e0e0; color:#666; padding:2px 6px; border-radius:4px; font-size:12px; margin-left:8px;">終了済み</span>` : '';
+            const editBtnHtml = type
+                ? `<button class="edit-board-btn" data-id="${data.id}" style="background:transparent; color:#0066cc; border:none; font-size:13px; cursor:pointer; text-decoration:underline; padding:4px;">編集</button>`
+                : `<a href="./board_edit.html?edit_id=${data.id}" style="color:#0066cc; font-size:13px; text-decoration:underline; padding:4px;">編集</a>`;
+            const deleteBtnHtml = showAll ? `<button class="delete-board-btn" data-id="${data.id}" style="background:transparent; color:#d9534f; border:none; font-size:13px; cursor:pointer; text-decoration:underline; padding:4px; margin-left:8px;">削除</button>` : '';
+            const actionHtml = data.status === 'completed'
+                ? `<span style="color:#ccc; font-size:12px;">操作不可</span>` + deleteBtnHtml
+                : editBtnHtml + `<button class="complete-board-btn" data-id="${data.id}" style="background:transparent; color:#aaa; border:none; font-size:13px; cursor:pointer; text-decoration:underline; padding:4px;">終了</button>` + deleteBtnHtml;
 
-            tr.innerHTML = `<td>${titleHtml} ${statusHtml}</td><td>${data.dept}</td><td>${data.period}</td><td>${actionHtml}</td>`;
+            tr.innerHTML = `<td>${titleHtml} ${statusHtml}</td><td>${data.dept || ''}</td><td>${data.period || ''}</td><td>${actionHtml}</td>`;
             tbody.appendChild(tr);
         });
-        }
     }
 
-    if (boardTableBody || allBoardsBody) {
+    if (boardTableBody || allBoardsBody || addBoardBtn) {
         loadBoards = async function() {
+            await ensureCacheVersionChecked();
             const cached = getSC('sc_boards');
             if (cached) {
                 boards = cached;
@@ -215,22 +234,324 @@ document.addEventListener('DOMContentLoaded', () => {
             renderBoards(allBoardsBody, true);
         };
         loadBoards();
-    }
 
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('complete-board-btn')) {
-            if(confirm('この掲示を終了済みにしますか？')) {
-                const id = e.target.getAttribute('data-id');
-                db.collection('boards').doc(id).update({ status: 'completed' }).then(() => { clearSC('sc_boards'); loadBoards(); });
-            }
+        // ── 種類選択モーダル ──────────────────────────────────────
+        const bTypeCardStyle = 'display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border:1px solid #E6E4DF; border-radius:8px; background:#fff; cursor:pointer; text-align:left; width:100%; transition:border-color 0.2s;';
+        const bTypeModal = document.createElement('div');
+        bTypeModal.className = 'modal-overlay hidden';
+        bTypeModal.innerHTML = `
+            <div class="modal-content" style="max-width:480px;">
+                <h3 class="modal-title">掲示の種類を選択</h3>
+                <div style="display:flex; flex-direction:column; gap:10px; margin:4px 0 8px;">
+                    <button id="b-type-simple" style="${bTypeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">🔗</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">シンプルリンク</div><div style="font-size:12px; color:#888;">1つのリンクを開く掲示</div></div>
+                    </button>
+                    <button id="b-type-multi" style="${bTypeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">📋</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">マルチリンク</div><div style="font-size:12px; color:#888;">クリックすると複数リンクから選択できる</div></div>
+                    </button>
+                    <button id="b-type-page" style="${bTypeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">📝</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">フリーページ</div><div style="font-size:12px; color:#888;">自由に書き込めるページ</div></div>
+                    </button>
+                </div>
+                <div class="modal-actions"><button id="b-type-cancel" class="btn-cancel">キャンセル</button></div>
+            </div>
+        `;
+        document.body.appendChild(bTypeModal);
+
+        // ── シンプルリンクモーダル ────────────────────────────────
+        const bSimpleModal = document.createElement('div');
+        bSimpleModal.className = 'modal-overlay hidden';
+        bSimpleModal.innerHTML = `
+            <div class="modal-content">
+                <h3 id="b-simple-modal-title" class="modal-title">シンプルリンクを追加</h3>
+                <div class="form-group"><label>タイトル</label><input type="text" id="b-simple-title" class="modal-input" placeholder="例：令和8年度 学校便り"></div>
+                <div class="form-group">
+                    <label>部署</label>
+                    <input type="text" id="b-simple-dept" class="modal-input" list="b-simple-dept-options" placeholder="選択または入力してください">
+                    <datalist id="b-simple-dept-options">${BOARD_DEPT_OPTIONS_HTML}</datalist>
+                </div>
+                <div class="form-group"><label>掲載期間</label><input type="text" id="b-simple-period" class="modal-input" placeholder="例：〜4/30"></div>
+                <div class="form-group"><label>リンク先 (URL)</label><input type="text" id="b-simple-url" class="modal-input" placeholder="https://..."></div>
+                <div class="modal-actions"><button id="b-simple-cancel" class="btn-cancel">キャンセル</button><button id="b-simple-submit" class="btn-submit">追加</button></div>
+            </div>
+        `;
+        document.body.appendChild(bSimpleModal);
+
+        // ── マルチリンクモーダル ──────────────────────────────────
+        const bMultiModal = document.createElement('div');
+        bMultiModal.className = 'modal-overlay hidden';
+        bMultiModal.innerHTML = `
+            <div class="modal-content" style="max-width:500px;">
+                <h3 id="b-multi-modal-title" class="modal-title">マルチリンクを追加</h3>
+                <div class="form-group"><label>タイトル</label><input type="text" id="b-multi-title" class="modal-input" placeholder="例：参考資料一覧"></div>
+                <div class="form-group">
+                    <label>部署</label>
+                    <input type="text" id="b-multi-dept" class="modal-input" list="b-multi-dept-options" placeholder="選択または入力してください">
+                    <datalist id="b-multi-dept-options">${BOARD_DEPT_OPTIONS_HTML}</datalist>
+                </div>
+                <div class="form-group"><label>掲載期間</label><input type="text" id="b-multi-period" class="modal-input" placeholder="例：〜4/30"></div>
+                <div class="form-group">
+                    <label>リンク一覧</label>
+                    <div id="b-multi-links-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>
+                    <button id="b-multi-add-link" type="button" style="width:100%; padding:8px; border:1px dashed #aaa; border-radius:6px; background:#fafafa; color:#555; cursor:pointer; font-size:13px;">＋ リンクを追加</button>
+                </div>
+                <div class="modal-actions"><button id="b-multi-cancel" class="btn-cancel">キャンセル</button><button id="b-multi-submit" class="btn-submit">追加</button></div>
+            </div>
+        `;
+        document.body.appendChild(bMultiModal);
+
+        // ── フリーページ新規モーダル ──────────────────────────────
+        const bPageModal = document.createElement('div');
+        bPageModal.className = 'modal-overlay hidden';
+        bPageModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 class="modal-title">フリーページを追加</h3>
+                <p style="font-size:13px; color:#666; margin:-8px 0 16px;">情報を入力すると、ページ編集画面に移動します。</p>
+                <div class="form-group"><label>タイトル</label><input type="text" id="b-page-title" class="modal-input" placeholder="例：職員会議資料"></div>
+                <div class="form-group">
+                    <label>部署</label>
+                    <input type="text" id="b-page-dept" class="modal-input" list="b-page-dept-options" placeholder="選択または入力してください">
+                    <datalist id="b-page-dept-options">${BOARD_DEPT_OPTIONS_HTML}</datalist>
+                </div>
+                <div class="form-group"><label>掲載期間</label><input type="text" id="b-page-period" class="modal-input" placeholder="例：〜4/30"></div>
+                <div class="modal-actions"><button id="b-page-cancel" class="btn-cancel">キャンセル</button><button id="b-page-submit" class="btn-submit">ページを作成 →</button></div>
+            </div>
+        `;
+        document.body.appendChild(bPageModal);
+
+        // ── フリーページ編集モーダル ──────────────────────────────
+        const bPageEditModal = document.createElement('div');
+        bPageEditModal.className = 'modal-overlay hidden';
+        bPageEditModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 class="modal-title">フリーページを編集</h3>
+                <div class="form-group"><label>タイトル</label><input type="text" id="b-page-edit-title" class="modal-input"></div>
+                <div class="form-group">
+                    <label>部署</label>
+                    <input type="text" id="b-page-edit-dept" class="modal-input" list="b-page-edit-dept-options">
+                    <datalist id="b-page-edit-dept-options">${BOARD_DEPT_OPTIONS_HTML}</datalist>
+                </div>
+                <div class="form-group"><label>掲載期間</label><input type="text" id="b-page-edit-period" class="modal-input"></div>
+                <div style="margin-bottom:16px;">
+                    <a id="b-page-edit-link" href="#" style="font-size:13px; color:#2c8c5a; text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border:1px solid #c3e6d6; border-radius:6px; background:#f0faf5;">📝 ページ内容を編集する →</a>
+                </div>
+                <div class="modal-actions"><button id="b-page-edit-cancel" class="btn-cancel">キャンセル</button><button id="b-page-edit-submit" class="btn-submit">保存</button></div>
+            </div>
+        `;
+        document.body.appendChild(bPageEditModal);
+
+        // ── リンク選択モーダル（マルチリンク用）─────────────────
+        const bLinkSelectModal = document.createElement('div');
+        bLinkSelectModal.className = 'modal-overlay hidden';
+        bLinkSelectModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 id="b-link-select-title" class="modal-title"></h3>
+                <div id="b-link-select-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:4px;"></div>
+                <div class="modal-actions"><button id="b-link-select-close" class="btn-cancel">閉じる</button></div>
+            </div>
+        `;
+        document.body.appendChild(bLinkSelectModal);
+
+        // ── イベントハンドラ ─────────────────────────────────────
+
+        // 追加ボタン
+        if (addBoardBtn) {
+            addBoardBtn.addEventListener('click', () => { editingBoardId = null; bTypeModal.classList.remove('hidden'); });
         }
-        if (e.target.classList.contains('delete-board-btn')) {
-            if(confirm('完全に削除しますか？')) {
-                const id = e.target.getAttribute('data-id');
-                db.collection('boards').doc(id).delete().then(() => { clearSC('sc_boards'); loadBoards(); });
-            }
+
+        // 種類選択
+        document.getElementById('b-type-cancel').addEventListener('click', () => bTypeModal.classList.add('hidden'));
+        bTypeModal.addEventListener('click', (e) => { if (e.target === bTypeModal) bTypeModal.classList.add('hidden'); });
+        document.getElementById('b-type-simple').addEventListener('click', () => { bTypeModal.classList.add('hidden'); bOpenSimpleModal(null); });
+        document.getElementById('b-type-multi').addEventListener('click',  () => { bTypeModal.classList.add('hidden'); bOpenMultiModal(null); });
+        document.getElementById('b-type-page').addEventListener('click', () => {
+            bTypeModal.classList.add('hidden');
+            document.getElementById('b-page-title').value = '';
+            document.getElementById('b-page-dept').value  = '';
+            document.getElementById('b-page-period').value = '';
+            bPageModal.classList.remove('hidden');
+        });
+
+        // シンプルリンク
+        function bOpenSimpleModal(item) {
+            document.getElementById('b-simple-title').value  = item ? item.title : '';
+            document.getElementById('b-simple-dept').value   = item ? (item.dept || '') : '';
+            document.getElementById('b-simple-period').value = item ? (item.period || '') : '';
+            document.getElementById('b-simple-url').value    = item ? (item.url || '') : '';
+            document.getElementById('b-simple-modal-title').textContent = item ? 'シンプルリンクを編集' : 'シンプルリンクを追加';
+            document.getElementById('b-simple-submit').textContent = item ? '更新' : '追加';
+            bSimpleModal.classList.remove('hidden');
         }
-    });
+        document.getElementById('b-simple-cancel').addEventListener('click', () => { bSimpleModal.classList.add('hidden'); editingBoardId = null; });
+        bSimpleModal.addEventListener('click', (e) => { if (e.target === bSimpleModal) { bSimpleModal.classList.add('hidden'); editingBoardId = null; } });
+        document.getElementById('b-simple-submit').addEventListener('click', () => {
+            const title  = document.getElementById('b-simple-title').value.trim();
+            const dept   = document.getElementById('b-simple-dept').value.trim() || '教職員';
+            const period = document.getElementById('b-simple-period').value.trim();
+            const url    = document.getElementById('b-simple-url').value.trim();
+            if (!title || !url) { alert('タイトルとURLは必ず入力してください。'); return; }
+            const data = { type: 'simple', title, dept, period, url };
+            if (editingBoardId) {
+                db.collection('boards').doc(editingBoardId).update(data).then(() => {
+                    editingBoardId = null; bSimpleModal.classList.add('hidden'); clearSC('sc_boards'); updateCacheVersion(); loadBoards();
+                });
+            } else {
+                data.status = 'active';
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                db.collection('boards').add(data).then(() => { bSimpleModal.classList.add('hidden'); clearSC('sc_boards'); updateCacheVersion(); loadBoards(); });
+            }
+        });
+
+        // マルチリンク
+        function bAddMultiLinkRow(container, linkTitle, linkUrl) {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:6px; align-items:center;';
+            row.innerHTML = `
+                <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                    <input type="text" class="b-multi-link-title modal-input" placeholder="リンクのタイトル" style="margin:0; font-size:13px; padding:6px 10px;">
+                    <input type="text" class="b-multi-link-url modal-input" placeholder="https://..." style="margin:0; font-size:13px; padding:6px 10px;">
+                </div>
+                <button type="button" class="b-multi-link-remove" style="flex:0 0 auto; background:transparent; color:#d9534f; border:1px solid #d9534f; border-radius:4px; cursor:pointer; padding:4px 8px; font-weight:bold; align-self:center;">×</button>
+            `;
+            if (linkTitle) row.querySelector('.b-multi-link-title').value = linkTitle;
+            if (linkUrl)   row.querySelector('.b-multi-link-url').value   = linkUrl;
+            row.querySelector('.b-multi-link-remove').addEventListener('click', () => row.remove());
+            container.appendChild(row);
+        }
+        function bOpenMultiModal(item) {
+            const container = document.getElementById('b-multi-links-container');
+            container.innerHTML = '';
+            document.getElementById('b-multi-title').value  = item ? item.title : '';
+            document.getElementById('b-multi-dept').value   = item ? (item.dept || '') : '';
+            document.getElementById('b-multi-period').value = item ? (item.period || '') : '';
+            document.getElementById('b-multi-modal-title').textContent = item ? 'マルチリンクを編集' : 'マルチリンクを追加';
+            document.getElementById('b-multi-submit').textContent = item ? '更新' : '追加';
+            if (item && item.links && item.links.length > 0) {
+                item.links.forEach(link => bAddMultiLinkRow(container, link.title, link.url));
+            } else {
+                bAddMultiLinkRow(container, '', '');
+            }
+            bMultiModal.classList.remove('hidden');
+        }
+        document.getElementById('b-multi-add-link').addEventListener('click', () => bAddMultiLinkRow(document.getElementById('b-multi-links-container'), '', ''));
+        document.getElementById('b-multi-cancel').addEventListener('click', () => { bMultiModal.classList.add('hidden'); editingBoardId = null; });
+        bMultiModal.addEventListener('click', (e) => { if (e.target === bMultiModal) { bMultiModal.classList.add('hidden'); editingBoardId = null; } });
+        document.getElementById('b-multi-submit').addEventListener('click', () => {
+            const title  = document.getElementById('b-multi-title').value.trim();
+            const dept   = document.getElementById('b-multi-dept').value.trim() || '教職員';
+            const period = document.getElementById('b-multi-period').value.trim();
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            const links = [];
+            document.querySelectorAll('#b-multi-links-container > div').forEach(row => {
+                const lt = row.querySelector('.b-multi-link-title').value.trim();
+                const lu = row.querySelector('.b-multi-link-url').value.trim();
+                if (lt && lu) links.push({ title: lt, url: lu });
+            });
+            if (links.length === 0) { alert('リンクを1件以上入力してください。'); return; }
+            const data = { type: 'multi', title, dept, period, links };
+            if (editingBoardId) {
+                db.collection('boards').doc(editingBoardId).update(data).then(() => {
+                    editingBoardId = null; bMultiModal.classList.add('hidden'); clearSC('sc_boards'); updateCacheVersion(); loadBoards();
+                });
+            } else {
+                data.status = 'active';
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                db.collection('boards').add(data).then(() => { bMultiModal.classList.add('hidden'); clearSC('sc_boards'); updateCacheVersion(); loadBoards(); });
+            }
+        });
+
+        // フリーページ新規
+        document.getElementById('b-page-cancel').addEventListener('click', () => bPageModal.classList.add('hidden'));
+        bPageModal.addEventListener('click', (e) => { if (e.target === bPageModal) bPageModal.classList.add('hidden'); });
+        document.getElementById('b-page-submit').addEventListener('click', () => {
+            const title  = document.getElementById('b-page-title').value.trim();
+            const dept   = document.getElementById('b-page-dept').value.trim() || '教職員';
+            const period = document.getElementById('b-page-period').value.trim();
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            bPageModal.classList.add('hidden');
+            const params = new URLSearchParams({ source: 'boards_list', bl_title: title, bl_dept: dept, bl_period: period });
+            window.location.href = `./column_edit.html?${params.toString()}`;
+        });
+
+        // フリーページ編集
+        function bOpenPageEditModal(item) {
+            document.getElementById('b-page-edit-title').value  = item.title;
+            document.getElementById('b-page-edit-dept').value   = item.dept || '';
+            document.getElementById('b-page-edit-period').value = item.period || '';
+            document.getElementById('b-page-edit-link').href    = `./column_edit.html?edit_id=${item.columnId}&source=boards_list_edit`;
+            bPageEditModal.classList.remove('hidden');
+        }
+        document.getElementById('b-page-edit-cancel').addEventListener('click', () => { bPageEditModal.classList.add('hidden'); editingBoardId = null; });
+        bPageEditModal.addEventListener('click', (e) => { if (e.target === bPageEditModal) { bPageEditModal.classList.add('hidden'); editingBoardId = null; } });
+        document.getElementById('b-page-edit-submit').addEventListener('click', () => {
+            if (!editingBoardId) return;
+            const title  = document.getElementById('b-page-edit-title').value.trim();
+            const dept   = document.getElementById('b-page-edit-dept').value.trim() || '教職員';
+            const period = document.getElementById('b-page-edit-period').value.trim();
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            db.collection('boards').doc(editingBoardId).update({ title, dept, period }).then(() => {
+                editingBoardId = null; bPageEditModal.classList.add('hidden'); clearSC('sc_boards'); updateCacheVersion(); loadBoards();
+            });
+        });
+
+        // リンク選択（マルチリンク用）
+        function bOpenLinkSelectModal(item) {
+            document.getElementById('b-link-select-title').textContent = item.title;
+            const list = document.getElementById('b-link-select-list');
+            list.innerHTML = '';
+            (item.links || []).forEach(link => {
+                const a = document.createElement('a');
+                a.href = link.url;
+                a.target = '_blank';
+                a.style.cssText = 'display:block; padding:12px 14px; border:1px solid #E6E4DF; border-radius:6px; text-decoration:none; color:#4A4643; background:#fff; transition:background 0.15s;';
+                a.textContent = link.title || link.url;
+                a.onmouseover = () => a.style.backgroundColor = '#F7F7F5';
+                a.onmouseout  = () => a.style.backgroundColor = '#fff';
+                list.appendChild(a);
+            });
+            bLinkSelectModal.classList.remove('hidden');
+        }
+        document.getElementById('b-link-select-close').addEventListener('click', () => bLinkSelectModal.classList.add('hidden'));
+        bLinkSelectModal.addEventListener('click', (e) => { if (e.target === bLinkSelectModal) bLinkSelectModal.classList.add('hidden'); });
+
+        // デリゲーションクリック
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('board-multi-link')) {
+                const id = e.target.getAttribute('data-id');
+                const item = boards.find(b => b.id === id);
+                if (item) bOpenLinkSelectModal(item);
+            }
+            if (e.target.classList.contains('edit-board-btn')) {
+                const id = e.target.getAttribute('data-id');
+                const item = boards.find(b => b.id === id);
+                if (item) {
+                    editingBoardId = id;
+                    if (item.type === 'multi')      bOpenMultiModal(item);
+                    else if (item.type === 'page')  bOpenPageEditModal(item);
+                    else                            bOpenSimpleModal(item);
+                }
+            }
+            if (e.target.classList.contains('complete-board-btn')) {
+                if (confirm('この掲示を終了済みにしますか？')) {
+                    const id = e.target.getAttribute('data-id');
+                    db.collection('boards').doc(id).update({ status: 'completed' }).then(() => { clearSC('sc_boards'); updateCacheVersion(); loadBoards(); });
+                }
+            }
+            if (e.target.classList.contains('delete-board-btn')) {
+                if (confirm('完全に削除しますか？')) {
+                    const id = e.target.getAttribute('data-id');
+                    const item = boards.find(b => b.id === id);
+                    if (item && item.type === 'page' && item.columnId) {
+                        db.collection('board_columns').doc(item.columnId).delete().catch(() => {});
+                    }
+                    db.collection('boards').doc(id).delete().then(() => { clearSC('sc_boards'); updateCacheVersion(); loadBoards(); });
+                }
+            }
+        });
+    }
 
     // ==========================================
     // ★修正: コラムデータの管理と画面遷移 (Firebase版)
@@ -287,7 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (e.target.classList.contains('delete-col-btn')) {
                 if (confirm('このコラムを削除してもよろしいですか？')) {
-                    db.collection('columns').doc(colId).delete().then(() => { clearSC('sc_columns'); loadColumns(); });
+                    db.collection('columns').doc(colId).delete().then(() => { clearSC('sc_columns'); updateCacheVersion(); loadColumns(); });
                 }
                 return;
             }
@@ -304,6 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (colContainer || allColContainer) {
         loadColumns = async function() {
+            await ensureCacheVersionChecked();
             const cached = getSC('sc_columns');
             if (cached) {
                 columns = cached;
@@ -480,6 +802,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadWebapps = async function() {
+            await ensureCacheVersionChecked();
             const cached = getSC('sc_webapps');
             if (cached) {
                 webappItems = cached;
@@ -517,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.classList.contains('delete-webapp-btn')) {
                 const item = webappItems.find(i => i.id === id);
                 if (item && confirm(`アプリ「${item.title}」を削除しますか？`)) {
-                    db.collection('webapps').doc(id).delete().then(() => { clearSC('sc_webapps'); loadWebapps(); });
+                    db.collection('webapps').doc(id).delete().then(() => { clearSC('sc_webapps'); updateCacheVersion(); loadWebapps(); });
                 }
             }
             if (e.target.classList.contains('edit-webapp-item-btn')) {
@@ -570,7 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const batch = db.batch();
             arr.forEach((item, idx) => { batch.update(db.collection('webapps').doc(item.id), { order: idx }); });
             await batch.commit();
-            clearSC('sc_webapps'); loadWebapps();
+            clearSC('sc_webapps'); updateCacheVersion(); loadWebapps();
         });
 
         const webappModal = document.createElement('div');
@@ -611,11 +934,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = { title, tag, description: desc, url };
 
             if (editingWebappId) {
-                db.collection('webapps').doc(editingWebappId).update(data).then(() => { webappModal.classList.add('hidden'); clearSC('sc_webapps'); loadWebapps(); });
+                db.collection('webapps').doc(editingWebappId).update(data).then(() => { webappModal.classList.add('hidden'); clearSC('sc_webapps'); updateCacheVersion(); loadWebapps(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = webappItems.length;
-                db.collection('webapps').add(data).then(() => { webappModal.classList.add('hidden'); clearSC('sc_webapps'); loadWebapps(); });
+                db.collection('webapps').add(data).then(() => { webappModal.classList.add('hidden'); clearSC('sc_webapps'); updateCacheVersion(); loadWebapps(); });
             }
         });
     }
@@ -735,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let loadDashboard = async () => {};
         loadDashboard = async function() {
+            await ensureCacheVersionChecked();
             const cachedItems = getSC('sc_dashboards');
             const cachedTagOrder = getSC('sc_dash_tagorder');
             if (cachedItems !== null && cachedTagOrder !== null) {
@@ -800,7 +1124,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item.type === 'page' && item.columnId) {
                         db.collection('columns').doc(item.columnId).delete().catch(() => {});
                     }
-                    db.collection('dashboards').doc(id).delete().then(() => { clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
+                    db.collection('dashboards').doc(id).delete().then(() => { clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard(); });
                 }
             }
             if (btn.classList.contains('edit-dash-item-btn')) {
@@ -879,7 +1203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 arr.splice(insertIdx, 0, moved);
                 _dashSectionDndSrc = null;
                 await db.collection('settings').doc('dashboardTagOrder').set({ order: arr });
-                clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard();
+                clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard();
             } else if (_dashDndSrcId) {
                 // 同タグ内アイテムの順番入れ替え
                 const targetRow = e.target.closest('[draggable][data-id]');
@@ -895,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const batch = db.batch();
                 arr.forEach((item, idx) => { batch.update(db.collection('dashboards').doc(item.id), { order: idx }); });
                 await batch.commit();
-                clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard();
+                clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard();
             }
         });
 
@@ -1045,11 +1369,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!title || !url) { alert('タイトルとリンクは必ず入力してください。'); return; }
             const data = { type: 'simple', title, tag, url };
             if (editingDashId) {
-                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
+                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = dashboardItems.length;
-                db.collection('dashboards').add(data).then(() => { dashModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
+                db.collection('dashboards').add(data).then(() => { dashModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard(); });
             }
         });
 
@@ -1099,11 +1423,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (links.length === 0) { alert('リンクを1件以上入力してください。'); return; }
             const data = { type: 'multi', title, tag, links };
             if (editingDashId) {
-                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashMultiModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
+                db.collection('dashboards').doc(editingDashId).update(data).then(() => { editingDashId = null; dashMultiModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = dashboardItems.length;
-                db.collection('dashboards').add(data).then(() => { dashMultiModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
+                db.collection('dashboards').add(data).then(() => { dashMultiModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard(); });
             }
         });
 
@@ -1133,7 +1457,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = document.getElementById('dash-page-edit-title').value.trim();
             const tag = document.getElementById('dash-page-edit-tag').value.trim() || 'その他';
             if (!title) { alert('タイトルを入力してください。'); return; }
-            db.collection('dashboards').doc(editingDashId).update({ title, tag }).then(() => { editingDashId = null; dashPageEditModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); loadDashboard(); });
+            db.collection('dashboards').doc(editingDashId).update({ title, tag }).then(() => { editingDashId = null; dashPageEditModal.classList.add('hidden'); clearSC('sc_dashboards'); clearSC('sc_dash_tagorder'); updateCacheVersion(); loadDashboard(); });
         });
 
         // リンク選択（マルチリンクカードクリック時）
@@ -1185,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const biEditIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
 
         function clearBoardItemCaches() {
-            ['sc_board_items','sc_board_tag_order'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+            ['sc_board_items','sc_board_tag_order'].forEach(k => clearSC(k));
         }
 
         function renderBoardsGrid() {
@@ -1273,6 +1597,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function loadBoardItems() {
+            await ensureCacheVersionChecked();
             const cachedItems    = getSC('sc_board_items');
             const cachedTagOrder = getSC('sc_board_tag_order');
             if (cachedItems !== null && cachedTagOrder !== null) {
@@ -1324,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item.type === 'page' && item.columnId) {
                         db.collection('board_columns').doc(item.columnId).delete().catch(() => {});
                     }
-                    db.collection('board_items').doc(id).delete().then(() => { clearBoardItemCaches(); loadBoardItems(); });
+                    db.collection('board_items').doc(id).delete().then(() => { clearBoardItemCaches(); updateCacheVersion(); loadBoardItems(); });
                 }
             }
             if (btn.classList.contains('edit-board-item-btn')) {
@@ -1391,7 +1716,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 arr.splice(insertIdx, 0, moved);
                 _biSectionDndSrc = null;
                 await db.collection('settings').doc('boardItemTagOrder').set({ order: arr });
-                clearBoardItemCaches(); loadBoardItems();
+                clearBoardItemCaches(); updateCacheVersion(); loadBoardItems();
             } else if (_biDndSrcId) {
                 const targetRow = e.target.closest('[draggable][data-id]');
                 if (!targetRow || !_biDndSrcId || targetRow.dataset.id === _biDndSrcId || targetRow.dataset.tag !== _biDndSrcTag) return;
@@ -1405,7 +1730,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const batch = db.batch();
                 arr.forEach((item, idx) => { batch.update(db.collection('board_items').doc(item.id), { order: idx }); });
                 await batch.commit();
-                clearBoardItemCaches(); loadBoardItems();
+                clearBoardItemCaches(); updateCacheVersion(); loadBoardItems();
             }
         });
 
@@ -1553,11 +1878,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!title || !url) { alert('タイトルとリンクは必ず入力してください。'); return; }
             const data = { type: 'simple', title, tag, url };
             if (editingBoardItemId) {
-                db.collection('board_items').doc(editingBoardItemId).update(data).then(() => { editingBoardItemId = null; biSimpleModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+                db.collection('board_items').doc(editingBoardItemId).update(data).then(() => { editingBoardItemId = null; biSimpleModal.classList.add('hidden'); clearBoardItemCaches(); updateCacheVersion(); loadBoardItems(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = boardItems.length;
-                db.collection('board_items').add(data).then(() => { biSimpleModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+                db.collection('board_items').add(data).then(() => { biSimpleModal.classList.add('hidden'); clearBoardItemCaches(); updateCacheVersion(); loadBoardItems(); });
             }
         });
 
@@ -1607,11 +1932,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (links.length === 0) { alert('リンクを1件以上入力してください。'); return; }
             const data = { type: 'multi', title, tag, links };
             if (editingBoardItemId) {
-                db.collection('board_items').doc(editingBoardItemId).update(data).then(() => { editingBoardItemId = null; biMultiModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+                db.collection('board_items').doc(editingBoardItemId).update(data).then(() => { editingBoardItemId = null; biMultiModal.classList.add('hidden'); clearBoardItemCaches(); updateCacheVersion(); loadBoardItems(); });
             } else {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.order = boardItems.length;
-                db.collection('board_items').add(data).then(() => { biMultiModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+                db.collection('board_items').add(data).then(() => { biMultiModal.classList.add('hidden'); clearBoardItemCaches(); updateCacheVersion(); loadBoardItems(); });
             }
         });
 
@@ -1641,7 +1966,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = document.getElementById('bi-page-edit-title').value.trim();
             const tag   = document.getElementById('bi-page-edit-tag').value.trim() || 'その他';
             if (!title) { alert('タイトルを入力してください。'); return; }
-            db.collection('board_items').doc(editingBoardItemId).update({ title, tag }).then(() => { editingBoardItemId = null; biPageEditModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+            db.collection('board_items').doc(editingBoardItemId).update({ title, tag }).then(() => { editingBoardItemId = null; biPageEditModal.classList.add('hidden'); clearBoardItemCaches(); updateCacheVersion(); loadBoardItems(); });
         });
 
         // リンク選択（マルチリンクカードクリック時）
@@ -1674,7 +1999,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const detailSource = urlParams.get('source');
         const detailDashId = urlParams.get('dash_id');
         const detailBoardId = urlParams.get('board_id');
-        const detailCollection = detailSource === 'board' ? 'board_columns' : 'columns';
+        const detailCollection = (detailSource === 'board' || detailSource === 'boards_list') ? 'board_columns' : 'columns';
 
         db.collection(detailCollection).doc(colId).get().then(doc => {
             if (doc.exists) {
@@ -1690,6 +2015,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         let editUrl = `./column_edit.html?edit_id=${colId}`;
                         if (detailSource === 'dashboard') editUrl += '&source=dashboard_edit';
                         else if (detailSource === 'board') editUrl += '&source=board_edit';
+                        else if (detailSource === 'boards_list') editUrl += '&source=boards_list_edit';
                         window.location.href = editUrl;
                     });
 
@@ -1701,16 +2027,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                 batch.delete(db.collection('dashboards').doc(detailDashId));
                             } else if (detailSource === 'board' && detailBoardId) {
                                 batch.delete(db.collection('board_items').doc(detailBoardId));
+                            } else if (detailSource === 'boards_list' && detailBoardId) {
+                                batch.delete(db.collection('boards').doc(detailBoardId));
                             }
-                            batch.commit().then(() => {
+                            batch.commit().then(async () => {
+                                await updateCacheVersion();
                                 if (detailSource === 'dashboard') {
-                                    ['sc_columns','sc_dashboards','sc_dash_tagorder'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                                    ['sc_columns','sc_dashboards','sc_dash_tagorder'].forEach(k => localStorage.removeItem(k));
                                     window.location.href = './index.html';
                                 } else if (detailSource === 'board') {
-                                    ['sc_board_items','sc_board_tag_order'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                                    ['sc_board_items','sc_board_tag_order'].forEach(k => localStorage.removeItem(k));
+                                    window.location.href = './boards.html';
+                                } else if (detailSource === 'boards_list') {
+                                    localStorage.removeItem('sc_boards');
                                     window.location.href = './boards.html';
                                 } else {
-                                    ['sc_columns'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                                    localStorage.removeItem('sc_columns');
                                     window.location.href = './columns.html';
                                 }
                             });
@@ -2251,6 +2583,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function loadTimetables() {
+            await ensureCacheVersionChecked();
             const cached = getSC('sc_timetables');
             if (cached) { timetables = cached; renderTimetable(); return; }
             try {
@@ -2305,14 +2638,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!subject) { alert('科目名は必ず入力してください。'); return; }
 
             db.collection('timetables').add({ day, period, className, subject, teacher })
-              .then(() => { clearSC('sc_timetables'); closeTtModal(); loadTimetables(); });
+              .then(() => { clearSC('sc_timetables'); updateCacheVersion(); closeTtModal(); loadTimetables(); });
         });
 
         ttBody.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-tt-btn')) {
                 const id = e.target.getAttribute('data-id');
                 if (confirm('この授業を時間割から削除しますか？')) {
-                    db.collection('timetables').doc(id).delete().then(() => { clearSC('sc_timetables'); loadTimetables(); });
+                    db.collection('timetables').doc(id).delete().then(() => { clearSC('sc_timetables'); updateCacheVersion(); loadTimetables(); });
                 }
             }
         });
@@ -2416,7 +2749,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 ttCsvModal.classList.add('hidden');
                 alert(`${parsedTtRows.length}件の時間割を登録しました。`);
-                clearSC('sc_timetables'); loadTimetables();
+                clearSC('sc_timetables'); updateCacheVersion(); loadTimetables();
             } catch (err) {
                 alert('登録中にエラーが発生しました。');
             } finally {

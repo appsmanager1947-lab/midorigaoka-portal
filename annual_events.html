@@ -617,7 +617,7 @@
             delBtn.addEventListener('click', e => {
                 e.stopPropagation();
                 if (confirm('この日の日直を削除しますか？')) {
-                    db.collection('daily_duty').doc(dateStr).delete().then(() => reloadCalendarData());
+                    db.collection('daily_duty').doc(dateStr).delete().then(() => { updateCacheVersion(); reloadCalendarData(); });
                 }
             });
 
@@ -778,7 +778,7 @@
                 : ref.set({ duty1, duty2, startTime });
 
             savePromise
-                .then(() => { btn.disabled = false; btn.textContent = '保存'; dutyModal.classList.add('hidden'); reloadCalendarData(); })
+                .then(() => { btn.disabled = false; btn.textContent = '保存'; dutyModal.classList.add('hidden'); updateCacheVersion(); reloadCalendarData(); })
                 .catch(() => { btn.disabled = false; btn.textContent = 'エラー'; });
         });
 
@@ -842,6 +842,7 @@
                 await db.collection('duty_reports').doc(reportEditDate).set(data, { merge: true });
                 reportMap[reportEditDate] = { date: reportEditDate, duty1: duty.duty1 || '', duty2: duty.duty2 || '', unlockReport, otherReport };
                 setCachedData('cache_duty_reports', reportMap);
+                updateCacheVersion();
                 btn.disabled = false; btn.textContent = '報告する';
                 dutyReportModal.classList.add('hidden');
                 renderCalendar();
@@ -861,6 +862,7 @@
                 await db.collection('duty_reports').doc(reportViewDate).delete();
                 delete reportMap[reportViewDate];
                 setCachedData('cache_duty_reports', reportMap);
+                updateCacheVersion();
                 dutyReportPopup.style.display = 'none';
                 renderCalendar();
             } catch(e) { alert('削除に失敗しました。'); }
@@ -898,6 +900,7 @@
         async function loadCalendarData() {
             if (typeof db === 'undefined' || !db) { setTimeout(loadCalendarData, 200); return; }
             try {
+                await ensureCacheVersionChecked();
                 let evData     = getCachedData('cache_annual_events');
                 let dutyData   = getCachedData('cache_daily_duty');
                 let reportData = getCachedData('cache_duty_reports');
@@ -1028,7 +1031,7 @@
             const data = { dateFrom, dateTo, date: dateFrom, title, targets, target: targets.join(','), note, color };
             const col  = db.collection('annual_events');
             const saveDuty = () => db.collection('daily_duty').doc(dateFrom).set({ duty1, duty2 });
-            const done = () => { btn.disabled = false; btn.textContent = editId ? '更新' : '追加'; evModal.classList.add('hidden'); reloadCalendarData(); };
+            const done = () => { btn.disabled = false; btn.textContent = editId ? '更新' : '追加'; evModal.classList.add('hidden'); updateCacheVersion(); reloadCalendarData(); };
             const fail = () => { btn.disabled = false; btn.textContent = 'エラー'; };
 
             if (editId) {
@@ -1041,7 +1044,7 @@
 
         function deleteEvent(id) {
             if (confirm('この行事を削除しますか？')) {
-                db.collection('annual_events').doc(id).delete().then(() => reloadCalendarData());
+                db.collection('annual_events').doc(id).delete().then(() => { updateCacheVersion(); reloadCalendarData(); });
             }
         }
 
@@ -1249,6 +1252,7 @@
                     await batch.commit();
                 }
 
+                updateCacheVersion();
                 await reloadCalendarData();
                 showDone(`完了：追加 ${toAdd.length} ・更新 ${toUpdate.length} ・削除 ${toDelete.length} ・変更なし ${unchanged}`);
                 setTimeout(() => { hideLoading(); csvModal.classList.add('hidden'); btn.disabled = false; }, 2200);
@@ -1409,6 +1413,7 @@
                     await batch.commit();
                 }
 
+                updateCacheVersion();
                 await reloadCalendarData();
                 const saved  = ops.filter(o => o.type === 'set' || o.type === 'update').length;
                 const deleted = ops.filter(o => o.type === 'delete').length;

@@ -23,15 +23,24 @@
         </aside>
 
         <main class="main-content">
-            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header">
-                    <h2 class="section-title">共有掲示板</h2>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button id="edit-boards-btn" style="background:transparent;border:none;cursor:pointer;font-size:14px;color:#aaa;text-decoration:underline;padding:4px 8px;">編集</button>
-                        <button id="add-boards-btn" class="add-button" style="display:none;">＋ 追加</button>
-                    </div>
+            <section style="margin-top: 0; margin-bottom: 40px;">
+                <div class="list-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 class="section-title" style="margin: 0;">共有掲示板</h2>
+                    <button id="add-board-btn" class="add-button">＋ 追加</button>
                 </div>
-                <div id="boards-grid"></div>
+                <div class="table-scroll-container">
+                    <table class="active-table">
+                        <thead>
+                            <tr>
+                                <th>内容</th>
+                                <th>部署</th>
+                                <th>掲載期間</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-boards-body"></tbody>
+                    </table>
+                </div>
             </section>
         </main>
     </div>

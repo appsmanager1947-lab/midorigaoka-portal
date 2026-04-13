@@ -1,4 +1,51 @@
 // ==========================================
+// グローバルキャッシュバージョン管理（全ページ共通）
+// ==========================================
+const LC_VERSION_KEY = 'lc_cv';
+const ALL_CACHE_KEYS = [
+    'sc_dashboards', 'sc_dash_tagorder', 'sc_submissions', 'sc_boards',
+    'sc_columns', 'sc_webapps', 'sc_board_items', 'sc_board_tag_order', 'sc_timetables',
+    'cache_annual_events', 'cache_annual_events_ts',
+    'cache_daily_duty', 'cache_daily_duty_ts',
+    'cache_duty_reports', 'cache_duty_reports_ts',
+    'cache_shortcuts', 'cache_shortcuts_ts'
+];
+
+// データ書き込み後に呼ぶ。FirestoreのバージョンドキュメントとlocalStorageを同期する。
+async function updateCacheVersion() {
+    const ts = Date.now().toString();
+    try {
+        await db.collection('settings').doc('cacheVersion').set({ updatedAt: ts });
+        localStorage.setItem(LC_VERSION_KEY, ts);
+    } catch(e) {}
+}
+
+// ページ読み込み時に1回だけ実行。Firestoreのバージョンとlocalのバージョンを比較し、
+// 不一致なら全キャッシュをクリアする。
+let _cvChecked = false;
+let _cvPromise = null;
+function ensureCacheVersionChecked() {
+    if (_cvChecked) return Promise.resolve();
+    if (_cvPromise) return _cvPromise;
+    _cvPromise = (async () => {
+        try {
+            const vDoc = await db.collection('settings').doc('cacheVersion').get();
+            const serverVersion = vDoc.exists ? (vDoc.data().updatedAt || '') : '';
+            const localVersion = localStorage.getItem(LC_VERSION_KEY) || '';
+            if (serverVersion !== localVersion) {
+                ALL_CACHE_KEYS.forEach(k => localStorage.removeItem(k));
+                localStorage.setItem(LC_VERSION_KEY, serverVersion);
+            }
+        } catch(e) {
+            // エラー時はキャッシュをクリアして安全側に倒す
+            ALL_CACHE_KEYS.forEach(k => localStorage.removeItem(k));
+        }
+        _cvChecked = true;
+    })();
+    return _cvPromise;
+}
+
+// ==========================================
 // 2. 共通UIとサイドバー (ショートカット機能含む)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -155,9 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
             renderApps();
         }
 
-        // キャッシュがあれば即時表示、なければFirestoreから取得
-        const cached = getShortcutsCache();
-        if (cached) { applyShortcuts(cached); } else { renderApps(); }
+        // バージョン確認後にキャッシュを使用（全ページ共通のキャッシュバージョン管理と連携）
+        renderApps(); // 即時レンダリング（空でも表示）
+        ensureCacheVersionChecked().then(() => {
+            const cached = getShortcutsCache();
+            if (cached) { applyShortcuts(cached); }
+            else { setTimeout(loadShortcuts, 300); }
+        });
 
         async function loadShortcuts() {
             if (typeof db === 'undefined') return;
@@ -169,9 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyShortcuts(apps);
             } catch(e) { console.warn('shortcuts 取得エラー', e); }
         }
-        function reloadShortcuts() { clearShortcutsCache(); loadShortcuts(); }
-
-        if (!cached) setTimeout(loadShortcuts, 300);
+        function reloadShortcuts() { clearShortcutsCache(); updateCacheVersion(); loadShortcuts(); }
 
         editAppBtn.addEventListener('click', () => { isAppEditMode = !isAppEditMode; editAppBtn.textContent = isAppEditMode ? '完了' : '編集'; editAppBtn.style.color = isAppEditMode ? '#d9534f' : '#aaa'; editAppBtn.style.textDecoration = isAppEditMode ? 'none' : 'underline'; renderApps(); });
 

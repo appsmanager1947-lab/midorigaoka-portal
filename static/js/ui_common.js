@@ -9,7 +9,9 @@ const ALL_CACHE_KEYS = [
     'cache_annual_events', 'cache_annual_events_ts',
     'cache_daily_duty', 'cache_daily_duty_ts',
     'cache_duty_reports', 'cache_duty_reports_ts',
-    'cache_shortcuts', 'cache_shortcuts_ts'
+    'cache_shortcuts', 'cache_shortcuts_ts',
+    'cache_club_names', 'cache_club_names_ts',
+    'cache_club_events', 'cache_club_events_ts'
 ];
 
 // localStorage キャッシュヘルパー（全ページから参照できるようグローバルに定義）

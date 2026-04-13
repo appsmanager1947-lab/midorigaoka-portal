@@ -3147,9 +3147,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 eventsWidgetList.appendChild(li);
             }
 
-            // 今日の行が見えるようにスクロール
+            // 今日の行が見えるようにスクロール（レイアウト確定後に実行）
             const todayEl = [...eventsWidgetList.children].find(el => el.style.borderLeft.includes('#2c8c5a'));
-            if (todayEl) todayEl.scrollIntoView({ block: 'center' });
+            if (todayEl) {
+                requestAnimationFrame(() => {
+                    const elRect   = todayEl.getBoundingClientRect();
+                    const listRect = eventsWidgetList.getBoundingClientRect();
+                    eventsWidgetList.scrollTop += elRect.top - listRect.top - eventsWidgetList.clientHeight / 2 + todayEl.offsetHeight / 2;
+                });
+            }
         }
 
         // localStorage キャッシュ優先（annual_events.html と同じキーを共有）

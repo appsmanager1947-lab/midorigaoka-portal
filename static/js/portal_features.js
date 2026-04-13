@@ -1159,16 +1159,524 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
+    // ★追加: 共有掲示板アイテム機能 (board_items)
+    // ==========================================
+    const boardsGrid = document.getElementById('boards-grid');
+    if (boardsGrid) {
+        const editBoardsBtn = document.getElementById('edit-boards-btn');
+        const addBoardsBtn  = document.getElementById('add-boards-btn');
+        let boardItems         = [];
+        let isBoardItemEditMode = false;
+        let editingBoardItemId  = null;
+        let boardItemTagOrder   = [];
+
+        const BI_TAG_COLORS = {
+            '教職員': '#FADBD8', '全校': '#FADBD8',
+            '進路指導部': '#D6EAF8', '中学': '#D6EAF8',
+            '教務部': '#D5F5E3', '高１': '#D5F5E3',
+            '生徒指導部': '#FCF3CF', '高２': '#FCF3CF',
+            '入試対策部': '#E8DAEF', '高３': '#E8DAEF',
+            '総務部': '#F0F0F0', 'その他': '#F0F0F0',
+            '生徒会': '#FAE5D3', '書類': '#E3F0FB',
+            '学習サポート': '#C8F7F1', '事務': '#F5E6D3'
+        };
+        const BI_TAG_LIST = ['書類', '教職員', '進路指導部', '教務部', '生徒指導部', '入試対策部', '総務部', '生徒会', '学習サポート', '事務'];
+        const biTagOptionsHtml = BI_TAG_LIST.map(t => `<option value="${t}"></option>`).join('');
+        const biEditIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+
+        function clearBoardItemCaches() {
+            ['sc_board_items','sc_board_tag_order'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+        }
+
+        function renderBoardsGrid() {
+            boardsGrid.innerHTML = '';
+            if (editBoardsBtn) {
+                editBoardsBtn.textContent = isBoardItemEditMode ? '完了' : '編集';
+                editBoardsBtn.style.color = isBoardItemEditMode ? '#0066cc' : '#aaa';
+                editBoardsBtn.style.textDecoration = isBoardItemEditMode ? 'none' : 'underline';
+            }
+            if (addBoardsBtn) addBoardsBtn.style.display = isBoardItemEditMode ? '' : 'none';
+
+            if (boardItems.length === 0) {
+                boardsGrid.innerHTML = '<div style="color:#bbb; text-align:center; padding:32px; font-size:13px;">登録されたカードはありません<br><small>右上の「編集」→「＋ 追加」から追加できます</small></div>';
+                return;
+            }
+            const groups = {};
+            const naturalTagOrder = [];
+            boardItems.forEach(item => {
+                const tag = item.tag || 'その他';
+                if (!groups[tag]) { groups[tag] = []; naturalTagOrder.push(tag); }
+                groups[tag].push(item);
+            });
+            const sortedTags = [...boardItemTagOrder.filter(t => groups[t])];
+            naturalTagOrder.forEach(t => { if (!sortedTags.includes(t)) sortedTags.push(t); });
+
+            sortedTags.forEach(tag => {
+                const items = groups[tag];
+                const color = BI_TAG_COLORS[tag] || '#F0F0F0';
+                const section = document.createElement('div');
+                section.dataset.sectionTag = tag;
+                section.style.cssText = `margin-bottom:16px; border:1px solid ${isBoardItemEditMode ? '#0066cc' : '#E6E4DF'}; border-radius:8px; overflow:hidden;`;
+                const header = document.createElement('div');
+                if (isBoardItemEditMode) {
+                    header.setAttribute('draggable', 'true');
+                    header.dataset.tagSection = tag;
+                    header.style.cssText = `background:${color}; padding:7px 16px; font-size:12px; font-weight:bold; color:#4A4643; border-bottom:1px solid rgba(0,0,0,0.07); letter-spacing:0.04em; cursor:grab; display:flex; align-items:center; gap:8px;`;
+                    header.innerHTML = `<span style="color:#aaa; font-size:16px; user-select:none; flex:0 0 auto; pointer-events:none;">⠿</span><span>${tag}</span>`;
+                } else {
+                    header.style.cssText = `background:${color}; padding:7px 16px; font-size:12px; font-weight:bold; color:#4A4643; border-bottom:1px solid rgba(0,0,0,0.07); letter-spacing:0.04em;`;
+                    header.textContent = tag;
+                }
+                section.appendChild(header);
+                items.forEach((item, idx) => {
+                    const row = document.createElement('div');
+                    const isLast = idx === items.length - 1;
+                    row.dataset.id  = item.id;
+                    row.dataset.tag = tag;
+                    if (isBoardItemEditMode) {
+                        row.setAttribute('draggable', 'true');
+                        row.style.cssText = `display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; ${isLast ? '' : 'border-bottom:1px solid #F0EEE9;'} cursor:grab;`;
+                        const typeIcon = item.type === 'multi' ? '📋' : item.type === 'page' ? '📝' : '🔗';
+                        row.innerHTML = `
+                            <span style="color:#bbb; font-size:20px; user-select:none; flex:0 0 auto; pointer-events:none;">⠿</span>
+                            <span style="font-size:14px; flex:0 0 auto; pointer-events:none;">${typeIcon}</span>
+                            <span style="flex:1; font-size:14px; color:#4A4643; opacity:0.7;">${item.title}</span>
+                            <button class="edit-board-item-btn" data-id="${item.id}" title="編集" style="background:transparent; color:#0066cc; border:none; cursor:pointer; padding:2px 6px;">${biEditIconSvg}</button>
+                            <button class="delete-board-item-btn" data-id="${item.id}" title="削除" style="background:transparent; color:#d9534f; border:none; cursor:pointer; font-size:18px; font-weight:bold; padding:2px 6px;">×</button>
+                        `;
+                    } else {
+                        row.style.cssText = `display:flex; align-items:center; padding:10px 16px; gap:12px; background:#fff; ${isLast ? '' : 'border-bottom:1px solid #F0EEE9;'} transition:background 0.15s;`;
+                        row.onmouseover = () => row.style.backgroundColor = '#F7F7F5';
+                        row.onmouseout  = () => row.style.backgroundColor = '#fff';
+                        if (item.type === 'multi') {
+                            row.style.cursor = 'pointer';
+                            const linkCount = (item.links || []).length;
+                            row.innerHTML = `<span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span><span style="font-size:12px; color:#888; white-space:nowrap;">${linkCount}件 ▸</span>`;
+                            row.addEventListener('click', () => bIOpenLinkSelectModal(item));
+                        } else if (item.type === 'page') {
+                            row.style.cursor = 'pointer';
+                            row.innerHTML = `<span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span><span style="font-size:12px; color:#2c8c5a; white-space:nowrap;">開く →</span>`;
+                            row.addEventListener('click', () => { window.location.href = `./column_detail.html?id=${item.columnId}&board_id=${item.id}&source=board`; });
+                        } else {
+                            row.innerHTML = `
+                                <span style="flex:1; font-size:14px; color:#4A4643;">${item.title}</span>
+                                <a href="${item.url || '#'}" target="_blank" style="font-size:12px; color:#2c8c5a; text-decoration:none; white-space:nowrap; padding:4px 10px; border:1px solid #c3e6d6; border-radius:4px; background:#f0faf5; transition:all 0.15s;"
+                                   onmouseover="this.style.backgroundColor='#2c8c5a'; this.style.color='#fff';"
+                                   onmouseout="this.style.backgroundColor='#f0faf5'; this.style.color='#2c8c5a';">開く ↗</a>
+                            `;
+                        }
+                    }
+                    section.appendChild(row);
+                });
+                boardsGrid.appendChild(section);
+            });
+        }
+
+        async function loadBoardItems() {
+            const cachedItems    = getSC('sc_board_items');
+            const cachedTagOrder = getSC('sc_board_tag_order');
+            if (cachedItems !== null && cachedTagOrder !== null) {
+                boardItems       = cachedItems;
+                boardItemTagOrder = cachedTagOrder;
+                renderBoardsGrid();
+                return;
+            }
+            try {
+                const [snap, tagDoc] = await Promise.all([
+                    db.collection('board_items').get(),
+                    db.collection('settings').doc('boardItemTagOrder').get()
+                ]);
+                boardItems = [];
+                snap.forEach(doc => boardItems.push({ id: doc.id, ...doc.data() }));
+                boardItems.sort((a, b) => {
+                    const oa = a.order !== undefined ? a.order : (a.createdAt ? a.createdAt.seconds : 0);
+                    const ob = b.order !== undefined ? b.order : (b.createdAt ? b.createdAt.seconds : 0);
+                    return oa - ob;
+                });
+                boardItems.forEach((item, idx) => { item.order = idx; });
+                boardItemTagOrder = (tagDoc.exists && Array.isArray(tagDoc.data().order)) ? tagDoc.data().order : [];
+                setSC('sc_board_items',    boardItems);
+                setSC('sc_board_tag_order', boardItemTagOrder);
+            } catch(e) { console.error('loadBoardItems error:', e); }
+            renderBoardsGrid();
+        }
+        loadBoardItems();
+
+        // 編集モード切替
+        if (editBoardsBtn) {
+            editBoardsBtn.addEventListener('click', () => {
+                isBoardItemEditMode = !isBoardItemEditMode;
+                renderBoardsGrid();
+            });
+        }
+        if (addBoardsBtn) {
+            addBoardsBtn.addEventListener('click', () => { editingBoardItemId = null; biTypeModal.classList.remove('hidden'); });
+        }
+
+        // 編集・削除クリック
+        boardsGrid.addEventListener('click', async (e) => {
+            const btn = e.target.closest('[data-id]');
+            if (!btn) return;
+            const id = btn.getAttribute('data-id');
+            if (btn.classList.contains('delete-board-item-btn')) {
+                const item = boardItems.find(i => i.id === id);
+                if (item && confirm(`カード「${item.title}」を削除しますか？`)) {
+                    if (item.type === 'page' && item.columnId) {
+                        db.collection('board_columns').doc(item.columnId).delete().catch(() => {});
+                    }
+                    db.collection('board_items').doc(id).delete().then(() => { clearBoardItemCaches(); loadBoardItems(); });
+                }
+            }
+            if (btn.classList.contains('edit-board-item-btn')) {
+                const item = boardItems.find(i => i.id === id);
+                if (item) {
+                    editingBoardItemId = id;
+                    if (item.type === 'multi')      biOpenMultiModal(item);
+                    else if (item.type === 'page')  biOpenPageEditModal(item);
+                    else                            biOpenSimpleModal(item);
+                }
+            }
+        });
+
+        // ── ドラッグ＆ドロップ ──────────────────────────────────
+        let _biDndSrcId = null, _biDndSrcTag = null, _biSectionDndSrc = null;
+        boardsGrid.addEventListener('dragstart', (e) => {
+            if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
+            const draggable = e.target.closest('[draggable]');
+            if (!draggable) return;
+            if (draggable.dataset.tagSection) {
+                _biSectionDndSrc = draggable.dataset.tagSection; _biDndSrcId = null; _biDndSrcTag = null;
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => { draggable.parentElement.style.opacity = '0.4'; }, 0);
+            } else if (draggable.dataset.id) {
+                _biSectionDndSrc = null; _biDndSrcId = draggable.dataset.id; _biDndSrcTag = draggable.dataset.tag;
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => { draggable.style.opacity = '0.4'; }, 0);
+            }
+        });
+        boardsGrid.addEventListener('dragend', () => {
+            boardsGrid.querySelectorAll('[draggable]').forEach(r => { r.style.opacity = ''; r.style.boxShadow = ''; });
+            boardsGrid.querySelectorAll('[data-section-tag]').forEach(s => { s.style.opacity = ''; s.style.boxShadow = ''; });
+        });
+        boardsGrid.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            boardsGrid.querySelectorAll('[draggable]').forEach(r => { r.style.boxShadow = ''; });
+            boardsGrid.querySelectorAll('[data-section-tag]').forEach(s => { s.style.boxShadow = ''; });
+            if (_biSectionDndSrc) {
+                const ts = e.target.closest('[data-section-tag]');
+                if (!ts || ts.dataset.sectionTag === _biSectionDndSrc) return;
+                const rect = ts.getBoundingClientRect();
+                ts.style.boxShadow = e.clientY < rect.top + rect.height / 2 ? 'inset 0 2px 0 #0066cc' : 'inset 0 -2px 0 #0066cc';
+            } else if (_biDndSrcId) {
+                const row = e.target.closest('[draggable][data-id]');
+                if (!row || row.dataset.id === _biDndSrcId || row.dataset.tag !== _biDndSrcTag) return;
+                const rect = row.getBoundingClientRect();
+                row.style.boxShadow = e.clientY < rect.top + rect.height / 2 ? 'inset 0 2px 0 #0066cc' : 'inset 0 -2px 0 #0066cc';
+            }
+        });
+        boardsGrid.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            boardsGrid.querySelectorAll('[draggable]').forEach(r => { r.style.opacity = ''; r.style.boxShadow = ''; });
+            boardsGrid.querySelectorAll('[data-section-tag]').forEach(s => { s.style.opacity = ''; s.style.boxShadow = ''; });
+            if (_biSectionDndSrc) {
+                const ts = e.target.closest('[data-section-tag]');
+                if (!ts || ts.dataset.sectionTag === _biSectionDndSrc) return;
+                const currentOrder = [...boardsGrid.querySelectorAll('[data-section-tag]')].map(s => s.dataset.sectionTag);
+                const srcIdx = currentOrder.indexOf(_biSectionDndSrc);
+                const rect   = ts.getBoundingClientRect();
+                const arr    = [...currentOrder];
+                const [moved] = arr.splice(srcIdx, 1);
+                let insertIdx = arr.indexOf(ts.dataset.sectionTag);
+                if (e.clientY >= rect.top + rect.height / 2) insertIdx++;
+                arr.splice(insertIdx, 0, moved);
+                _biSectionDndSrc = null;
+                await db.collection('settings').doc('boardItemTagOrder').set({ order: arr });
+                clearBoardItemCaches(); loadBoardItems();
+            } else if (_biDndSrcId) {
+                const targetRow = e.target.closest('[draggable][data-id]');
+                if (!targetRow || !_biDndSrcId || targetRow.dataset.id === _biDndSrcId || targetRow.dataset.tag !== _biDndSrcTag) return;
+                const srcIdx  = boardItems.findIndex(i => i.id === _biDndSrcId);
+                const rect    = targetRow.getBoundingClientRect();
+                const arr     = [...boardItems];
+                const [moved] = arr.splice(srcIdx, 1);
+                let insertIdx = arr.findIndex(i => i.id === targetRow.dataset.id);
+                if (e.clientY >= rect.top + rect.height / 2) insertIdx++;
+                arr.splice(insertIdx, 0, moved);
+                const batch = db.batch();
+                arr.forEach((item, idx) => { batch.update(db.collection('board_items').doc(item.id), { order: idx }); });
+                await batch.commit();
+                clearBoardItemCaches(); loadBoardItems();
+            }
+        });
+
+        // ── 1. 種類選択モーダル ──────────────────────────────────
+        const biTypeCardStyle = 'display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border:1px solid #E6E4DF; border-radius:8px; background:#fff; cursor:pointer; text-align:left; width:100%; transition:border-color 0.2s;';
+        const biTypeModal = document.createElement('div');
+        biTypeModal.className = 'modal-overlay hidden';
+        biTypeModal.innerHTML = `
+            <div class="modal-content" style="max-width:480px;">
+                <h3 class="modal-title">カードの種類を選択</h3>
+                <div style="display:flex; flex-direction:column; gap:10px; margin:4px 0 8px;">
+                    <button id="bi-type-simple" style="${biTypeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">🔗</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">シンプルリンクカード</div><div style="font-size:12px; color:#888;">1つのリンクを開くシンプルなカード</div></div>
+                    </button>
+                    <button id="bi-type-multi" style="${biTypeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">📋</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">マルチリンクカード</div><div style="font-size:12px; color:#888;">クリックすると複数リンクから選択するモーダルが開く</div></div>
+                    </button>
+                    <button id="bi-type-page" style="${biTypeCardStyle}">
+                        <span style="font-size:22px; flex:0 0 auto; margin-top:2px;">📝</span>
+                        <div><div style="font-weight:bold; font-size:14px; margin-bottom:3px;">フリーページカード</div><div style="font-size:12px; color:#888;">自由に書き込めるページを持つカード</div></div>
+                    </button>
+                </div>
+                <div class="modal-actions"><button id="bi-type-cancel" class="btn-cancel">キャンセル</button></div>
+            </div>
+        `;
+        document.body.appendChild(biTypeModal);
+
+        // ── 2. シンプルリンクモーダル ────────────────────────────
+        const biSimpleModal = document.createElement('div');
+        biSimpleModal.className = 'modal-overlay hidden';
+        biSimpleModal.innerHTML = `
+            <div class="modal-content">
+                <h3 id="bi-simple-modal-title" class="modal-title">シンプルリンクカードを追加</h3>
+                <div class="form-group"><label>タイトル</label><input type="text" id="bi-simple-title" class="modal-input" placeholder="例：令和8年度 学校便り"></div>
+                <div class="form-group">
+                    <label>タグ</label><input type="text" id="bi-simple-tag" class="modal-input" list="bi-simple-tag-options" placeholder="選択または入力してください">
+                    <datalist id="bi-simple-tag-options">${biTagOptionsHtml}</datalist>
+                </div>
+                <div class="form-group"><label>リンク先 (URL)</label><input type="text" id="bi-simple-url" class="modal-input" placeholder="https://..."></div>
+                <div class="modal-actions"><button id="bi-simple-cancel" class="btn-cancel">キャンセル</button><button id="bi-simple-submit" class="btn-submit">追加</button></div>
+            </div>
+        `;
+        document.body.appendChild(biSimpleModal);
+
+        // ── 3. マルチリンクモーダル ──────────────────────────────
+        const biMultiModal = document.createElement('div');
+        biMultiModal.className = 'modal-overlay hidden';
+        biMultiModal.innerHTML = `
+            <div class="modal-content" style="max-width:500px;">
+                <h3 id="bi-multi-modal-title" class="modal-title">マルチリンクカードを追加</h3>
+                <div class="form-group"><label>カードタイトル</label><input type="text" id="bi-multi-title" class="modal-input" placeholder="例：参考資料一覧"></div>
+                <div class="form-group">
+                    <label>タグ</label><input type="text" id="bi-multi-tag" class="modal-input" list="bi-multi-tag-options" placeholder="選択または入力してください">
+                    <datalist id="bi-multi-tag-options">${biTagOptionsHtml}</datalist>
+                </div>
+                <div class="form-group">
+                    <label>リンク一覧</label>
+                    <div id="bi-multi-links-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>
+                    <button id="bi-multi-add-link" type="button" style="width:100%; padding:8px; border:1px dashed #aaa; border-radius:6px; background:#fafafa; color:#555; cursor:pointer; font-size:13px;">＋ リンクを追加</button>
+                </div>
+                <div class="modal-actions"><button id="bi-multi-cancel" class="btn-cancel">キャンセル</button><button id="bi-multi-submit" class="btn-submit">追加</button></div>
+            </div>
+        `;
+        document.body.appendChild(biMultiModal);
+
+        // ── 4. フリーページ作成モーダル ─────────────────────────
+        const biPageModal = document.createElement('div');
+        biPageModal.className = 'modal-overlay hidden';
+        biPageModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 class="modal-title">フリーページカードを追加</h3>
+                <p style="font-size:13px; color:#666; margin:-8px 0 16px;">カード情報を入力すると、ページ編集画面に移動します。</p>
+                <div class="form-group"><label>カードタイトル</label><input type="text" id="bi-page-title" class="modal-input" placeholder="例：掲示板ニュース"></div>
+                <div class="form-group">
+                    <label>タグ</label><input type="text" id="bi-page-tag" class="modal-input" list="bi-page-tag-options" placeholder="選択または入力してください">
+                    <datalist id="bi-page-tag-options">${biTagOptionsHtml}</datalist>
+                </div>
+                <div class="modal-actions"><button id="bi-page-cancel" class="btn-cancel">キャンセル</button><button id="bi-page-submit" class="btn-submit">ページを作成 →</button></div>
+            </div>
+        `;
+        document.body.appendChild(biPageModal);
+
+        // ── 5. フリーページ編集モーダル ─────────────────────────
+        const biPageEditModal = document.createElement('div');
+        biPageEditModal.className = 'modal-overlay hidden';
+        biPageEditModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 class="modal-title">フリーページカードを編集</h3>
+                <div class="form-group"><label>カードタイトル</label><input type="text" id="bi-page-edit-title" class="modal-input"></div>
+                <div class="form-group">
+                    <label>タグ</label><input type="text" id="bi-page-edit-tag" class="modal-input" list="bi-page-edit-tag-options">
+                    <datalist id="bi-page-edit-tag-options">${biTagOptionsHtml}</datalist>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <a id="bi-page-edit-link" href="#" style="font-size:13px; color:#2c8c5a; text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border:1px solid #c3e6d6; border-radius:6px; background:#f0faf5;">📝 ページ内容を編集する →</a>
+                </div>
+                <div class="modal-actions"><button id="bi-page-edit-cancel" class="btn-cancel">キャンセル</button><button id="bi-page-edit-submit" class="btn-submit">保存</button></div>
+            </div>
+        `;
+        document.body.appendChild(biPageEditModal);
+
+        // ── 6. リンク選択モーダル（マルチリンク用）─────────────
+        const biLinkSelectModal = document.createElement('div');
+        biLinkSelectModal.className = 'modal-overlay hidden';
+        biLinkSelectModal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <h3 id="bi-link-select-title" class="modal-title"></h3>
+                <div id="bi-link-select-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:4px;"></div>
+                <div class="modal-actions"><button id="bi-link-select-close" class="btn-cancel">閉じる</button></div>
+            </div>
+        `;
+        document.body.appendChild(biLinkSelectModal);
+
+        // ── イベントハンドラ ─────────────────────────────────────
+
+        // 種類選択
+        document.getElementById('bi-type-cancel').addEventListener('click', () => biTypeModal.classList.add('hidden'));
+        biTypeModal.addEventListener('click', (e) => { if (e.target === biTypeModal) biTypeModal.classList.add('hidden'); });
+        document.getElementById('bi-type-simple').addEventListener('click', () => { biTypeModal.classList.add('hidden'); biOpenSimpleModal(null); });
+        document.getElementById('bi-type-multi').addEventListener('click', ()  => { biTypeModal.classList.add('hidden'); biOpenMultiModal(null); });
+        document.getElementById('bi-type-page').addEventListener('click', () => {
+            biTypeModal.classList.add('hidden');
+            document.getElementById('bi-page-title').value = '';
+            document.getElementById('bi-page-tag').value = '';
+            biPageModal.classList.remove('hidden');
+        });
+
+        // シンプルリンク
+        function biOpenSimpleModal(item) {
+            document.getElementById('bi-simple-title').value = item ? item.title : '';
+            document.getElementById('bi-simple-tag').value   = item ? (item.tag || '') : '';
+            document.getElementById('bi-simple-url').value   = item ? (item.url || '') : '';
+            document.getElementById('bi-simple-modal-title').textContent = item ? 'シンプルリンクカードを編集' : 'シンプルリンクカードを追加';
+            document.getElementById('bi-simple-submit').textContent = item ? '更新' : '追加';
+            biSimpleModal.classList.remove('hidden');
+        }
+        document.getElementById('bi-simple-cancel').addEventListener('click', () => { biSimpleModal.classList.add('hidden'); editingBoardItemId = null; });
+        biSimpleModal.addEventListener('click', (e) => { if (e.target === biSimpleModal) { biSimpleModal.classList.add('hidden'); editingBoardItemId = null; } });
+        document.getElementById('bi-simple-submit').addEventListener('click', () => {
+            const title = document.getElementById('bi-simple-title').value.trim();
+            const tag   = document.getElementById('bi-simple-tag').value.trim() || 'その他';
+            const url   = document.getElementById('bi-simple-url').value.trim();
+            if (!title || !url) { alert('タイトルとリンクは必ず入力してください。'); return; }
+            const data = { type: 'simple', title, tag, url };
+            if (editingBoardItemId) {
+                db.collection('board_items').doc(editingBoardItemId).update(data).then(() => { editingBoardItemId = null; biSimpleModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+            } else {
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                data.order = boardItems.length;
+                db.collection('board_items').add(data).then(() => { biSimpleModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+            }
+        });
+
+        // マルチリンク
+        function biAddMultiLinkRow(container, linkTitle, linkUrl) {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:6px; align-items:center;';
+            row.innerHTML = `
+                <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                    <input type="text" class="bi-multi-link-title modal-input" placeholder="リンクのタイトル" style="margin:0; font-size:13px; padding:6px 10px;">
+                    <input type="text" class="bi-multi-link-url modal-input" placeholder="https://..." style="margin:0; font-size:13px; padding:6px 10px;">
+                </div>
+                <button type="button" class="bi-multi-link-remove" style="flex:0 0 auto; background:transparent; color:#d9534f; border:1px solid #d9534f; border-radius:4px; cursor:pointer; padding:4px 8px; font-weight:bold; align-self:center;">×</button>
+            `;
+            if (linkTitle) row.querySelector('.bi-multi-link-title').value = linkTitle;
+            if (linkUrl)   row.querySelector('.bi-multi-link-url').value   = linkUrl;
+            row.querySelector('.bi-multi-link-remove').addEventListener('click', () => row.remove());
+            container.appendChild(row);
+        }
+        function biOpenMultiModal(item) {
+            const container = document.getElementById('bi-multi-links-container');
+            container.innerHTML = '';
+            document.getElementById('bi-multi-title').value = item ? item.title : '';
+            document.getElementById('bi-multi-tag').value   = item ? (item.tag || '') : '';
+            document.getElementById('bi-multi-modal-title').textContent = item ? 'マルチリンクカードを編集' : 'マルチリンクカードを追加';
+            document.getElementById('bi-multi-submit').textContent = item ? '更新' : '追加';
+            if (item && item.links && item.links.length > 0) {
+                item.links.forEach(link => biAddMultiLinkRow(container, link.title, link.url));
+            } else {
+                biAddMultiLinkRow(container, '', '');
+            }
+            biMultiModal.classList.remove('hidden');
+        }
+        document.getElementById('bi-multi-add-link').addEventListener('click', () => biAddMultiLinkRow(document.getElementById('bi-multi-links-container'), '', ''));
+        document.getElementById('bi-multi-cancel').addEventListener('click', () => { biMultiModal.classList.add('hidden'); editingBoardItemId = null; });
+        biMultiModal.addEventListener('click', (e) => { if (e.target === biMultiModal) { biMultiModal.classList.add('hidden'); editingBoardItemId = null; } });
+        document.getElementById('bi-multi-submit').addEventListener('click', () => {
+            const title = document.getElementById('bi-multi-title').value.trim();
+            const tag   = document.getElementById('bi-multi-tag').value.trim() || 'その他';
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            const links = [];
+            document.querySelectorAll('#bi-multi-links-container > div').forEach(row => {
+                const lt = row.querySelector('.bi-multi-link-title').value.trim();
+                const lu = row.querySelector('.bi-multi-link-url').value.trim();
+                if (lt && lu) links.push({ title: lt, url: lu });
+            });
+            if (links.length === 0) { alert('リンクを1件以上入力してください。'); return; }
+            const data = { type: 'multi', title, tag, links };
+            if (editingBoardItemId) {
+                db.collection('board_items').doc(editingBoardItemId).update(data).then(() => { editingBoardItemId = null; biMultiModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+            } else {
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                data.order = boardItems.length;
+                db.collection('board_items').add(data).then(() => { biMultiModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+            }
+        });
+
+        // フリーページ作成
+        document.getElementById('bi-page-cancel').addEventListener('click', () => biPageModal.classList.add('hidden'));
+        biPageModal.addEventListener('click', (e) => { if (e.target === biPageModal) biPageModal.classList.add('hidden'); });
+        document.getElementById('bi-page-submit').addEventListener('click', () => {
+            const title = document.getElementById('bi-page-title').value.trim();
+            const tag   = document.getElementById('bi-page-tag').value.trim() || 'その他';
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            biPageModal.classList.add('hidden');
+            const params = new URLSearchParams({ source: 'board', board_tag: tag, board_title: title });
+            window.location.href = `./column_edit.html?${params.toString()}`;
+        });
+
+        // フリーページ編集
+        function biOpenPageEditModal(item) {
+            document.getElementById('bi-page-edit-title').value = item.title;
+            document.getElementById('bi-page-edit-tag').value   = item.tag || '';
+            document.getElementById('bi-page-edit-link').href   = `./column_edit.html?edit_id=${item.columnId}&source=board_edit`;
+            biPageEditModal.classList.remove('hidden');
+        }
+        document.getElementById('bi-page-edit-cancel').addEventListener('click', () => { biPageEditModal.classList.add('hidden'); editingBoardItemId = null; });
+        biPageEditModal.addEventListener('click', (e) => { if (e.target === biPageEditModal) { biPageEditModal.classList.add('hidden'); editingBoardItemId = null; } });
+        document.getElementById('bi-page-edit-submit').addEventListener('click', () => {
+            if (!editingBoardItemId) return;
+            const title = document.getElementById('bi-page-edit-title').value.trim();
+            const tag   = document.getElementById('bi-page-edit-tag').value.trim() || 'その他';
+            if (!title) { alert('タイトルを入力してください。'); return; }
+            db.collection('board_items').doc(editingBoardItemId).update({ title, tag }).then(() => { editingBoardItemId = null; biPageEditModal.classList.add('hidden'); clearBoardItemCaches(); loadBoardItems(); });
+        });
+
+        // リンク選択（マルチリンクカードクリック時）
+        function bIOpenLinkSelectModal(item) {
+            document.getElementById('bi-link-select-title').textContent = item.title;
+            const list = document.getElementById('bi-link-select-list');
+            list.innerHTML = '';
+            (item.links || []).forEach(link => {
+                const a = document.createElement('a');
+                a.href = link.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+                a.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border:1px solid #E6E4DF; border-radius:6px; background:#fff; text-decoration:none; color:#4A4643; font-size:14px; transition:background 0.15s;';
+                a.innerHTML = `<span>${link.title || link.url}</span><span style="font-size:12px; color:#2c8c5a; flex:0 0 auto; margin-left:12px;">開く ↗</span>`;
+                a.onmouseover = () => a.style.background = '#F7F7F5';
+                a.onmouseout  = () => a.style.background = '#fff';
+                list.appendChild(a);
+            });
+            biLinkSelectModal.classList.remove('hidden');
+        }
+        document.getElementById('bi-link-select-close').addEventListener('click', () => biLinkSelectModal.classList.add('hidden'));
+        biLinkSelectModal.addEventListener('click', (e) => { if (e.target === biLinkSelectModal) biLinkSelectModal.classList.add('hidden'); });
+    }
+
+    // ==========================================
     // 4. コラム詳細ページの表示 (column_detail.html)
     // ==========================================
     const detailTitle = document.getElementById('detail-title');
     if (detailTitle) {
         const urlParams = new URLSearchParams(window.location.search);
-        const colId = urlParams.get('id');
+        const colId       = urlParams.get('id');
         const detailSource = urlParams.get('source');
         const detailDashId = urlParams.get('dash_id');
+        const detailBoardId = urlParams.get('board_id');
+        const detailCollection = detailSource === 'board' ? 'board_columns' : 'columns';
 
-        db.collection('columns').doc(colId).get().then(doc => {
+        db.collection(detailCollection).doc(colId).get().then(doc => {
             if (doc.exists) {
                 const colData = doc.data();
 
@@ -1181,19 +1689,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('btn-detail-edit').addEventListener('click', () => {
                         let editUrl = `./column_edit.html?edit_id=${colId}`;
                         if (detailSource === 'dashboard') editUrl += '&source=dashboard_edit';
+                        else if (detailSource === 'board') editUrl += '&source=board_edit';
                         window.location.href = editUrl;
                     });
 
                     document.getElementById('btn-detail-delete').addEventListener('click', () => {
-                        if (confirm('このコラムを削除してもよろしいですか？')) {
+                        if (confirm('このページを削除してもよろしいですか？')) {
                             const batch = db.batch();
-                            batch.delete(db.collection('columns').doc(colId));
+                            batch.delete(db.collection(detailCollection).doc(colId));
                             if (detailSource === 'dashboard' && detailDashId) {
                                 batch.delete(db.collection('dashboards').doc(detailDashId));
+                            } else if (detailSource === 'board' && detailBoardId) {
+                                batch.delete(db.collection('board_items').doc(detailBoardId));
                             }
                             batch.commit().then(() => {
-                                ['sc_columns','sc_dashboards','sc_dash_tagorder'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
-                                window.location.href = detailSource === 'dashboard' ? './index.html' : './columns.html';
+                                if (detailSource === 'dashboard') {
+                                    ['sc_columns','sc_dashboards','sc_dash_tagorder'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                                    window.location.href = './index.html';
+                                } else if (detailSource === 'board') {
+                                    ['sc_board_items','sc_board_tag_order'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                                    window.location.href = './boards.html';
+                                } else {
+                                    ['sc_columns'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                                    window.location.href = './columns.html';
+                                }
                             });
                         }
                     });

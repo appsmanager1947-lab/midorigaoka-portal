@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>共有掲示板一覧 | 教職員用ポータルサイト</title>
+    <title>共有掲示板 | 教職員用ポータルサイト</title>
     <link rel="stylesheet" href="./static/css/style.css">
 </head>
 <body>
@@ -23,30 +23,25 @@
         </aside>
 
         <main class="main-content">
-            <section class="column-section" style="margin-top: 0;">
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
                 <div class="column-header">
-                    <h2 class="section-title">すべての共有掲示板</h2>
-                    <a href="./board_edit.html" class="add-button" style="text-decoration: none; display: inline-block;">＋ 新規</a>
+                    <h2 class="section-title">共有掲示板</h2>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button id="edit-boards-btn" style="background:transparent;border:none;cursor:pointer;font-size:14px;color:#aaa;text-decoration:underline;padding:4px 8px;">編集</button>
+                        <button id="add-boards-btn" class="add-button" style="display:none;">＋ 追加</button>
+                    </div>
                 </div>
-                <div style="overflow-x: auto; margin-bottom: 40px;">
-                    <table class="active-table">
-                        <thead>
-                            <tr><th>内容</th><th>部署</th><th>掲載期間</th><th>操作</th></tr>
-                        </thead>
-                        <tbody id="all-boards-body"></tbody>
-                    </table>
-                </div>
+                <div id="boards-grid"></div>
             </section>
         </main>
     </div>
+
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    
     <script src="./static/js/firebase_init.js"></script>
     <script src="./static/js/ui_common.js"></script>
     <script src="./static/js/portal_features.js"></script>
-    <script src="./static/js/portal_editor.js"></script>
 </body>
 </html>

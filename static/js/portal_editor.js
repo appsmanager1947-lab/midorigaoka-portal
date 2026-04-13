@@ -18,9 +18,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const editIdParam = urlParams.get('edit_id');
         const isDashboardSource = urlParams.get('source') === 'dashboard';
-        const isDashboardEdit = urlParams.get('source') === 'dashboard_edit';
-        const dashTag = urlParams.get('dash_tag') || 'その他';
-        const dashTitle = urlParams.get('dash_title') || '';
+        const isDashboardEdit   = urlParams.get('source') === 'dashboard_edit';
+        const isBoardItemSource = urlParams.get('source') === 'board';
+        const isBoardItemEdit   = urlParams.get('source') === 'board_edit';
+        const dashTag    = urlParams.get('dash_tag')    || 'その他';
+        const dashTitle  = urlParams.get('dash_title')  || '';
+        const boardItemTag   = urlParams.get('board_tag')   || 'その他';
+        const boardItemTitle = urlParams.get('board_title') || '';
         let syncTagsFromValue = null;
 
         function getTodayStr() {
@@ -31,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // ① クラウドから既存データを読み込む
         if (editIdParam) {
             editingColId = editIdParam;
-            const collectionName = isBoardMode ? 'boards' : 'columns';
+            const collectionName = isBoardMode ? 'boards' : (isBoardItemEdit ? 'board_columns' : 'columns');
             
             db.collection(collectionName).doc(editIdParam).get().then((doc) => {
                 if (doc.exists) {
@@ -79,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (isDashboardSource && dashTitle && editTitle) {
                 editTitle.value = dashTitle;
+            }
+            if (isBoardItemSource && boardItemTitle && editTitle) {
+                editTitle.value = boardItemTitle;
             }
         }
 
@@ -1056,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnPublish.disabled = true;
                 btnPublish.textContent = "保存中...";
 
-                const collectionName = isBoardMode ? 'boards' : 'columns';
+                const collectionName = isBoardMode ? 'boards' : ((isBoardItemSource || isBoardItemEdit) ? 'board_columns' : 'columns');
                 const htmlInputSave = document.getElementById('html-input');
                 let saveData = {
                     title: title,
@@ -1075,6 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     saveData.date = getTodayStr();
                     saveData.img = currentEyecatchData;
                     if (isDashboardSource || isDashboardEdit) saveData.isDashboardPage = true;
+                    if (isBoardItemSource || isBoardItemEdit) saveData.isBoardItemPage = true;
                 }
 
                 const afterPublish = () => {
@@ -1084,16 +1092,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const clearEditorCaches = () => {
-                    ['sc_boards','sc_columns','sc_dashboards','sc_dash_tagorder'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
+                    ['sc_boards','sc_columns','sc_dashboards','sc_dash_tagorder','sc_board_items','sc_board_tag_order'].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
                 };
 
                 if (editingColId) {
                     db.collection(collectionName).doc(editingColId).update(saveData).then(() => {
                         afterPublish();
-                        alert(isBoardMode ? '掲示を更新しました！' : 'コラムを更新しました！');
+                        alert(isBoardMode ? '掲示を更新しました！' : 'ページを更新しました！');
                         clearEditorCaches();
-                        window.location.href = isBoardMode ? './boards.html' :
-                            (isDashboardEdit ? './index.html' : './columns.html');
+                        if (isBoardMode) window.location.href = './boards.html';
+                        else if (isDashboardEdit) window.location.href = './index.html';
+                        else if (isBoardItemEdit) window.location.href = './boards.html';
+                        else window.location.href = './columns.html';
                     }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                 } else {
                     db.collection(collectionName).add(saveData).then((ref) => {
@@ -1111,6 +1121,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 alert('フリーページカードを作成しました！');
                                 clearEditorCaches();
                                 window.location.href = './index.html';
+                            }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
+                        } else if (!isBoardMode && isBoardItemSource) {
+                            db.collection('board_items').add({
+                                type: 'page',
+                                title: boardItemTitle || title,
+                                tag: boardItemTag,
+                                columnId: ref.id,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                order: 9999
+                            }).then(() => {
+                                alert('フリーページカードを作成しました！');
+                                clearEditorCaches();
+                                window.location.href = './boards.html';
                             }).catch(err => { alert("エラーが発生しました"); btnPublish.disabled = false; });
                         } else {
                             alert(isBoardMode ? '掲示を公開しました！' : 'コラムを公開しました！');

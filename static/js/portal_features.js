@@ -2287,11 +2287,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // リアルタイム監視（DOMガード付き：status.html / status_archive.html のみ実行）
+        // データ取得（キャッシュ付き）
+        const clearStatusCaches = () => { ['sc_attendances','sc_visitors','sc_trips'].forEach(k => clearSC(k)); };
+        async function loadStatusData() {
+            await ensureCacheVersionChecked();
+            const cachedAtt  = getSC('sc_attendances');
+            const cachedVis  = getSC('sc_visitors');
+            const cachedTrip = getSC('sc_trips');
+            if (cachedAtt && cachedVis && cachedTrip) {
+                attendances = cachedAtt; visitors = cachedVis; trips = cachedTrip;
+                renderStatusTables(); return;
+            }
+            try {
+                const [attSnap, visSnap, tripSnap] = await Promise.all([
+                    db.collection('attendances').get(),
+                    db.collection('visitors').get(),
+                    db.collection('trips').get()
+                ]);
+                attendances = []; attSnap.forEach(doc => attendances.push({ id: doc.id, ...doc.data() }));
+                visitors    = []; visSnap.forEach(doc => visitors.push({ id: doc.id, ...doc.data() }));
+                trips       = []; tripSnap.forEach(doc => trips.push({ id: doc.id, ...doc.data() }));
+                setSC('sc_attendances', attendances);
+                setSC('sc_visitors',    visitors);
+                setSC('sc_trips',       trips);
+            } catch(e) { console.error('loadStatusData error:', e); }
+            renderStatusTables();
+        }
+
         if (attBody || visBody || tripBody || arcAttBody || arcVisBody || arcTripBody) {
-            db.collection('attendances').onSnapshot(snap => { attendances = []; snap.forEach(doc => attendances.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
-            db.collection('visitors').onSnapshot(snap => { visitors = []; snap.forEach(doc => visitors.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
-            db.collection('trips').onSnapshot(snap => { trips = []; snap.forEach(doc => trips.push({ id: doc.id, ...doc.data() })); renderStatusTables(); });
+            loadStatusData();
         }
 
         document.addEventListener('click', (e) => {
@@ -2299,9 +2323,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(confirm('この項目を完全に削除しますか？')) {
                     const id = e.target.getAttribute('data-id');
                     const type = e.target.getAttribute('data-type');
-                    if (type === 'att') db.collection('attendances').doc(id).delete();
-                    if (type === 'vis') db.collection('visitors').doc(id).delete();
-                    if (type === 'trip') db.collection('trips').doc(id).delete();
+                    if (type === 'att') db.collection('attendances').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
+                    if (type === 'vis') db.collection('visitors').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
+                    if (type === 'trip') db.collection('trips').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
                 }
             }
             if (e.target.classList.contains('edit-status-btn')) {
@@ -2416,8 +2440,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? (document.getElementById('att-other-text').value.trim() || 'その他')
                     : selectedType;
                 const data = { date, name, type, start: document.getElementById('att-start').value || '-', end: document.getElementById('att-end').value || '-', note: document.getElementById('att-note').value.trim() };
-                if (editingAttId) { db.collection('attendances').doc(editingAttId).update(data); }
-                else { db.collection('attendances').add(data); }
+                const attPromise = editingAttId
+                    ? db.collection('attendances').doc(editingAttId).update(data)
+                    : db.collection('attendances').add(data);
+                attPromise.then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
                 resetAttModal();
                 return true;
             }
@@ -2468,8 +2494,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(!date || (!org && !rep)) { alert('対象日と、来客所属または代表者名のいずれかを入力してください'); return false; }
                 const locVal = document.getElementById('vis-loc').value || '-';
                 const data = { date, org: org||'-', count: document.getElementById('vis-count').value||'-', rep: rep||'-', purpose: document.getElementById('vis-purpose').value||'-', host: document.getElementById('vis-host').value||'-', loc: locVal||'-', time: document.getElementById('vis-time').value||'-', note: document.getElementById('vis-note').value.trim() };
-                if (editingVisId) { db.collection('visitors').doc(editingVisId).update(data); }
-                else { db.collection('visitors').add(data); }
+                const visPromise = editingVisId
+                    ? db.collection('visitors').doc(editingVisId).update(data)
+                    : db.collection('visitors').add(data);
+                visPromise.then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
                 resetVisModal();
                 return true;
             }
@@ -2508,8 +2536,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const date = document.getElementById('trip-date').value; const name = document.getElementById('trip-name').value.trim();
                 if(!date || !name) { alert('対象日と名前は必ず入力してください'); return false; }
                 const data = { date, name, purpose: document.getElementById('trip-purpose').value||'-', loc: document.getElementById('trip-loc').value||'-', time: document.getElementById('trip-time').value||'-', note: document.getElementById('trip-note').value.trim() };
-                if (editingTripId) { db.collection('trips').doc(editingTripId).update(data); }
-                else { db.collection('trips').add(data); }
+                const tripPromise = editingTripId
+                    ? db.collection('trips').doc(editingTripId).update(data)
+                    : db.collection('trips').add(data);
+                tripPromise.then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
                 resetTripModal();
                 return true;
             }

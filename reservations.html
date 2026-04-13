@@ -528,6 +528,10 @@ const TOTAL_MIN  = (END_H - START_H) * 60; // 840
 let activeTab        = 'room';
 let currentMonday    = getThisWeekMonday();
 let weekData         = [];
+let roomWeekData     = [];
+let specialWeekData  = [];
+let unsubRooms       = null;
+let unsubSpecial     = null;
 let defaultSchedules = [];
 let currentDetail    = null;
 let dragState        = null;
@@ -634,26 +638,43 @@ function computeLayout(items) {
     return arr;
 }
 
-// ========== Firestore 取得 ==========
-async function fetchWeekData() {
-    const weekDates = getWeekDates(currentMonday);
-    const dates = weekDates.map(toDateStr);
+// ========== Firestore リアルタイム購読（週単位）==========
+function subscribeWeek() {
+    const weekDates  = getWeekDates(currentMonday);
+    const dates      = weekDates.map(toDateStr);
     const startSlash = toSlashDate(dates[0]);
     const endSlash   = toSlashDate(dates[5]);
-    const colName = activeTab === 'room' ? 'reservations' : 'special_rooms';
-    const snap = await db.collection(colName)
+
+    // 前週のリスナーを解除
+    if (unsubRooms)   { unsubRooms();   unsubRooms   = null; }
+    if (unsubSpecial) { unsubSpecial(); unsubSpecial = null; }
+    roomWeekData = []; specialWeekData = [];
+
+    unsubRooms = db.collection('reservations')
         .where('date', '>=', startSlash)
         .where('date', '<=', endSlash)
-        .get();
-    weekData = [];
-    snap.forEach(doc => {
-        const d = { id: doc.id, ...doc.data() };
-        const nd = normDate(d.date || '');
-        if (dates.includes(nd)) {
-            d._date = nd;
-            weekData.push(d);
-        }
-    });
+        .onSnapshot(snap => {
+            roomWeekData = [];
+            snap.forEach(doc => {
+                const d = { id: doc.id, ...doc.data() };
+                const nd = normDate(d.date || '');
+                if (dates.includes(nd)) { d._date = nd; roomWeekData.push(d); }
+            });
+            if (activeTab === 'room') { weekData = roomWeekData; renderWeek(); }
+        }, err => console.error('reservations snapshot error:', err));
+
+    unsubSpecial = db.collection('special_rooms')
+        .where('date', '>=', startSlash)
+        .where('date', '<=', endSlash)
+        .onSnapshot(snap => {
+            specialWeekData = [];
+            snap.forEach(doc => {
+                const d = { id: doc.id, ...doc.data() };
+                const nd = normDate(d.date || '');
+                if (dates.includes(nd)) { d._date = nd; specialWeekData.push(d); }
+            });
+            if (activeTab === 'special') { weekData = specialWeekData; renderWeek(); }
+        }, err => console.error('special_rooms snapshot error:', err));
 }
 
 // ========== デフォルト取得 ==========
@@ -862,8 +883,7 @@ function attachDrag(block, r) {
                 startTime: minToTimeStr(newStart),
                 endTime:   minToTimeStr(newEnd),
             });
-            await fetchWeekData();
-            renderWeek();
+            // onSnapshot が自動的に画面を更新するため明示的リロード不要
         } catch (err) {
             alert('移動に失敗しました。');
             console.error(err);
@@ -1026,8 +1046,7 @@ async function submitReservation() {
     }
 
     document.getElementById('res-modal').classList.add('hidden');
-    await fetchWeekData();
-    renderWeek();
+    // onSnapshot が自動的に画面を更新するため明示的リロード不要
 }
 
 // ========== 初期化 ==========
@@ -1049,35 +1068,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // タブ切り替え
+    // タブ切り替え（再購読不要 — 両コレクション同時購読済み）
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             activeTab = btn.dataset.tab;
             renderLegend();
-            await fetchWeekData();
+            weekData = activeTab === 'room' ? roomWeekData : specialWeekData;
             renderWeek();
         });
     });
 
     // 週ナビゲーション
-    document.getElementById('prev-week').addEventListener('click', async () => {
+    document.getElementById('prev-week').addEventListener('click', () => {
         currentMonday = new Date(currentMonday);
         currentMonday.setDate(currentMonday.getDate() - 7);
-        await fetchWeekData();
-        renderWeek();
+        subscribeWeek();
     });
-    document.getElementById('next-week').addEventListener('click', async () => {
+    document.getElementById('next-week').addEventListener('click', () => {
         currentMonday = new Date(currentMonday);
         currentMonday.setDate(currentMonday.getDate() + 7);
-        await fetchWeekData();
-        renderWeek();
+        subscribeWeek();
     });
-    document.getElementById('today-btn').addEventListener('click', async () => {
+    document.getElementById('today-btn').addEventListener('click', () => {
         currentMonday = getThisWeekMonday();
-        await fetchWeekData();
-        renderWeek();
+        subscribeWeek();
     });
 
     // 新規予約ボタン
@@ -1112,8 +1128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const colName = activeTab === 'room' ? 'reservations' : 'special_rooms';
         await db.collection(colName).doc(currentDetail.id).delete();
         hideDetail();
-        await fetchWeekData();
-        renderWeek();
+        // onSnapshot が自動的に画面を更新するため明示的リロード不要
     });
 
     // 現在時刻ラインを1分ごとに更新
@@ -1230,7 +1245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 初回データ取得＆描画
     await fetchDefaultSchedules();
-    fetchWeekData().then(() => renderWeek());
+    subscribeWeek(); // 初回購読（onSnapshot が到着時に renderWeek を呼ぶ）
 });
 </script>
 </body>

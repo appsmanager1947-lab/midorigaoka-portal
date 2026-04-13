@@ -241,15 +241,14 @@
         });
 
         // --- テーブル描画 ---
-        function renderTable(docs) {
+        function renderTable(items) {
             const tbody = document.getElementById('sc-table-body');
             tbody.innerHTML = '';
-            if (docs.length === 0) {
+            if (items.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#aaa; padding:24px;">データがありません</td></tr>';
                 return;
             }
-            docs.forEach(doc => {
-                const d = doc.data();
+            items.forEach(d => {
                 const tr = document.createElement('tr');
                 if (d.pairId) tr.classList.add('pair-row');
 
@@ -262,7 +261,7 @@
                     <td class="sc-after">${d.afterSubject || ''}<br><small>${d.afterTeacher || ''}</small></td>
                     <td>${d.note || ''}</td>
                     <td>
-                        <button class="sc-delete-btn" data-id="${doc.id}" data-pair="${d.pairId || ''}"
+                        <button class="sc-delete-btn" data-id="${d.id}" data-pair="${d.pairId || ''}"
                             style="background:transparent; color:#d9534f; border:none; font-size:16px; cursor:pointer; font-weight:bold;">×</button>
                     </td>`;
                 tbody.appendChild(tr);
@@ -277,36 +276,44 @@
                     if (pairId) {
                         const choice = confirm('交換相手の行も同時に削除しますか？\n[OK] → 2件まとめて削除\n[キャンセル] → この1件のみ削除');
                         if (choice) {
-                            // pairIdが一致する全件をバッチ削除
                             db.collection('schedule_changes').where('pairId', '==', pairId).get().then(snap => {
                                 const batch = db.batch();
                                 snap.forEach(d => batch.delete(db.collection('schedule_changes').doc(d.id)));
                                 return batch.commit();
-                            });
+                            }).then(() => { clearSC('sc_schedule_changes'); updateCacheVersion(); loadScheduleChanges(); });
                         } else {
                             if (confirm('この1件を削除しますか？')) {
-                                db.collection('schedule_changes').doc(docId).delete();
+                                db.collection('schedule_changes').doc(docId).delete()
+                                    .then(() => { clearSC('sc_schedule_changes'); updateCacheVersion(); loadScheduleChanges(); });
                             }
                         }
                     } else {
                         if (confirm('このデータを削除しますか？')) {
-                            db.collection('schedule_changes').doc(docId).delete();
+                            db.collection('schedule_changes').doc(docId).delete()
+                                .then(() => { clearSC('sc_schedule_changes'); updateCacheVersion(); loadScheduleChanges(); });
                         }
                     }
                 });
             });
         }
 
-        // --- Firestore リアルタイム取得 ---
+        // --- Firestore 取得（キャッシュ付き）---
+        async function loadScheduleChanges() {
+            await ensureCacheVersionChecked();
+            const cached = getSC('sc_schedule_changes');
+            if (cached) { renderTable(cached); return; }
+            try {
+                const snap = await db.collection('schedule_changes').orderBy('date', 'asc').get();
+                const items = [];
+                snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                setSC('sc_schedule_changes', items);
+                renderTable(items);
+            } catch(e) { console.error('loadScheduleChanges error:', e); }
+        }
+
         setTimeout(() => {
-            if (typeof db !== 'undefined') {
-                db.collection('schedule_changes')
-                  .orderBy('date', 'asc')
-                  .onSnapshot(snap => {
-                      renderTable(snap.docs);
-                  });
-            }
-        }, 500);
+            if (typeof db !== 'undefined') loadScheduleChanges();
+        }, 300);
 
         // --- モーダル開閉 ---
         const modal = document.getElementById('sc-modal');
@@ -393,6 +400,7 @@
                     submitBtn.disabled = false;
                     submitBtn.textContent = '追加';
                     modal.classList.add('hidden');
+                    clearSC('sc_schedule_changes'); updateCacheVersion(); loadScheduleChanges();
                 }).catch(() => {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'エラー';
@@ -408,6 +416,7 @@
                     submitBtn.disabled = false;
                     submitBtn.textContent = '追加';
                     modal.classList.add('hidden');
+                    clearSC('sc_schedule_changes'); updateCacheVersion(); loadScheduleChanges();
                 }).catch(() => {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'エラー';

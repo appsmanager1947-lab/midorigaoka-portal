@@ -1,9 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // ローカルストレージキャッシュヘルパー（タブを閉じても保持・バージョン変更時に一括クリア）
-    const getSC = k => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
-    const setSC = (k, d) => { try { localStorage.setItem(k, JSON.stringify(d)); } catch(e) {} };
-    const clearSC = k => { try { localStorage.removeItem(k); } catch(e) {} };
 
 
     // 対象ラベル → 色マップ（annual_events と共通）

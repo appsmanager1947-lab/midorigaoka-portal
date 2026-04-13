@@ -12,6 +12,11 @@ const ALL_CACHE_KEYS = [
     'cache_shortcuts', 'cache_shortcuts_ts'
 ];
 
+// localStorage キャッシュヘルパー（全ページから参照できるようグローバルに定義）
+function getSC(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } }
+function setSC(k, d) { try { localStorage.setItem(k, JSON.stringify(d)); } catch(e) {} }
+function clearSC(k) { try { localStorage.removeItem(k); } catch(e) {} }
+
 // データ書き込み後に呼ぶ。FirestoreのバージョンドキュメントとlocalStorageを同期する。
 async function updateCacheVersion() {
     const ts = Date.now().toString();

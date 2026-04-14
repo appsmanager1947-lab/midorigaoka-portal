@@ -96,6 +96,9 @@ body {
     border-radius: 6px;
     font-size: 14px;
     transition: background-color 0.2s, color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .app-link:hover {
@@ -186,6 +189,7 @@ body {
 .table-scroll-container {
     max-height: 350px;
     overflow-y: auto;
+    overflow-x: auto;
     border-radius: 6px;
     border: 1px solid var(--border-color);
 }
@@ -215,6 +219,15 @@ body {
 .active-table td {
     padding: 14px 16px;
     border-bottom: 1px solid #F0F0F0;
+    white-space: nowrap;
+}
+
+/* タイトル・内容列は折り返しを許可し、長すぎる場合は省略する */
+.active-table td:first-child {
+    white-space: normal;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .active-table tbody tr:hover {

@@ -977,16 +977,32 @@
     // XLSX バイナリ → 行データ配列（シート名を部活名として先頭に付加）
     function parseXlsx(arrayBuffer) {
         try {
-            const wb = XLSX.read(arrayBuffer, { type: 'array', cellText: true, cellDates: false });
+            // cellDates:true でDateオブジェクト取得 → Excelの日付フォーマット依存を排除
+            const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
             const rows = [];
             wb.SheetNames.forEach(sheetName => {
                 const ws = wb.Sheets[sheetName];
-                const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
                 data.forEach((row, i) => {
                     if (i === 0) return; // ヘッダー行スキップ
-                    const cols = row.map(c => String(c).trim());
+                    const cols = row.map(c => {
+                        if (c instanceof Date) {
+                            if (c.getFullYear() >= 2000) {
+                                // 日付セル → YYYY-MM-DD
+                                const y  = c.getFullYear();
+                                const mo = String(c.getMonth() + 1).padStart(2, '0');
+                                const d  = String(c.getDate()).padStart(2, '0');
+                                return `${y}-${mo}-${d}`;
+                            } else {
+                                // 時刻セル（Excelは1899-12-30を起点とするため年が古い）→ HH:MM
+                                const h  = String(c.getHours()).padStart(2, '0');
+                                const mi = String(c.getMinutes()).padStart(2, '0');
+                                return `${h}:${mi}`;
+                            }
+                        }
+                        return String(c).trim();
+                    });
                     if (cols.some(c => c)) {
-                        // シート名を部活名として先頭に挿入
                         rows.push([sheetName, ...cols]);
                     }
                 });

@@ -253,7 +253,10 @@ body {
     background-color: rgba(60, 56, 54, 0.5);
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    padding: 16px;
+    box-sizing: border-box;
+    overflow-y: auto;
     z-index: 100;
     opacity: 1;
     transition: opacity 0.2s;
@@ -269,7 +272,12 @@ body {
     padding: 30px;
     border-radius: 12px;
     width: 420px;
+    max-width: 100%;
+    box-sizing: border-box;
     box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    margin: auto;
 }
 
 .modal-title {
@@ -342,7 +350,7 @@ body {
     background-color: #088c80;
 }
 
-/* スマホ対応 */
+/* スマホ・タブレット対応 */
 @media (max-width: 768px) {
     .layout-wrapper { flex-direction: column; }
     .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); padding: 12px; }
@@ -351,6 +359,8 @@ body {
     .app-link { white-space: nowrap; margin-right: 12px; }
     .main-content { padding: 20px; }
     .card-grid { grid-template-columns: repeat(2, 1fr); }
+    .modal-overlay { padding: 12px; }
+    .modal-content { padding: 20px; border-radius: 8px; }
 }
 
 /* =========================================
@@ -858,13 +868,6 @@ body {
 .slash-menu-item:hover { background-color: rgba(10, 162, 148, 0.08); color: var(--accent-color); }
 .hidden { display: none !important; }
 
-/* ==========================================
-   ★追加: モーダル（ポップアップ）のスクロール対応
-   ========================================== */
-.modal-content {
-    max-height: 85vh !important; /* 画面の高さの85%を最大サイズに制限 */
-    overflow-y: auto !important; /* はみ出した部分は縦スクロールバーを出す */
-}
 
 /* ==========================================
    ★追加: エディタ内のテーブル（表）のスタイル

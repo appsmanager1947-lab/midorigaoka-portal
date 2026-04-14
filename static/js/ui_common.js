@@ -5,7 +5,7 @@ const LC_VERSION_KEY = 'lc_cv';
 const ALL_CACHE_KEYS = [
     'sc_dashboards', 'sc_dash_tagorder', 'sc_submissions', 'sc_boards',
     'sc_columns', 'sc_webapps', 'sc_board_items', 'sc_board_tag_order', 'sc_timetables',
-    'sc_schedule_changes', 'sc_attendances', 'sc_visitors', 'sc_trips',
+    'sc_schedule_changes', 'sc_att_cache', 'sc_vis_cache', 'sc_trip_cache',
     'cache_annual_events', 'cache_annual_events_ts',
     'cache_daily_duty', 'cache_daily_duty_ts',
     'cache_duty_reports', 'cache_duty_reports_ts',

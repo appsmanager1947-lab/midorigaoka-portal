@@ -20,8 +20,15 @@
         </aside>
 
         <main class="main-content">
+            <div class="date-controller">
+                <button id="status-prev-btn" class="date-btn">◀ 前の日</button>
+                <input type="date" id="status-view-date" class="modal-input" style="width: auto; margin: 0; font-weight: bold; font-size: 16px;">
+                <button id="status-next-btn" class="date-btn">次の日 ▶</button>
+                <button id="status-today-btn" class="date-btn" style="background-color: #fce4e4; color: #d9534f; border-color: #f5c6c6;">今日に戻る</button>
+            </div>
+
             <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header"><h2 class="section-title">本日の出勤状況</h2><button id="add-att-btn" class="add-button">＋ 追加</button></div>
+                <div class="column-header"><h2 class="section-title" id="att-section-title">本日の出勤状況</h2><button id="add-att-btn" class="add-button">＋ 追加</button></div>
                 <div style="overflow-x: auto;"><table class="active-table">
                     <thead><tr><th>名前</th><th>種類</th><th>出勤予定</th><th>退勤予定</th><th>備考</th><th>操作</th></tr></thead>
                     <tbody id="attendance-body"></tbody>
@@ -29,7 +36,7 @@
             </section>
 
             <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header"><h2 class="section-title">本日の来客状況</h2><button id="add-vis-btn" class="add-button">＋ 追加</button></div>
+                <div class="column-header"><h2 class="section-title" id="vis-section-title">本日の来客状況</h2><button id="add-vis-btn" class="add-button">＋ 追加</button></div>
                 <div style="overflow-x: auto;"><table class="active-table">
                     <thead><tr><th>来客所属</th><th>人数</th><th>代表者名</th><th>内容</th><th>対応者</th><th>場所</th><th>来校予定</th><th>備考</th><th>操作</th></tr></thead>
                     <tbody id="visitor-body"></tbody>
@@ -37,14 +44,11 @@
             </section>
 
             <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header"><h2 class="section-title">本日の出張状況</h2><button id="add-trip-btn" class="add-button">＋ 追加</button></div>
+                <div class="column-header"><h2 class="section-title" id="trip-section-title">本日の出張状況</h2><button id="add-trip-btn" class="add-button">＋ 追加</button></div>
                 <div style="overflow-x: auto;"><table class="active-table">
                     <thead><tr><th>名前</th><th>内容</th><th>場所</th><th>出発時間</th><th>備考</th><th>操作</th></tr></thead>
                     <tbody id="trip-body"></tbody>
                 </table></div>
-                <div style="text-align: center; margin-top: 24px;">
-                    <a href="./status_archive.html" class="btn-cancel" style="display: inline-block; text-decoration: none; padding: 12px 32px; font-weight: bold;">過去・未来のリストを確認する</a>
-                </div>
             </section>
         </main>
     </div>
@@ -111,7 +115,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    
+
     <script src="./static/js/firebase_init.js"></script>
     <script src="./static/js/ui_common.js"></script>
     <script src="./static/js/portal_features.js"></script>

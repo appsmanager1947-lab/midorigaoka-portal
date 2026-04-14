@@ -191,7 +191,8 @@ body {
 }
 
 .active-table {
-    width: 100%;
+    /* width: 100% だと親要素幅に圧縮されてスクロールが発動しないため min-width に変更 */
+    min-width: 100%;
     border-collapse: collapse;
     font-size: 14px;
     background-color: #FFFFFF;
@@ -206,8 +207,9 @@ body {
     position: sticky;
     top: 0;
     /* メインエリアのテーブルヘッダーは白背景に統一 */
-    background-color: #FFFFFF; 
+    background-color: #FFFFFF;
     z-index: 1;
+    white-space: nowrap; /* 列ヘッダーの折り返しを禁止し、最小列幅を確保する */
 }
 
 .active-table td {

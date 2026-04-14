@@ -2207,121 +2207,178 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // ★修正: 勤務・出張・来客システム (Firebase版)
+    // ★修正: 勤務・出張・来客システム (日付切り替え＋遅延読み込み版)
     // ==========================================
     const attBody = document.getElementById('attendance-body');
     const visBody = document.getElementById('visitor-body');
     const tripBody = document.getElementById('trip-body');
-    const arcAttBody = document.getElementById('archive-attendance-body');
-    const arcVisBody = document.getElementById('archive-visitor-body');
-    const arcTripBody = document.getElementById('archive-trip-body');
 
-    if (attBody || visBody || tripBody || arcAttBody) {
+    if (attBody || visBody || tripBody) {
         let attendances = []; let visitors = []; let trips = [];
         let editingAttId = null, editingVisId = null, editingTripId = null;
         let clearVisLoc = null, setVisLoc = null;
+        let currentViewDate = new Date();
 
-        const now = new Date();
         // ja-JP ロケールは元号年を返す場合があるため UTC+9 オフセットで直接計算
-        const todayStr = (() => { const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000); return jst.toISOString().slice(0, 10); })();
-        const isArchivePage = window.location.pathname.includes('status_archive');
-        const sortByDate = (arr) => [...arr].sort((a, b) => (a.date > b.date ? 1 : -1));
+        function getDateStr(dateObj) {
+            const jst = new Date(dateObj.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().slice(0, 10);
+        }
+        const todayStr = getDateStr(new Date());
+
+        const dateInput = document.getElementById('status-view-date');
+        const prevBtn   = document.getElementById('status-prev-btn');
+        const nextBtn   = document.getElementById('status-next-btn');
+        const todayBtn  = document.getElementById('status-today-btn');
+
+        // セクションタイトルを選択日付に合わせて更新
+        function updateSectionTitles(dateStr) {
+            const [, m, d] = dateStr.split('-');
+            const isToday = dateStr === todayStr;
+            const label = isToday ? `本日（${parseInt(m)}/${parseInt(d)}）` : `${parseInt(m)}/${parseInt(d)}`;
+            const attTitle  = document.getElementById('att-section-title');
+            const visTitle  = document.getElementById('vis-section-title');
+            const tripTitle = document.getElementById('trip-section-title');
+            if (attTitle)  attTitle.textContent  = `${label}の出勤状況`;
+            if (visTitle)  visTitle.textContent  = `${label}の来客状況`;
+            if (tripTitle) tripTitle.textContent = `${label}の出張状況`;
+        }
 
         function renderStatusTables() {
-            const targetAttBody = isArchivePage ? arcAttBody : attBody;
-            if (targetAttBody) {
-                targetAttBody.innerHTML = '';
-                const filtered = isArchivePage ? attendances.filter(d => d.date !== todayStr) : attendances.filter(d => d.date === todayStr);
-                if (filtered.length === 0) {
+            if (attBody) {
+                attBody.innerHTML = '';
+                if (attendances.length === 0) {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された勤務・出張情報はありません</td>`;
-                    targetAttBody.appendChild(tr);
+                    tr.innerHTML = `<td colspan="6" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出勤情報はありません</td>`;
+                    attBody.appendChild(tr);
                 } else {
-                sortByDate(filtered).forEach(d => {
-                    const tr = document.createElement('tr');
-                    const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
-                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.type}</span></td><td>${d.start}</td><td>${d.end}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
-                    targetAttBody.appendChild(tr);
-                });
+                    attendances.forEach(d => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td style="font-weight: bold;">${d.name}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.type}</span></td><td>${d.start}</td><td>${d.end}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
+                        attBody.appendChild(tr);
+                    });
                 }
             }
 
-            const targetVisBody = isArchivePage ? arcVisBody : visBody;
-            if (targetVisBody) {
-                targetVisBody.innerHTML = '';
-                const filtered = isArchivePage ? visitors.filter(d => d.date !== todayStr) : visitors.filter(d => d.date === todayStr);
-                if (filtered.length === 0) {
+            if (visBody) {
+                visBody.innerHTML = '';
+                if (visitors.length === 0) {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された来客情報はありません</td>`;
-                    targetVisBody.appendChild(tr);
+                    tr.innerHTML = `<td colspan="9" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された来客情報はありません</td>`;
+                    visBody.appendChild(tr);
                 } else {
-                sortByDate(filtered).forEach(d => {
-                    const tr = document.createElement('tr');
-                    const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
-                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
-                    targetVisBody.appendChild(tr);
-                });
+                    visitors.forEach(d => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td style="font-weight: bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
+                        visBody.appendChild(tr);
+                    });
                 }
             }
 
-            const targetTripBody = isArchivePage ? arcTripBody : tripBody;
-            if (targetTripBody) {
-                targetTripBody.innerHTML = '';
-                const filtered = isArchivePage ? trips.filter(d => d.date !== todayStr) : trips.filter(d => d.date === todayStr);
-                if (filtered.length === 0) {
+            if (tripBody) {
+                tripBody.innerHTML = '';
+                if (trips.length === 0) {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出張情報はありません</td>`;
-                    targetTripBody.appendChild(tr);
+                    tr.innerHTML = `<td colspan="6" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出張情報はありません</td>`;
+                    tripBody.appendChild(tr);
                 } else {
-                sortByDate(filtered).forEach(d => {
-                    const tr = document.createElement('tr');
-                    const dateCol = isArchivePage ? `<td>${d.date}</td>` : '';
-                    tr.innerHTML = `${dateCol}<td style="font-weight: bold;">${d.name}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
-                    targetTripBody.appendChild(tr);
-                });
+                    trips.forEach(d => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td style="font-weight: bold;">${d.name}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
+                        tripBody.appendChild(tr);
+                    });
                 }
             }
         }
 
-        // データ取得（キャッシュ付き）
-        const clearStatusCaches = () => { ['sc_attendances','sc_visitors','sc_trips'].forEach(k => clearSC(k)); };
-        async function loadStatusData() {
+        // 日付別キャッシュヘルパー（1つのlocalStorageキーにオブジェクト形式で蓄積）
+        // キャッシュ済みかどうかは専用フラグキー（"_ok"）で判定し、空配列も正しくヒットさせる
+        function getCacheForDate(cacheKey, dateStr) {
+            try {
+                const c = getSC(cacheKey);
+                if (!c || !c[dateStr + '_ok']) return null;
+                return c[dateStr] || [];
+            } catch(e) { return null; }
+        }
+        function setCacheForDate(cacheKey, dateStr, data) {
+            try {
+                const c = getSC(cacheKey) || {};
+                c[dateStr] = data;
+                c[dateStr + '_ok'] = true; // 空配列も「取得済み」と識別するためのフラグ
+                setSC(cacheKey, c);
+            } catch(e) {}
+        }
+        const clearStatusCaches = () => { ['sc_att_cache','sc_vis_cache','sc_trip_cache'].forEach(k => clearSC(k)); };
+
+        // 直近の loadStatusData 呼び出しを追跡し、古いリクエストの結果を無視する
+        let _loadSeq = 0;
+
+        // 指定日付のデータを取得（キャッシュがあればキャッシュを使用）
+        async function loadStatusData(dateStr) {
+            const seq = ++_loadSeq; // このリクエストのシーケンス番号
+            if (dateInput) dateInput.value = dateStr;
+            updateSectionTitles(dateStr);
+
             await ensureCacheVersionChecked();
-            const cachedAtt  = getSC('sc_attendances');
-            const cachedVis  = getSC('sc_visitors');
-            const cachedTrip = getSC('sc_trips');
-            if (cachedAtt && cachedVis && cachedTrip) {
+            if (seq !== _loadSeq) return; // より新しいリクエストが出ていたら結果を捨てる
+
+            const cachedAtt  = getCacheForDate('sc_att_cache',  dateStr);
+            const cachedVis  = getCacheForDate('sc_vis_cache',  dateStr);
+            const cachedTrip = getCacheForDate('sc_trip_cache', dateStr);
+
+            if (cachedAtt !== null && cachedVis !== null && cachedTrip !== null) {
                 attendances = cachedAtt; visitors = cachedVis; trips = cachedTrip;
                 renderStatusTables(); return;
             }
             try {
                 const [attSnap, visSnap, tripSnap] = await Promise.all([
-                    db.collection('attendances').get(),
-                    db.collection('visitors').get(),
-                    db.collection('trips').get()
+                    db.collection('attendances').where('date', '==', dateStr).get(),
+                    db.collection('visitors').where('date', '==', dateStr).get(),
+                    db.collection('trips').where('date', '==', dateStr).get()
                 ]);
+                if (seq !== _loadSeq) return; // フェッチ中により新しいリクエストが出ていたら捨てる
                 attendances = []; attSnap.forEach(doc => attendances.push({ id: doc.id, ...doc.data() }));
                 visitors    = []; visSnap.forEach(doc => visitors.push({ id: doc.id, ...doc.data() }));
                 trips       = []; tripSnap.forEach(doc => trips.push({ id: doc.id, ...doc.data() }));
-                setSC('sc_attendances', attendances);
-                setSC('sc_visitors',    visitors);
-                setSC('sc_trips',       trips);
+                setCacheForDate('sc_att_cache',  dateStr, attendances);
+                setCacheForDate('sc_vis_cache',  dateStr, visitors);
+                setCacheForDate('sc_trip_cache', dateStr, trips);
             } catch(e) { console.error('loadStatusData error:', e); }
+            if (seq !== _loadSeq) return;
             renderStatusTables();
         }
 
-        if (attBody || visBody || tripBody || arcAttBody || arcVisBody || arcTripBody) {
-            loadStatusData();
-        }
+        // 初回は本日のみ読み込む
+        loadStatusData(todayStr);
+
+        // 日付ナビゲーション
+        if (prevBtn) prevBtn.addEventListener('click', () => {
+            currentViewDate.setDate(currentViewDate.getDate() - 1);
+            loadStatusData(getDateStr(currentViewDate));
+        });
+        if (nextBtn) nextBtn.addEventListener('click', () => {
+            currentViewDate.setDate(currentViewDate.getDate() + 1);
+            loadStatusData(getDateStr(currentViewDate));
+        });
+        if (todayBtn) todayBtn.addEventListener('click', () => {
+            currentViewDate = new Date();
+            loadStatusData(getDateStr(currentViewDate));
+        });
+        if (dateInput) dateInput.addEventListener('change', (e) => {
+            if (e.target.value) {
+                currentViewDate = new Date(e.target.value + 'T00:00:00');
+                loadStatusData(getDateStr(currentViewDate));
+            }
+        });
 
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-status-btn')) {
                 if(confirm('この項目を完全に削除しますか？')) {
                     const id = e.target.getAttribute('data-id');
                     const type = e.target.getAttribute('data-type');
-                    if (type === 'att') db.collection('attendances').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
-                    if (type === 'vis') db.collection('visitors').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
-                    if (type === 'trip') db.collection('trips').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
+                    if (type === 'att') db.collection('attendances').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(getDateStr(currentViewDate)); });
+                    if (type === 'vis') db.collection('visitors').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(getDateStr(currentViewDate)); });
+                    if (type === 'trip') db.collection('trips').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(getDateStr(currentViewDate)); });
                 }
             }
             if (e.target.classList.contains('edit-status-btn')) {
@@ -2336,7 +2393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function setupModal(btnId, modalId, cancelId, submitId, dateId, onOpen, onSubmit) {
             const btn = document.getElementById(btnId); const modal = document.getElementById(modalId);
             if (!btn || !modal) return;
-            btn.addEventListener('click', () => { onOpen(); document.getElementById(dateId).value = todayStr; modal.classList.remove('hidden'); });
+            btn.addEventListener('click', () => { onOpen(); document.getElementById(dateId).value = getDateStr(currentViewDate); modal.classList.remove('hidden'); });
             document.getElementById(cancelId).addEventListener('click', () => modal.classList.add('hidden'));
             modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
             document.getElementById(submitId).addEventListener('click', () => { if(onSubmit()) modal.classList.add('hidden'); });
@@ -2439,7 +2496,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const attPromise = editingAttId
                     ? db.collection('attendances').doc(editingAttId).update(data)
                     : db.collection('attendances').add(data);
-                attPromise.then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
+                attPromise.then(() => { clearStatusCaches(); updateCacheVersion(); currentViewDate = new Date(date + 'T00:00:00'); loadStatusData(date); });
                 resetAttModal();
                 return true;
             }
@@ -2493,7 +2550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const visPromise = editingVisId
                     ? db.collection('visitors').doc(editingVisId).update(data)
                     : db.collection('visitors').add(data);
-                visPromise.then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
+                visPromise.then(() => { clearStatusCaches(); updateCacheVersion(); currentViewDate = new Date(date + 'T00:00:00'); loadStatusData(date); });
                 resetVisModal();
                 return true;
             }
@@ -2535,7 +2592,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tripPromise = editingTripId
                     ? db.collection('trips').doc(editingTripId).update(data)
                     : db.collection('trips').add(data);
-                tripPromise.then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(); });
+                tripPromise.then(() => { clearStatusCaches(); updateCacheVersion(); currentViewDate = new Date(date + 'T00:00:00'); loadStatusData(date); });
                 resetTripModal();
                 return true;
             }

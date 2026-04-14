@@ -357,15 +357,20 @@
     <div id="cs-csv-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="modal-title">CSV / Excel 取込</h3>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>対象年度</label>
+                <select id="cs-nendo-select" class="modal-input"></select>
+            </div>
             <p style="font-size:12px; color:#888; margin-bottom:4px;">
-                <strong>CSV形式</strong>（1行目はヘッダーとして読み飛ばします）：<br>
+                <strong>Excelファイル（.xlsx）推奨</strong>。シート名が部活名として使われます。テンプレートDLのシート形式のまま取込み可。<br>
+                <span style="font-size:11px; color:#aaa;">CSV形式の場合は1列目に部活名が必要：</span><br>
                 <code style="background:#f5f5f5; padding:2px 6px; border-radius:3px; font-size:11px;">
-                    部活名,日付(YYYY-MM-DD),開始時間(HH:MM),終了時間(HH:MM),場所
+                    部活名,日付(YYYY/M/D),開始時間(HH:MM),終了時間(HH:MM),場所
                 </code>
             </p>
             <p style="font-size:12px; color:#888; margin-bottom:8px;">
-                <strong>Excelファイル（.xlsx）</strong>も対応。テンプレートDLのシート形式のまま取込み可。<br>
-                <span style="font-size:11px; color:#aaa;">複数シートがある場合は全シートの内容を一括登録します。<br>新しい部活名は自動登録されます。</span>
+                <span style="font-size:11px; color:#c0392b; font-weight:600;">⚠ 取込実行すると、選択した年度の既存データをすべて削除してファイル内容で上書きします。</span><br>
+                <span style="font-size:11px; color:#aaa;">複数シートがある場合は全シートを一括登録します。新しい部活名は自動登録されます。</span>
             </p>
             <div class="form-group">
                 <label>ファイル選択</label>
@@ -386,7 +391,7 @@
                 <button id="cs-template-btn" class="btn-cancel" style="cursor:pointer;">テンプレートDL</button>
                 <div style="display:flex; gap:8px;">
                     <button id="cs-csv-cancel" class="btn-cancel">キャンセル</button>
-                    <button id="cs-csv-import" class="btn-submit" disabled>取込実行</button>
+                    <button id="cs-csv-import" class="btn-submit" disabled>取込実行（上書き）</button>
                 </div>
             </div>
         </div>
@@ -891,9 +896,44 @@
     });
 
     // ==================================================
+    // 年度ユーティリティ
+    // ==================================================
+    function getCurrentNendo() {
+        const now = new Date();
+        return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    }
+
+    function getNendoRange(nendo) {
+        return {
+            start: `${nendo}-04-01`,
+            end:   `${nendo + 1}-03-31`
+        };
+    }
+
+    function toSlashDate(dateStr) {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        return `${y}/${parseInt(m)}/${parseInt(d)}`;
+    }
+
+    function populateNendoSelect() {
+        const sel  = document.getElementById('cs-nendo-select');
+        const cur  = getCurrentNendo();
+        sel.innerHTML = '';
+        for (let y = cur + 1; y >= cur - 2; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = `${y}年度（${y}/4〜${y + 1}/3）`;
+            if (y === cur) opt.selected = true;
+            sel.appendChild(opt);
+        }
+    }
+
+    // ==================================================
     // ④ CSV取込
     // ==================================================
     document.getElementById('cs-csv-btn').addEventListener('click', () => {
+        populateNendoSelect();
         document.getElementById('cs-csv-file').value   = '';
         document.getElementById('cs-csv-preview').style.display = 'none';
         document.getElementById('cs-csv-preview-body').innerHTML = '';
@@ -934,7 +974,7 @@
         return rows;
     }
 
-    // XLSX バイナリ → 行データ配列（全シートを結合）
+    // XLSX バイナリ → 行データ配列（シート名を部活名として先頭に付加）
     function parseXlsx(arrayBuffer) {
         try {
             const wb = XLSX.read(arrayBuffer, { type: 'array', cellText: true, cellDates: false });
@@ -943,9 +983,11 @@
                 const ws = wb.Sheets[sheetName];
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
                 data.forEach((row, i) => {
-                    if (i === 0 && /^(部活|club)/i.test(String(row[0] || ''))) return;
-                    if (row.length >= 4 && row.some(c => String(c).trim())) {
-                        rows.push(row.map(c => String(c).trim()));
+                    if (i === 0) return; // ヘッダー行スキップ
+                    const cols = row.map(c => String(c).trim());
+                    if (cols.some(c => c)) {
+                        // シート名を部活名として先頭に挿入
+                        rows.push([sheetName, ...cols]);
                     }
                 });
             });
@@ -953,6 +995,14 @@
         } catch(e) {
             alert('Excelファイルの読み込みに失敗しました。\n' + e.message);
         }
+    }
+
+    // 日付文字列を YYYY-MM-DD に正規化（YYYY/M/D や YYYY/MM/DD を受け付ける）
+    function normalizeDateStr(s) {
+        if (!s) return '';
+        const m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+        if (!m) return s;
+        return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
     }
 
     // 行データ配列 → バリデーション & プレビュー表示
@@ -965,7 +1015,7 @@
 
         rawRows.forEach(cols => {
             const clubName  = (cols[0] || '').trim();
-            const date      = (cols[1] || '').trim();
+            const date      = normalizeDateStr((cols[1] || '').trim());
             const startTime = (cols[2] || '').trim();
             const endTime   = (cols[3] || '').trim();
             const location  = (cols[4] || '').trim();
@@ -976,7 +1026,7 @@
             if (!clubName) {
                 status = '⚠ 部活名なし'; valid = false;
             } else if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-                status = '⚠ 日付(YYYY-MM-DD)'; valid = false;
+                status = '⚠ 日付(YYYY/M/D)'; valid = false;
             } else if (!/^\d{2}:\d{2}$/.test(startTime)) {
                 status = '⚠ 開始時間(HH:MM)'; valid = false;
             } else if (!/^\d{2}:\d{2}$/.test(endTime)) {
@@ -1026,42 +1076,63 @@
     document.getElementById('cs-template-btn').addEventListener('click', downloadTemplate);
 
     function downloadTemplate() {
+        const nendo = parseInt(document.getElementById('cs-nendo-select').value);
+        const { start, end } = getNendoRange(nendo);
+
+        const wb     = XLSX.utils.book_new();
+        const HEADER = ['日付(YYYY/M/D)', '開始時間(HH:MM)', '終了時間(HH:MM)', '場所'];
+        const COL_W  = [{ wch: 16 }, { wch: 15 }, { wch: 15 }, { wch: 22 }];
+
+        const nendoEvents = allEvents.filter(ev => ev.date >= start && ev.date <= end);
+
         if (clubs.length === 0) {
-            alert('部活が登録されていません。\n先に「＋ 部活追加」から部活を登録してください。');
-            return;
+            // 部活未登録でも空テンプレートを出す
+            const ws = XLSX.utils.aoa_to_sheet([HEADER, ...Array.from({ length: 10 }, () => ['', '', '', ''])]);
+            ws['!cols'] = COL_W;
+            XLSX.utils.book_append_sheet(wb, ws, 'テンプレート');
+        } else {
+            clubs.forEach(club => {
+                const rows = nendoEvents
+                    .filter(ev => ev.clubName === club.name)
+                    .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
+                    .map(ev => [toSlashDate(ev.date), ev.startTime, ev.endTime, ev.location || '']);
+
+                // データがなければ空行を5行用意
+                if (rows.length === 0) {
+                    for (let i = 0; i < 5; i++) rows.push(['', '', '', '']);
+                }
+
+                const ws = XLSX.utils.aoa_to_sheet([HEADER, ...rows]);
+                ws['!cols'] = COL_W;
+                const sheetName = club.name.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName || `部活${clubs.indexOf(club) + 1}`);
+            });
         }
 
-        const wb = XLSX.utils.book_new();
-        const HEADER = ['部活名', '日付(YYYY-MM-DD)', '開始時間(HH:MM)', '終了時間(HH:MM)', '場所'];
-        const COL_W  = [{ wch: 22 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 22 }];
-
-        // 各部活ごとのシート
-        clubs.forEach(club => {
-            const ws = XLSX.utils.aoa_to_sheet([
-                HEADER,
-                [club.name, '', '', '', ''],  // 入力例行
-            ]);
-            ws['!cols'] = COL_W;
-            // シート名は最大31文字（Excelの制限）、特殊文字を除去
-            const sheetName = club.name.replace(/[\\\/\?\*\[\]]/g, '').substring(0, 31);
-            XLSX.utils.book_append_sheet(wb, ws, sheetName || `部活${clubs.indexOf(club)+1}`);
-        });
-
-        // 全部活まとめシート
-        const allData = [HEADER, ...clubs.map(c => [c.name, '', '', '', ''])];
-        const wsAll = XLSX.utils.aoa_to_sheet(allData);
-        wsAll['!cols'] = COL_W;
-        XLSX.utils.book_append_sheet(wb, wsAll, '全部活（まとめ）');
-
-        XLSX.writeFile(wb, '部活動予定テンプレート.xlsx');
+        XLSX.writeFile(wb, `部活動予定_${nendo}年度.xlsx`);
     }
 
     document.getElementById('cs-csv-import').addEventListener('click', async () => {
         if (csvValidRows.length === 0) return;
+        const nendo = parseInt(document.getElementById('cs-nendo-select').value);
+        if (!confirm(`${nendo}年度の既存データをすべて削除し、ファイルの内容で上書きします。\nよろしいですか？`)) return;
+
         const btn = document.getElementById('cs-csv-import');
         btn.disabled = true;
         btn.textContent = '取込中...';
         try {
+            // 対象年度の既存データを削除
+            const { start, end } = getNendoRange(nendo);
+            const delSnap = await db.collection('club_events')
+                .where('date', '>=', start)
+                .where('date', '<=', end)
+                .get();
+            for (let i = 0; i < delSnap.docs.length; i += 500) {
+                const batch = db.batch();
+                delSnap.docs.slice(i, i + 500).forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            }
+
             // 新部活名を自動登録
             const newNames = [...new Set(csvValidRows.map(r => r.clubName))]
                 .filter(n => !clubs.some(c => c.name === n));
@@ -1074,22 +1145,24 @@
                 clubs.push({ id: ref.id, name, order });
             }
 
-            // バッチ書き込み（500件以下を想定）
-            const batch = db.batch();
-            csvValidRows.forEach(row => {
-                const ref = db.collection('club_events').doc();
-                batch.set(ref, { ...row, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-            });
-            await batch.commit();
+            // バッチ書き込み（500件ずつ）
+            for (let i = 0; i < csvValidRows.length; i += 500) {
+                const batch = db.batch();
+                csvValidRows.slice(i, i + 500).forEach(row => {
+                    const ref = db.collection('club_events').doc();
+                    batch.set(ref, { ...row, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                });
+                await batch.commit();
+            }
 
             document.getElementById('cs-csv-modal').classList.add('hidden');
             await invalidateAndRefresh();
-            alert(`${csvValidRows.length} 件の予定を取込みました。${newNames.length > 0 ? `\n新規部活 ${newNames.length} 件も登録しました。` : ''}`);
+            alert(`${nendo}年度のデータを更新しました。\n${csvValidRows.length} 件の予定を取込みました。${newNames.length > 0 ? `\n新規部活 ${newNames.length} 件も登録しました。` : ''}`);
         } catch(e) {
             alert('取込に失敗しました。\n' + e.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = '取込実行';
+            btn.textContent = '取込実行（上書き）';
         }
     });
 

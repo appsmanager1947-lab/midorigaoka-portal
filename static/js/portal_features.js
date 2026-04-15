@@ -2279,12 +2279,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 tripBody.innerHTML = '';
                 if (trips.length === 0) {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td colspan="6" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出張情報はありません</td>`;
+                    tr.innerHTML = `<td colspan="7" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出張情報はありません</td>`;
                     tripBody.appendChild(tr);
                 } else {
                     trips.forEach(d => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td style="font-weight: bold;">${d.name}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
+                        const kubunHtml = d.kubun ? `<span style="background:#E8F4F3; color:#0AA294; border:1px solid #D1EAE7; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600;">${d.kubun}</span>` : `<span style="color:#ccc;">-</span>`;
+                        tr.innerHTML = `<td style="font-weight: bold;">${d.name}</td><td>${kubunHtml}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                         tripBody.appendChild(tr);
                     });
                 }
@@ -2583,12 +2584,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setupModal('add-trip-btn', 'trip-modal', 'trip-cancel', 'trip-submit', 'trip-date',
             () => {
                 resetTripModal();
-                ['name','purpose','loc','time','note'].forEach(id => document.getElementById(`trip-${id}`).value = '');
+                ['name','kubun','purpose','loc','time','note'].forEach(id => document.getElementById(`trip-${id}`).value = '');
             },
             () => {
                 const date = document.getElementById('trip-date').value; const name = document.getElementById('trip-name').value.trim();
                 if(!date || !name) { alert('対象日と名前は必ず入力してください'); return false; }
-                const data = { date, name, purpose: document.getElementById('trip-purpose').value||'-', loc: document.getElementById('trip-loc').value||'-', time: document.getElementById('trip-time').value||'-', note: document.getElementById('trip-note').value.trim() };
+                const data = { date, name, kubun: document.getElementById('trip-kubun').value||'', purpose: document.getElementById('trip-purpose').value||'-', loc: document.getElementById('trip-loc').value||'-', time: document.getElementById('trip-time').value||'-', note: document.getElementById('trip-note').value.trim() };
                 const tripPromise = editingTripId
                     ? db.collection('trips').doc(editingTripId).update(data)
                     : db.collection('trips').add(data);
@@ -2608,6 +2609,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editingTripId = id;
             document.getElementById('trip-date').value = d.date || '';
             document.getElementById('trip-name').value = d.name || '';
+            document.getElementById('trip-kubun').value = d.kubun || '';
             document.getElementById('trip-purpose').value = (d.purpose === '-') ? '' : (d.purpose || '');
             document.getElementById('trip-loc').value = (d.loc === '-') ? '' : (d.loc || '');
             document.getElementById('trip-time').value = (d.time === '-') ? '' : (d.time || '');

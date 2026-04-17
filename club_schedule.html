@@ -136,7 +136,7 @@
         /* イベントセル */
         .event-cell {
             text-align: center;
-            min-width: 68px;
+            min-width: 108px;
             cursor: pointer;
             vertical-align: top;
             padding: 3px 4px !important;
@@ -157,14 +157,25 @@
             margin: 2px auto;
             cursor: pointer;
             white-space: nowrap;
-            max-width: 96px;
+            max-width: 140px;
             overflow: hidden;
             line-height: 1.4;
             text-align: left;
         }
         .ev-chip:hover { background: #087a6e; }
         .ev-chip-time { display: block; font-weight: 600; }
-        .ev-chip-loc  { display: block; font-size: 9px; opacity: 0.88; overflow: hidden; text-overflow: ellipsis; }
+        /* 場所・担当顧問を横並びで表示 */
+        .ev-chip-sub {
+            display: flex;
+            gap: 4px;
+            font-size: 9px;
+            opacity: 0.88;
+        }
+        .ev-chip-sub span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
 
 
         /* モーダル幅 */
@@ -189,7 +200,7 @@
         }
         .cell-ev-info { flex: 1; }
         .cell-ev-time { font-weight: 600; font-size: 13px; }
-        .cell-ev-loc  { font-size: 11px; color: #888; margin-top: 2px; }
+        .cell-ev-sub  { font-size: 11px; color: #888; margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
         .cell-ev-btns { display: flex; gap: 6px; flex-shrink: 0; }
         .btn-edit-small {
             background: var(--bg-sidebar);
@@ -323,6 +334,10 @@
                     <option value="理科実験室">
                 </datalist>
             </div>
+            <div class="form-group">
+                <label>担当顧問</label>
+                <input type="text" id="cs-advisor" class="modal-input" placeholder="例：山田太郎">
+            </div>
             <div class="modal-actions">
                 <button id="cs-modal-cancel" class="btn-cancel">キャンセル</button>
                 <button id="cs-modal-submit" class="btn-submit">登録</button>
@@ -369,7 +384,7 @@
                 <strong>Excelファイル（.xlsx）推奨</strong>。シート名が部活名として使われます。テンプレートDLのシート形式のまま取込み可。<br>
                 <span style="font-size:11px; color:#aaa;">CSV形式の場合は1列目に部活名が必要：</span><br>
                 <code style="background:#f5f5f5; padding:2px 6px; border-radius:3px; font-size:11px;">
-                    部活名,日付(YYYY/M/D),開始時間(HH:MM),終了時間(HH:MM),場所
+                    部活名,日付(YYYY/M/D),開始時間(HH:MM),終了時間(HH:MM),場所,担当顧問
                 </code>
             </p>
             <p style="font-size:12px; color:#888; margin-bottom:8px;">
@@ -384,7 +399,7 @@
                 <table class="active-table" id="cs-csv-preview-table" style="font-size:11px; width:100%;">
                     <thead>
                         <tr>
-                            <th>部活名</th><th>日付</th><th>開始</th><th>終了</th><th>場所</th><th>状態</th>
+                            <th>部活名</th><th>日付</th><th>開始</th><th>終了</th><th>場所</th><th>担当顧問</th><th>状態</th>
                         </tr>
                     </thead>
                     <tbody id="cs-csv-preview-body"></tbody>
@@ -663,9 +678,14 @@
                     // 時間順にソート
                     const sorted = [...ces].sort((a, b) => a.startTime.localeCompare(b.startTime));
                     sorted.forEach(ev => {
+                        const subParts = [];
+                        if (ev.location) subParts.push(`<span>📍${escHtml(ev.location)}</span>`);
+                        if (ev.advisor)  subParts.push(`<span>👤${escHtml(ev.advisor)}</span>`);
+                        const subHtml = subParts.length
+                            ? `<span class="ev-chip-sub">${subParts.join('')}</span>` : '';
                         chips += `<span class="ev-chip">`
                                + `<span class="ev-chip-time">${ev.startTime}〜${ev.endTime}</span>`
-                               + (ev.location ? `<span class="ev-chip-loc">${escHtml(ev.location)}</span>` : '')
+                               + subHtml
                                + `</span>`;
                     });
                     rHTML += `<td class="${tdCls}" data-club="${escHtml(club.name)}" data-date="${ds}">${chips}</td>`;
@@ -716,6 +736,7 @@
         document.getElementById('cs-start').value    = '';
         document.getElementById('cs-end').value      = '';
         document.getElementById('cs-location').value = '';
+        document.getElementById('cs-advisor').value  = '';
         document.getElementById('cs-modal').classList.remove('hidden');
         setTimeout(() => document.getElementById('cs-club-name').focus(), 60);
     }
@@ -731,6 +752,7 @@
         document.getElementById('cs-start').value     = ev.startTime;
         document.getElementById('cs-end').value       = ev.endTime;
         document.getElementById('cs-location').value  = ev.location || '';
+        document.getElementById('cs-advisor').value   = ev.advisor  || '';
         document.getElementById('cs-modal').classList.remove('hidden');
     }
 
@@ -749,6 +771,7 @@
         const startTime = document.getElementById('cs-start').value;
         const endTime   = document.getElementById('cs-end').value;
         const location  = document.getElementById('cs-location').value.trim();
+        const advisor   = document.getElementById('cs-advisor').value.trim();
 
         if (!clubName || !date || !startTime || !endTime) {
             alert('部活名・日付・開始時間・終了時間は必須です。');
@@ -774,11 +797,11 @@
 
             if (editingEventId) {
                 await db.collection('club_events').doc(editingEventId).update(
-                    { clubName, date, startTime, endTime, location }
+                    { clubName, date, startTime, endTime, location, advisor }
                 );
             } else {
                 await db.collection('club_events').add({
-                    clubName, date, startTime, endTime, location,
+                    clubName, date, startTime, endTime, location, advisor,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
@@ -810,18 +833,24 @@
         if (ces.length === 0) {
             listDiv.innerHTML = '<p style="color:#888; font-size:13px; text-align:center; padding:16px;">この日の予定はありません</p>';
         } else {
-            listDiv.innerHTML = ces.map(ev => `
+            listDiv.innerHTML = ces.map(ev => {
+                const subParts = [];
+                if (ev.location) subParts.push(`<span>📍 ${escHtml(ev.location)}</span>`);
+                if (ev.advisor)  subParts.push(`<span>👤 ${escHtml(ev.advisor)}</span>`);
+                const subHtml = subParts.length
+                    ? `<div class="cell-ev-sub">${subParts.join('')}</div>` : '';
+                return `
                 <div class="cell-ev-card">
                     <div class="cell-ev-info">
                         <div class="cell-ev-time">${escHtml(ev.startTime)} 〜 ${escHtml(ev.endTime)}</div>
-                        ${ev.location ? `<div class="cell-ev-loc">📍 ${escHtml(ev.location)}</div>` : ''}
+                        ${subHtml}
                     </div>
                     <div class="cell-ev-btns">
                         <button class="btn-edit-small" onclick="editEventFromCell('${ev.id}')">編集</button>
                         <button class="btn-del-small" onclick="deleteEvent('${ev.id}')">削除</button>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         document.getElementById('cs-cell-modal').classList.remove('hidden');
@@ -1039,6 +1068,7 @@
             const startTime = (cols[2] || '').trim();
             const endTime   = (cols[3] || '').trim();
             const location  = (cols[4] || '').trim();
+            const advisor   = (cols[5] || '').trim();
 
             let status = '✓ OK';
             let valid  = true;
@@ -1053,7 +1083,7 @@
                 status = '⚠ 終了時間(HH:MM)'; valid = false;
             }
 
-            if (valid) { csvValidRows.push({ clubName, date, startTime, endTime, location }); validCount++; }
+            if (valid) { csvValidRows.push({ clubName, date, startTime, endTime, location, advisor }); validCount++; }
             else errorCount++;
 
             tbody.innerHTML += `<tr>
@@ -1062,6 +1092,7 @@
                 <td>${escHtml(startTime)}</td>
                 <td>${escHtml(endTime)}</td>
                 <td>${escHtml(location)}</td>
+                <td>${escHtml(advisor)}</td>
                 <td style="color:${valid ? '#2c8c5a' : '#c0392b'};">${status}</td>
             </tr>`;
         });
@@ -1100,14 +1131,14 @@
         const { start, end } = getNendoRange(nendo);
 
         const wb     = XLSX.utils.book_new();
-        const HEADER = ['日付(YYYY/M/D)', '開始時間(HH:MM)', '終了時間(HH:MM)', '場所'];
-        const COL_W  = [{ wch: 16 }, { wch: 15 }, { wch: 15 }, { wch: 22 }];
+        const HEADER = ['日付(YYYY/M/D)', '開始時間(HH:MM)', '終了時間(HH:MM)', '場所', '担当顧問'];
+        const COL_W  = [{ wch: 16 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 15 }];
 
         const nendoEvents = allEvents.filter(ev => ev.date >= start && ev.date <= end);
 
         if (clubs.length === 0) {
             // 部活未登録でも空テンプレートを出す
-            const ws = XLSX.utils.aoa_to_sheet([HEADER, ...Array.from({ length: 10 }, () => ['', '', '', ''])]);
+            const ws = XLSX.utils.aoa_to_sheet([HEADER, ...Array.from({ length: 10 }, () => ['', '', '', '', ''])]);
             ws['!cols'] = COL_W;
             XLSX.utils.book_append_sheet(wb, ws, 'テンプレート');
         } else {
@@ -1115,11 +1146,11 @@
                 const rows = nendoEvents
                     .filter(ev => ev.clubName === club.name)
                     .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
-                    .map(ev => [toSlashDate(ev.date), ev.startTime, ev.endTime, ev.location || '']);
+                    .map(ev => [toSlashDate(ev.date), ev.startTime, ev.endTime, ev.location || '', ev.advisor || '']);
 
                 // データがなければ空行を5行用意
                 if (rows.length === 0) {
-                    for (let i = 0; i < 5; i++) rows.push(['', '', '', '']);
+                    for (let i = 0; i < 5; i++) rows.push(['', '', '', '', '']);
                 }
 
                 const ws = XLSX.utils.aoa_to_sheet([HEADER, ...rows]);

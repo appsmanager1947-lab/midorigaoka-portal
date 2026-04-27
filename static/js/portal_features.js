@@ -3078,12 +3078,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ==========================================
         // 出勤・来客・出張サマリー（リロード時同期）
+        // 表示対象: 一括確認(all) と 全教職員 のみ。それ以外は非表示にして読み込みもしない。
         // ==========================================
+        const noticesStatusArea = document.getElementById('notices-status-area');
         const noticesAttBody  = document.getElementById('notices-att-body');
         const noticesVisBody  = document.getElementById('notices-vis-body');
         const noticesTripBody = document.getElementById('notices-trip-body');
 
-        if (noticesAttBody || noticesVisBody || noticesTripBody) {
+        const showStatusOnThisPage = isAllMode || currentCategory === '全教職員';
+        if (!showStatusOnThisPage && noticesStatusArea) noticesStatusArea.style.display = 'none';
+
+        if (showStatusOnThisPage && (noticesAttBody || noticesVisBody || noticesTripBody)) {
             let _noticesStatusSeq = 0;
 
             function updateNoticesStatusTitles(dateStr) {

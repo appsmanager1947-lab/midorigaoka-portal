@@ -90,7 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 submissions = [];
                 snap.forEach(doc => submissions.push({ id: doc.id, ...doc.data() }));
                 setSC('sc_submissions', submissions);
-            } catch(e) { console.error('loadSubmissions error:', e); }
+            } catch(e) {
+                console.error('loadSubmissions error:', e);
+                const errRow = `<tr><td colspan="5" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ 読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
+                if (indexTableBody) indexTableBody.innerHTML = errRow;
+                if (allSubmissionsBody) allSubmissionsBody.innerHTML = errRow;
+                return;
+            }
             renderSubmissions(indexTableBody, false);
             renderSubmissions(allSubmissionsBody, true);
         };
@@ -225,7 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 boards = [];
                 snap.forEach(doc => boards.push({ id: doc.id, ...doc.data() }));
                 setSC('sc_boards', boards);
-            } catch(e) { console.error('loadBoards error:', e); }
+            } catch(e) {
+                console.error('loadBoards error:', e);
+                const errRow = `<tr><td colspan="4" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ 読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
+                if (boardTableBody) boardTableBody.innerHTML = errRow;
+                if (allBoardsBody) allBoardsBody.innerHTML = errRow;
+                return;
+            }
             renderBoards(boardTableBody, false);
             renderBoards(allBoardsBody, true);
         };
@@ -631,7 +643,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     columns = [];
                     snap.forEach(doc => { const d = doc.data(); if (!d.isDashboardPage) columns.push({ id: doc.id, ...d }); });
                     setSC('sc_columns', columns);
-                } catch(e) { console.error('loadColumns error:', e); }
+                } catch(e) {
+                    console.error('loadColumns error:', e);
+                    const errHtml = '<div style="color:#c0392b;text-align:center;padding:32px;font-size:13px;grid-column:1/-1;">⚠ 読み込みに失敗しました。ページを再読み込みしてください。</div>';
+                    if (colContainer) colContainer.innerHTML = errHtml;
+                    if (allColContainer) allColContainer.innerHTML = errHtml;
+                    return;
+                }
             }
             if (colContainer) {
                 const sortedCols = [...columns].slice(0, 4);
@@ -816,7 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 webappItems.forEach((item, idx) => { item.order = idx; });
                 setSC('sc_webapps', webappItems);
-            } catch(e) { console.error('loadWebapps error:', e); }
+            } catch(e) {
+                console.error('loadWebapps error:', e);
+                if (webappGrid) webappGrid.innerHTML = '<div style="color:#c0392b;text-align:center;padding:32px;font-size:13px;">⚠ 読み込みに失敗しました。ページを再読み込みしてください。</div>';
+                return;
+            }
             renderWebapps();
         };
         loadWebapps();
@@ -1079,7 +1101,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 dashTagOrder = (tagDoc.exists && Array.isArray(tagDoc.data().order)) ? tagDoc.data().order : [];
                 setSC('sc_dashboards', dashboardItems);
                 setSC('sc_dash_tagorder', dashTagOrder);
-            } catch(e) { console.error('loadDashboard error:', e); }
+            } catch(e) {
+                console.error('loadDashboard error:', e);
+                if (dashboardGrid) dashboardGrid.innerHTML = '<div style="color:#c0392b;text-align:center;padding:32px;font-size:13px;">⚠ 読み込みに失敗しました。ページを再読み込みしてください。</div>';
+                return;
+            }
             renderDashboard();
         };
         loadDashboard().then(() => {
@@ -1618,7 +1644,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 boardItemTagOrder = (tagDoc.exists && Array.isArray(tagDoc.data().order)) ? tagDoc.data().order : [];
                 setSC('sc_board_items',    boardItems);
                 setSC('sc_board_tag_order', boardItemTagOrder);
-            } catch(e) { console.error('loadBoardItems error:', e); }
+            } catch(e) {
+                console.error('loadBoardItems error:', e);
+                if (boardsGrid) boardsGrid.innerHTML = '<div style="color:#c0392b;text-align:center;padding:32px;font-size:13px;">⚠ 読み込みに失敗しました。ページを再読み込みしてください。</div>';
+                return;
+            }
             renderBoardsGrid();
         }
         loadBoardItems();
@@ -2207,6 +2237,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
+    // ==========================================
+    // 日付別キャッシュヘルパー（status/notices 両ページから共用）
+    // ==========================================
+    function getCacheForDate(cacheKey, dateStr) {
+        try {
+            const c = getSC(cacheKey);
+            if (!c || !c[dateStr + '_ok']) return null;
+            return c[dateStr] || [];
+        } catch(e) { return null; }
+    }
+    function setCacheForDate(cacheKey, dateStr, data) {
+        try {
+            const c = getSC(cacheKey) || {};
+            c[dateStr] = data;
+            c[dateStr + '_ok'] = true;
+            const dateParts = Object.keys(c).filter(k => !k.endsWith('_ok')).sort().reverse();
+            if (dateParts.length > 14) {
+                dateParts.slice(14).forEach(d => { delete c[d]; delete c[d + '_ok']; });
+            }
+            setSC(cacheKey, c);
+        } catch(e) {}
+    }
+
     // ★修正: 勤務・出張・来客システム (日付切り替え＋遅延読み込み版)
     // ==========================================
     const attBody = document.getElementById('attendance-body');
@@ -2292,23 +2345,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 日付別キャッシュヘルパー（1つのlocalStorageキーにオブジェクト形式で蓄積）
-        // キャッシュ済みかどうかは専用フラグキー（"_ok"）で判定し、空配列も正しくヒットさせる
-        function getCacheForDate(cacheKey, dateStr) {
-            try {
-                const c = getSC(cacheKey);
-                if (!c || !c[dateStr + '_ok']) return null;
-                return c[dateStr] || [];
-            } catch(e) { return null; }
-        }
-        function setCacheForDate(cacheKey, dateStr, data) {
-            try {
-                const c = getSC(cacheKey) || {};
-                c[dateStr] = data;
-                c[dateStr + '_ok'] = true; // 空配列も「取得済み」と識別するためのフラグ
-                setSC(cacheKey, c);
-            } catch(e) {}
-        }
         const clearStatusCaches = () => { ['sc_att_cache','sc_vis_cache','sc_trip_cache'].forEach(k => clearSC(k)); };
 
         // 直近の loadStatusData 呼び出しを追跡し、古いリクエストの結果を無視する
@@ -2331,21 +2367,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 attendances = cachedAtt; visitors = cachedVis; trips = cachedTrip;
                 renderStatusTables(); return;
             }
+            let loadError = false;
             try {
                 const [attSnap, visSnap, tripSnap] = await Promise.all([
                     db.collection('attendances').where('date', '==', dateStr).get(),
                     db.collection('visitors').where('date', '==', dateStr).get(),
                     db.collection('trips').where('date', '==', dateStr).get()
                 ]);
-                if (seq !== _loadSeq) return; // フェッチ中により新しいリクエストが出ていたら捨てる
+                if (seq !== _loadSeq) return;
                 attendances = []; attSnap.forEach(doc => attendances.push({ id: doc.id, ...doc.data() }));
                 visitors    = []; visSnap.forEach(doc => visitors.push({ id: doc.id, ...doc.data() }));
                 trips       = []; tripSnap.forEach(doc => trips.push({ id: doc.id, ...doc.data() }));
                 setCacheForDate('sc_att_cache',  dateStr, attendances);
                 setCacheForDate('sc_vis_cache',  dateStr, visitors);
                 setCacheForDate('sc_trip_cache', dateStr, trips);
-            } catch(e) { console.error('loadStatusData error:', e); }
+            } catch(e) {
+                console.error('loadStatusData error:', e);
+                loadError = true;
+            }
             if (seq !== _loadSeq) return;
+            if (loadError) {
+                const errHtml = `<tr><td colspan="9" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
+                if (attBody) attBody.innerHTML = errHtml;
+                if (visBody) visBody.innerHTML = errHtml;
+                if (tripBody) tripBody.innerHTML = errHtml;
+                return;
+            }
             renderStatusTables();
         }
 
@@ -2850,9 +2897,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const noticeTimeline = document.getElementById('notice-timeline');
     
     if (noticeTimeline) {
-        let notices = []; 
+        let notices = [];
         let currentViewDate = new Date();
-        let editingNoticeId = null; 
+        let editingNoticeId = null;
+        let _loadNoticesStatus = null; // set after notices-status block initializes
 
         const urlParams = new URLSearchParams(window.location.search);
         const currentCategory = urlParams.get('category') || '全教職員';
@@ -3016,6 +3064,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     renderNotices();
                 }, (err) => { console.error('notices listener error:', err); });
+            // 出勤・来客・出張サマリーを日付に合わせてリロード
+            if (_loadNoticesStatus) _loadNoticesStatus(viewDateStr);
         }
 
         // 初回取得
@@ -3025,6 +3075,112 @@ document.addEventListener('DOMContentLoaded', () => {
         nextBtn.addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() + 1); subscribeNotices(); });
         todayBtn.addEventListener('click', () => { currentViewDate = new Date(); subscribeNotices(); });
         dateInput.addEventListener('change', (e) => { if (e.target.value) { currentViewDate = new Date(e.target.value + 'T00:00:00'); subscribeNotices(); } });
+
+        // ==========================================
+        // 出勤・来客・出張サマリー（リロード時同期）
+        // ==========================================
+        const noticesAttBody  = document.getElementById('notices-att-body');
+        const noticesVisBody  = document.getElementById('notices-vis-body');
+        const noticesTripBody = document.getElementById('notices-trip-body');
+
+        if (noticesAttBody || noticesVisBody || noticesTripBody) {
+            let _noticesStatusSeq = 0;
+
+            function updateNoticesStatusTitles(dateStr) {
+                const todayJst = (() => { const jst = new Date(Date.now() + 9*60*60*1000); return jst.toISOString().slice(0,10); })();
+                const [, m, d] = dateStr.split('-');
+                const isToday = dateStr === todayJst;
+                const label = isToday ? `本日（${parseInt(m)}/${parseInt(d)}）` : `${parseInt(m)}/${parseInt(d)}`;
+                const attT  = document.getElementById('notices-att-section-title');
+                const visT  = document.getElementById('notices-vis-section-title');
+                const tripT = document.getElementById('notices-trip-section-title');
+                if (attT)  attT.textContent  = `${label}の出勤状況`;
+                if (visT)  visT.textContent  = `${label}の来客状況`;
+                if (tripT) tripT.textContent = `${label}の出張状況`;
+            }
+
+            function renderNoticesStatusTables(atts, viss, trips) {
+                if (noticesAttBody) {
+                    noticesAttBody.innerHTML = '';
+                    if (atts.length === 0) {
+                        noticesAttBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出勤情報はありません</td></tr>`;
+                    } else {
+                        atts.forEach(d => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td style="font-weight:bold;">${d.name}</td><td><span style="background:#F7F7F5;border:1px solid #E6E4DF;padding:2px 8px;border-radius:4px;font-size:12px;">${d.type}</span></td><td>${d.start}</td><td>${d.end}</td><td style="white-space:pre-wrap;font-size:12px;line-height:1.4;color:#666;">${d.note}</td>`;
+                            noticesAttBody.appendChild(tr);
+                        });
+                    }
+                }
+                if (noticesVisBody) {
+                    noticesVisBody.innerHTML = '';
+                    if (viss.length === 0) {
+                        noticesVisBody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された来客情報はありません</td></tr>`;
+                    } else {
+                        viss.forEach(d => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td style="font-weight:bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background:#F7F7F5;border:1px solid #E6E4DF;padding:2px 8px;border-radius:4px;font-size:12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space:pre-wrap;font-size:12px;line-height:1.4;color:#666;">${d.note}</td>`;
+                            noticesVisBody.appendChild(tr);
+                        });
+                    }
+                }
+                if (noticesTripBody) {
+                    noticesTripBody.innerHTML = '';
+                    if (trips.length === 0) {
+                        noticesTripBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出張情報はありません</td></tr>`;
+                    } else {
+                        trips.forEach(d => {
+                            const tr = document.createElement('tr');
+                            const kubunHtml = d.kubun ? `<span style="background:#E8F4F3;color:#0AA294;border:1px solid #D1EAE7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">${d.kubun}</span>` : `<span style="color:#ccc;">-</span>`;
+                            tr.innerHTML = `<td style="font-weight:bold;">${d.name}</td><td>${kubunHtml}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space:pre-wrap;font-size:12px;line-height:1.4;color:#666;">${d.note}</td>`;
+                            noticesTripBody.appendChild(tr);
+                        });
+                    }
+                }
+            }
+
+            async function loadNoticesStatusData(dateStr) {
+                const seq = ++_noticesStatusSeq;
+                updateNoticesStatusTitles(dateStr);
+                await ensureCacheVersionChecked();
+                if (seq !== _noticesStatusSeq) return;
+
+                const cachedAtt  = getCacheForDate('sc_att_cache',  dateStr);
+                const cachedVis  = getCacheForDate('sc_vis_cache',  dateStr);
+                const cachedTrip = getCacheForDate('sc_trip_cache', dateStr);
+
+                if (cachedAtt !== null && cachedVis !== null && cachedTrip !== null) {
+                    renderNoticesStatusTables(cachedAtt, cachedVis, cachedTrip);
+                    return;
+                }
+                try {
+                    const [attSnap, visSnap, tripSnap] = await Promise.all([
+                        db.collection('attendances').where('date', '==', dateStr).get(),
+                        db.collection('visitors').where('date', '==', dateStr).get(),
+                        db.collection('trips').where('date', '==', dateStr).get()
+                    ]);
+                    if (seq !== _noticesStatusSeq) return;
+                    const atts = []; attSnap.forEach(doc => atts.push({ id: doc.id, ...doc.data() }));
+                    const viss = []; visSnap.forEach(doc => viss.push({ id: doc.id, ...doc.data() }));
+                    const trips = []; tripSnap.forEach(doc => trips.push({ id: doc.id, ...doc.data() }));
+                    setCacheForDate('sc_att_cache',  dateStr, atts);
+                    setCacheForDate('sc_vis_cache',  dateStr, viss);
+                    setCacheForDate('sc_trip_cache', dateStr, trips);
+                    if (seq !== _noticesStatusSeq) return;
+                    renderNoticesStatusTables(atts, viss, trips);
+                } catch(e) {
+                    console.error('loadNoticesStatusData error:', e);
+                    if (seq !== _noticesStatusSeq) return;
+                    const errHtml = `<tr><td colspan="8" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
+                    if (noticesAttBody)  noticesAttBody.innerHTML  = errHtml;
+                    if (noticesVisBody)  noticesVisBody.innerHTML  = errHtml;
+                    if (noticesTripBody) noticesTripBody.innerHTML = errHtml;
+                }
+            }
+
+            _loadNoticesStatus = loadNoticesStatusData;
+            loadNoticesStatusData(getFormattedDateStr(currentViewDate));
+        }
 
         postBtn.addEventListener('click', () => {
             const content = noticeContent.innerHTML.trim();

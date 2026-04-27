@@ -16,7 +16,22 @@ const ALL_CACHE_KEYS = [
 
 // localStorage キャッシュヘルパー（全ページから参照できるようグローバルに定義）
 function getSC(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e) { return null; } }
-function setSC(k, d) { try { localStorage.setItem(k, JSON.stringify(d)); } catch(e) {} }
+function setSC(k, d) {
+    const json = JSON.stringify(d);
+    try {
+        localStorage.setItem(k, json);
+    } catch(e) {
+        // QuotaExceededError: 古いキャッシュを削除してリトライ
+        try {
+            ALL_CACHE_KEYS.forEach(key => {
+                if (key !== k) localStorage.removeItem(key);
+            });
+            localStorage.setItem(k, json);
+        } catch(e2) {
+            // それでも失敗する場合は諦める（次回Firestoreから再取得）
+        }
+    }
+}
 function clearSC(k) { try { localStorage.removeItem(k); } catch(e) {} }
 
 // データ書き込み後に呼ぶ。FirestoreのバージョンドキュメントとlocalStorageを同期する。
@@ -24,7 +39,7 @@ async function updateCacheVersion() {
     const ts = Date.now().toString();
     try {
         await db.collection('settings').doc('cacheVersion').set({ updatedAt: ts });
-        localStorage.setItem(LC_VERSION_KEY, ts);
+        try { localStorage.setItem(LC_VERSION_KEY, ts); } catch(e) {}
     } catch(e) {}
 }
 
@@ -42,11 +57,12 @@ function ensureCacheVersionChecked() {
             const localVersion = localStorage.getItem(LC_VERSION_KEY) || '';
             if (serverVersion !== localVersion) {
                 ALL_CACHE_KEYS.forEach(k => localStorage.removeItem(k));
-                localStorage.setItem(LC_VERSION_KEY, serverVersion);
+                try { localStorage.setItem(LC_VERSION_KEY, serverVersion); } catch(e) {}
             }
         } catch(e) {
-            // エラー時はキャッシュをクリアして安全側に倒す
-            ALL_CACHE_KEYS.forEach(k => localStorage.removeItem(k));
+            // ネットワークエラー時はキャッシュを消去しない。
+            // 既存キャッシュをそのまま使うことで、不安定な回線でもデータを表示できる。
+            console.warn('cacheVersion check failed (network?), keeping existing cache.');
         }
         _cvChecked = true;
     })();

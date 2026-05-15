@@ -112,9 +112,22 @@
             position: sticky;
             left: 0;
             z-index: 3;
-            min-width: 120px;
+            width: 130px;
+            min-width: 130px;
             text-align: left;
             padding-left: 10px;
+        }
+        .club-table thead th.th-no-activity {
+            position: sticky;
+            left: 130px;
+            z-index: 3;
+            width: 54px;
+            min-width: 54px;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.4;
+            padding: 4px 2px;
+            border-right: 2px solid #B8DDD9;
         }
 
         /* 曜日色 */
@@ -128,10 +141,32 @@
             left: 0;
             background: #F0FAF8;
             font-weight: 600;
-            min-width: 120px;
+            width: 130px;
+            min-width: 130px;
             z-index: 1;
         }
         .club-table tbody tr:hover td.td-name { background: #D6EFEA; }
+
+        /* 活動なし列 */
+        .club-table tbody td.td-no-activity {
+            position: sticky;
+            left: 130px;
+            z-index: 1;
+            background: #F7FDFB;
+            text-align: center;
+            width: 54px;
+            min-width: 54px;
+            border-right: 2px solid #B8DDD9;
+        }
+        .club-table tbody td.td-no-activity input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+            accent-color: #0AA294;
+            display: block;
+            margin: 0 auto;
+        }
+        .club-table tbody tr:hover td.td-no-activity { background: #D6EFEA; }
 
         /* イベントセル */
         .event-cell {
@@ -238,25 +273,6 @@
             font-size: 14px;
         }
 
-        /* 活動なし チェックボックスラベル */
-        .no-activity-label {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            font-size: 10px;
-            font-weight: normal;
-            color: #bbb;
-            margin-left: 8px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .no-activity-label input[type="checkbox"] {
-            width: 11px;
-            height: 11px;
-            cursor: pointer;
-            accent-color: #999;
-        }
-
         /* 活動なし 行のグレーアウト */
         .club-table tbody tr.no-activity-row td {
             background-color: #f2f2f2 !important;
@@ -267,6 +283,12 @@
         }
         .club-table tbody tr.no-activity-row:hover td.td-name {
             background-color: #ddd !important;
+        }
+        .club-table tbody tr.no-activity-row td.td-no-activity {
+            background-color: #e0e0e0 !important;
+        }
+        .club-table tbody tr.no-activity-row:hover td.td-no-activity {
+            background-color: #d4d4d4 !important;
         }
         .club-table tbody tr.no-activity-row .ev-chip {
             background: #c8c8c8 !important;
@@ -681,6 +703,7 @@
         // ---- ヘッダー行 ----
         let hHTML = '<tr>';
         hHTML += '<th class="th-name">部活名</th>';
+        hHTML += '<th class="th-no-activity">活動<br>なし</th>';
         for (let d = 1; d <= days; d++) {
             const ds  = toDateStr(currentYear, currentMonth, d);
             const dow = new Date(currentYear, currentMonth, d).getDay();
@@ -712,13 +735,8 @@
             clubs.forEach(club => {
                 const isNoActivity = noActivityClubs.has(club.name);
                 let rHTML = `<tr${isNoActivity ? ' class="no-activity-row"' : ''}>`;
-                rHTML += `<td class="td-name">`
-                       + `${escHtml(club.name)}`
-                       + `<label class="no-activity-label">`
-                       + `<input type="checkbox" class="no-activity-cb" data-club="${escHtml(club.name)}"${isNoActivity ? ' checked' : ''}>`
-                       + `<span>活動なし</span>`
-                       + `</label>`
-                       + `</td>`;
+                rHTML += `<td class="td-name">${escHtml(club.name)}</td>`;
+                rHTML += `<td class="td-no-activity"><input type="checkbox" class="no-activity-cb" data-club="${escHtml(club.name)}"${isNoActivity ? ' checked' : ''}></td>`;
                 for (let d = 1; d <= days; d++) {
                     const ds  = toDateStr(currentYear, currentMonth, d);
                     const dow = new Date(currentYear, currentMonth, d).getDay();

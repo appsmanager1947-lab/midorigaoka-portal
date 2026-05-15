@@ -237,6 +237,41 @@
             color: var(--text-muted);
             font-size: 14px;
         }
+
+        /* 活動なし チェックボックスラベル */
+        .no-activity-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 10px;
+            font-weight: normal;
+            color: #bbb;
+            margin-left: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .no-activity-label input[type="checkbox"] {
+            width: 11px;
+            height: 11px;
+            cursor: pointer;
+            accent-color: #999;
+        }
+
+        /* 活動なし 行のグレーアウト */
+        .club-table tbody tr.no-activity-row td {
+            background-color: #f2f2f2 !important;
+        }
+        .club-table tbody tr.no-activity-row td.td-name {
+            background-color: #e8e8e8 !important;
+            color: #999;
+        }
+        .club-table tbody tr.no-activity-row:hover td.td-name {
+            background-color: #ddd !important;
+        }
+        .club-table tbody tr.no-activity-row .ev-chip {
+            background: #c8c8c8 !important;
+            color: #888 !important;
+        }
     </style>
 </head>
 <body>
@@ -440,6 +475,7 @@
     let clubs  = [];   // { id, name, order }
     let events = [];   // { id, clubName, date, startTime, endTime, location }
     let editingEventId = null;
+    let noActivityClubs = new Set(); // 現在表示中の月で活動なしの部活名
     let cellModalClub  = null;
     let cellModalDate  = null;
     let csvValidRows   = [];
@@ -591,12 +627,22 @@
         events = allEvents.filter(ev => ev.date >= start && ev.date <= end);
     }
 
+    async function loadNoActivityForMonth(y, m) {
+        const ym = `${y}-${String(m + 1).padStart(2, '0')}`;
+        try {
+            const doc = await db.collection('club_settings').doc('no_activity_' + ym).get();
+            noActivityClubs = new Set(doc.exists ? (doc.data().clubs || []) : []);
+        } catch(e) {
+            noActivityClubs = new Set();
+        }
+    }
+
     async function loadEventsAndRender() {
         document.getElementById('cs-loading').style.display = 'flex';
         document.getElementById('club-table').style.display  = 'none';
         try {
-            // クラブ一覧はキャッシュ済みのため再取得不要、イベントのみフィルタ
             filterEventsForMonth(currentYear, currentMonth);
+            await loadNoActivityForMonth(currentYear, currentMonth);
             renderTable();
         } catch(e) {
             document.getElementById('cs-loading').textContent = '読み込みに失敗しました。';
@@ -609,6 +655,7 @@
         try {
             await loadAllData();
             filterEventsForMonth(currentYear, currentMonth);
+            await loadNoActivityForMonth(currentYear, currentMonth);
             renderTable();
         } catch(e) {
             document.getElementById('cs-loading').textContent = '読み込みに失敗しました。';
@@ -663,8 +710,15 @@
 
             tbody.innerHTML = '';
             clubs.forEach(club => {
-                let rHTML = '<tr>';
-                rHTML += `<td class="td-name">${escHtml(club.name)}</td>`;
+                const isNoActivity = noActivityClubs.has(club.name);
+                let rHTML = `<tr${isNoActivity ? ' class="no-activity-row"' : ''}>`;
+                rHTML += `<td class="td-name">`
+                       + `${escHtml(club.name)}`
+                       + `<label class="no-activity-label">`
+                       + `<input type="checkbox" class="no-activity-cb" data-club="${escHtml(club.name)}"${isNoActivity ? ' checked' : ''}>`
+                       + `<span>活動なし</span>`
+                       + `</label>`
+                       + `</td>`;
                 for (let d = 1; d <= days; d++) {
                     const ds  = toDateStr(currentYear, currentMonth, d);
                     const dow = new Date(currentYear, currentMonth, d).getDay();
@@ -698,6 +752,26 @@
             tbody.querySelectorAll('td.event-cell').forEach(cell => {
                 cell.addEventListener('click', () => {
                     openCellModal(cell.dataset.club, cell.dataset.date);
+                });
+            });
+
+            // 活動なしチェックボックス
+            tbody.querySelectorAll('.no-activity-cb').forEach(cb => {
+                cb.addEventListener('change', async () => {
+                    const clubName = cb.dataset.club;
+                    const checked  = cb.checked;
+                    const tr = cb.closest('tr');
+                    if (checked) { tr.classList.add('no-activity-row');    noActivityClubs.add(clubName); }
+                    else         { tr.classList.remove('no-activity-row'); noActivityClubs.delete(clubName); }
+                    const ym = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+                    try {
+                        await db.collection('club_settings').doc('no_activity_' + ym).set({ clubs: [...noActivityClubs] });
+                    } catch(err) {
+                        alert('保存に失敗しました。');
+                        if (checked) { tr.classList.remove('no-activity-row'); noActivityClubs.delete(clubName); }
+                        else         { tr.classList.add('no-activity-row');    noActivityClubs.add(clubName); }
+                        cb.checked = !checked;
+                    }
                 });
             });
         }

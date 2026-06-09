@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let currentEyecatchData = "";
         let editingColId = null;
+        let isDraftId = false;
         let isHtmlImportMode = false;
         
         const isBoardMode = window.location.pathname.includes('board_edit');
@@ -40,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // ① クラウドから既存データを読み込む
         if (editIdParam) {
             editingColId = editIdParam;
+            isDraftId = false;
             const collectionName = isBoardMode ? 'boards' : ((isBoardItemEdit || isBoardsListEdit) ? 'board_columns' : 'columns');
             
             db.collection(collectionName).doc(editIdParam).get().then((doc) => {
@@ -941,6 +943,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // ⑥-0 下書きドロップダウンをクリックでも開閉できるようにする
+        const dropdownToggle = document.querySelector('.dropdown-toggle');
+        const dropdownContent = document.querySelector('.dropdown-content');
+        if (dropdownToggle && dropdownContent) {
+            dropdownToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = dropdownContent.style.display === 'block';
+                dropdownContent.style.display = isOpen ? '' : 'block';
+            });
+            document.addEventListener('click', () => {
+                if (dropdownContent) dropdownContent.style.display = '';
+            });
+        }
+
         // ⑥ 下書き保存機能（コラム編集時のみ）
         if (!isBoardMode) {
             const btnSaveDraft = document.getElementById('btn-save-draft');
@@ -963,11 +979,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         savedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     try {
-                        if (editingColId) {
-                            await db.collection('drafts').doc(editingColId).update(draftData);
+                        if (editingColId && !isDraftId) {
+                            // 既存コラムの下書き：同じIDでdraftsに set（初回でも上書きでも可）
+                            await db.collection('drafts').doc(editingColId).set(draftData);
+                        } else if (isDraftId && editingColId) {
+                            await db.collection('drafts').doc(editingColId).set(draftData);
                         } else {
                             const ref = await db.collection('drafts').add(draftData);
                             editingColId = ref.id;
+                            isDraftId = true;
                         }
                         alert('下書きを保存しました');
                     } catch (err) {
@@ -1038,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
                                 }
                                 editingColId = doc.id;
+                                isDraftId = true;
                                 draftModal.classList.add('hidden');
                             });
                             li.querySelector('.draft-delete-btn').addEventListener('click', (e) => {
@@ -1093,9 +1114,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (isBoardItemSource || isBoardItemEdit) saveData.isBoardItemPage = true;
                 }
 
+                const draftIdToDelete = isDraftId ? editingColId : null;
                 const afterPublish = () => {
-                    if (!isBoardMode && editingColId) {
-                        db.collection('drafts').doc(editingColId).delete().catch(() => {});
+                    if (!isBoardMode && draftIdToDelete) {
+                        db.collection('drafts').doc(draftIdToDelete).delete().catch(() => {});
                     }
                 };
 
@@ -1103,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ['sc_boards','sc_columns','sc_dashboards','sc_dash_tagorder','sc_board_items','sc_board_tag_order'].forEach(k => localStorage.removeItem(k));
                 };
 
-                if (editingColId) {
+                if (editingColId && !isDraftId) {
                     db.collection(collectionName).doc(editingColId).update(saveData).then(async () => {
                         afterPublish();
                         alert(isBoardMode ? '掲示を更新しました！' : 'ページを更新しました！');

@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<a href="./board_edit.html?edit_id=${data.id}" style="color:#0066cc; font-size:13px; text-decoration:underline; padding:4px;">編集</a>`;
             const deleteBtnHtml = showAll ? `<button class="delete-board-btn" data-id="${data.id}" style="background:transparent; color:#d9534f; border:none; font-size:13px; cursor:pointer; text-decoration:underline; padding:4px; margin-left:8px;">削除</button>` : '';
             const actionHtml = data.status === 'completed'
-                ? `<span style="color:#ccc; font-size:12px;">操作不可</span>` + deleteBtnHtml
+                ? `<button class="reshow-board-btn" data-id="${data.id}" style="background:transparent; color:#2c8c5a; border:none; font-size:13px; cursor:pointer; text-decoration:underline; padding:4px;">再表示</button>` + editBtnHtml + deleteBtnHtml
                 : editBtnHtml + `<button class="complete-board-btn" data-id="${data.id}" style="background:transparent; color:#aaa; border:none; font-size:13px; cursor:pointer; text-decoration:underline; padding:4px;">終了</button>` + deleteBtnHtml;
 
             tr.innerHTML = `<td>${titleHtml} ${statusHtml}</td><td>${data.dept || ''}</td><td>${data.period || ''}</td><td>${actionHtml}</td>`;
@@ -540,6 +540,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item.type === 'multi')      bOpenMultiModal(item);
                     else if (item.type === 'page')  bOpenPageEditModal(item);
                     else                            bOpenSimpleModal(item);
+                }
+            }
+            if (e.target.classList.contains('reshow-board-btn')) {
+                if (confirm('この掲示を再表示しますか？（トップページに再度表示され、編集も可能になります）')) {
+                    const id = e.target.getAttribute('data-id');
+                    db.collection('boards').doc(id).update({ status: 'active' }).then(() => { clearSC('sc_boards'); updateCacheVersion(); loadBoards(); });
                 }
             }
             if (e.target.classList.contains('complete-board-btn')) {

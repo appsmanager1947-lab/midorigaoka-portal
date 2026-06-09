@@ -626,7 +626,7 @@ body {
     border-left: 1px solid #ccc;
     border-radius: 0 6px 6px 0;
     margin-left: -1px;
-    cursor: default;
+    cursor: pointer;
 }
 
 #btn-save-draft {

@@ -25,6 +25,7 @@
         tr.dlv-row-done td { color: #aaa; }
         .dlv-carrier { background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
         .dlv-note { white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666; }
+        .dlv-lift { background: #EBF5FB; color: #2471A3; border: 1px solid #AED6F1; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
         .dlv-action-btn { background: transparent; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; }
         .dlv-edit-btn { color: #0066cc; margin-right: 4px; }
         .dlv-delete-btn { color: #d9534f; }
@@ -64,27 +65,27 @@
             </div>
 
             <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header"><h2 class="section-title" id="dlv-send-section-title">本日の発送物</h2><button id="add-send-btn" class="add-button">＋ 追加</button></div>
+                <div class="column-header"><h2 class="section-title" id="dlv-send-section-title">本日の集荷依頼物</h2><button id="add-send-btn" class="add-button">＋ 追加</button></div>
                 <div style="overflow-x: auto;"><table class="active-table">
-                    <thead><tr><th>状況</th><th>集荷時間</th><th>宛先</th><th>内容</th><th>個数</th><th>配送業者</th><th>分掌</th><th>依頼者</th><th>備考</th><th>操作</th></tr></thead>
-                    <tbody id="dlv-send-body"><tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">読み込み中...</td></tr></tbody>
+                    <thead><tr><th>状況</th><th>集荷時間</th><th>宛先</th><th>内容</th><th>個数</th><th>配送業者</th><th>分掌</th><th>依頼者</th><th>備考</th><th>リフト使用</th><th>操作</th></tr></thead>
+                    <tbody id="dlv-send-body"><tr><td colspan="11" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">読み込み中...</td></tr></tbody>
                 </table></div>
             </section>
 
             <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
                 <div class="column-header"><h2 class="section-title" id="dlv-recv-section-title">本日の配達物</h2><button id="add-recv-btn" class="add-button">＋ 追加</button></div>
                 <div style="overflow-x: auto;"><table class="active-table">
-                    <thead><tr><th>状況</th><th>到着時間</th><th>差出人</th><th>内容</th><th>個数</th><th>配送業者</th><th>分掌</th><th>受取者</th><th>備考</th><th>操作</th></tr></thead>
-                    <tbody id="dlv-recv-body"><tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">読み込み中...</td></tr></tbody>
+                    <thead><tr><th>状況</th><th>到着時間</th><th>差出人</th><th>内容</th><th>個数</th><th>配送業者</th><th>分掌</th><th>受取者</th><th>備考</th><th>リフト使用</th><th>操作</th></tr></thead>
+                    <tbody id="dlv-recv-body"><tr><td colspan="11" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">読み込み中...</td></tr></tbody>
                 </table></div>
             </section>
         </main>
     </div>
 
-    <!-- 発送物・配達物 追加/編集モーダル（kind で項目名を切り替え） -->
+    <!-- 集荷依頼物・配達物 追加/編集モーダル（kind で項目名を切り替え） -->
     <div id="dlv-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 class="modal-title" id="dlv-modal-title">発送物を追加</h3>
+            <h3 class="modal-title" id="dlv-modal-title">集荷依頼物を追加</h3>
             <div style="display: flex; gap: 16px;">
                 <div class="form-group" style="flex: 1;"><label>対象日</label><input type="date" id="dlv-date" class="modal-input"></div>
                 <div class="form-group" style="flex: 1;"><label id="dlv-time-label">集荷時間</label><input type="time" id="dlv-time" class="modal-input"></div>
@@ -116,11 +117,12 @@
             </div>
             <div class="form-group"><label>状況</label>
                 <select id="dlv-done" class="modal-input" style="background-color: #fff; cursor: pointer;">
-                    <option value="0" id="dlv-done-opt-0">未発送</option>
-                    <option value="1" id="dlv-done-opt-1">発送済</option>
+                    <option value="0" id="dlv-done-opt-0">未集荷</option>
+                    <option value="1" id="dlv-done-opt-1">集荷済</option>
                 </select>
             </div>
             <div class="form-group"><label>備考</label><textarea id="dlv-note" class="modal-input" rows="3" style="resize: vertical;" placeholder="改行して入力できます"></textarea></div>
+            <div class="form-group"><label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" id="dlv-lift" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">リフト使用</label></div>
             <div class="modal-actions modal-actions-split">
                 <button id="dlv-delete" class="btn-delete-modal" style="display:none;">削除</button>
                 <div style="display:flex; gap:8px;"><button id="dlv-cancel" class="btn-cancel">キャンセル</button><button id="dlv-submit" class="btn-submit">追加</button></div>
@@ -142,8 +144,8 @@
     // ==================================================
     // 配送物予定（deliveries.html 専用）
     // Firestore collection:
-    //   deliveries : { date, kind: 'send'|'receive', party, item, qty, carrier, dept, person, time, done, note }
-    //     send    … party=宛先 / dept=分掌 / person=依頼者 / time=集荷時間 / done=発送済
+    //   deliveries : { date, kind: 'send'|'receive', party, item, qty, carrier, dept, person, time, done, note, lift }
+    //     send    … party=宛先 / dept=分掌 / person=依頼者 / time=集荷時間 / done=集荷済
     //     receive … party=差出人 / dept=分掌 / person=受取者 / time=到着時間 / done=受取済
     //     carrier … ヤマト運輸 / 佐川急便 / 日本郵便 / その他（自由記述）
     // ==================================================
@@ -153,7 +155,7 @@
         if (!sendBody || !recvBody) return;
 
         const KIND_META = {
-            send:    { name: '発送物', party: '宛先',   person: '依頼者', time: '集荷時間', pending: '未発送', done: '発送済' },
+            send:    { name: '集荷依頼物', party: '宛先',   person: '依頼者', time: '集荷時間', pending: '未集荷', done: '集荷済' },
             receive: { name: '配達物', party: '差出人', person: '受取者', time: '到着時間', pending: '未着',   done: '受取済' }
         };
         const CARRIERS = ['ヤマト運輸', '佐川急便', '日本郵便'];
@@ -202,7 +204,7 @@
         function updateSectionTitles(dateStr) {
             const [, m, d] = dateStr.split('-');
             const label = dateStr === DLV_TODAY ? `本日（${parseInt(m)}/${parseInt(d)}）` : `${parseInt(m)}/${parseInt(d)}`;
-            document.getElementById('dlv-send-section-title').textContent = `${label}の発送物`;
+            document.getElementById('dlv-send-section-title').textContent = `${label}の集荷依頼物`;
             document.getElementById('dlv-recv-section-title').textContent = `${label}の配達物`;
         }
 
@@ -225,7 +227,7 @@
             } catch(e) {
                 console.error('dlvLoadDay error:', e);
                 if (seq !== dlvLoadSeq) return;
-                const errHtml = `<tr><td colspan="10" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
+                const errHtml = `<tr><td colspan="11" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
                 sendBody.innerHTML = errHtml; recvBody.innerHTML = errHtml;
                 return;
             }
@@ -245,7 +247,7 @@
             const meta = KIND_META[kind];
             const rows = sortByTime(deliveries.filter(d => d.kind === kind));
             if (rows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された${meta.name}はありません</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された${meta.name}はありません</td></tr>`;
                 return;
             }
             tbody.innerHTML = rows.map(d => `
@@ -259,6 +261,7 @@
                     <td>${dash(d.dept)}</td>
                     <td>${dash(d.person)}</td>
                     <td class="dlv-note">${escHtml(d.note)}</td>
+                    <td style="text-align: center;">${d.lift ? '<span class="dlv-lift">✓ 使用</span>' : '<span style="color:#ccc;">-</span>'}</td>
                     <td style="white-space: nowrap;"><button type="button" class="dlv-action-btn dlv-edit-btn" data-act="edit" data-id="${d.id}">編集</button><button type="button" class="dlv-action-btn dlv-delete-btn" data-act="delete" data-id="${d.id}">削除</button></td>
                 </tr>`).join('');
         }
@@ -343,6 +346,7 @@
             setCarrier(d ? d.carrier : '');
             document.getElementById('dlv-done').value = (d && d.done) ? '1' : '0';
             document.getElementById('dlv-note').value = d ? (d.note || '') : '';
+            document.getElementById('dlv-lift').checked = !!(d && d.lift);
             modal.classList.remove('hidden');
         }
 
@@ -358,7 +362,7 @@
             if (!date || (!party && !item)) {
                 alert(`対象日と、${KIND_META[editingKind].party}または内容のいずれかを入力してください`); return;
             }
-            const data = { date, kind: editingKind, done: document.getElementById('dlv-done').value === '1', note: document.getElementById('dlv-note').value.trim() };
+            const data = { date, kind: editingKind, done: document.getElementById('dlv-done').value === '1', lift: document.getElementById('dlv-lift').checked, note: document.getElementById('dlv-note').value.trim() };
             FIELDS.forEach(f => { data[f] = document.getElementById(`dlv-${f}`).value.trim() || '-'; });
             data.carrier = getCarrier();
             try {

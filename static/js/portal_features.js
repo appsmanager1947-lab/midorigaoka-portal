@@ -2942,11 +2942,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dlvT)  dlvT.textContent  = `${label}の配送物予定`;
             }
 
-            // 配送物予定（deliveries.html で登録）を読み取り専用で表示。発送→配達、各々時刻順
+            // 配送物予定（deliveries.html で登録）を読み取り専用で表示。集荷依頼→配達、各々時刻順
             function renderNoticesDeliveries(dlvs) {
                 if (!noticesDlvBody) return;
                 if (dlvs.length === 0) {
-                    noticesDlvBody.innerHTML = `<tr><td colspan="10"style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された配送物予定はありません</td></tr>`;
+                    noticesDlvBody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された配送物予定はありません</td></tr>`;
                     return;
                 }
                 const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -2959,12 +2959,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 sorted.forEach(d => {
                     const isSend = d.kind === 'send';
                     const kindHtml = isSend
-                        ? `<span style="background:#FDEBD0;color:#B9770E;border:1px solid #F5CBA7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">発送</span>`
+                        ? `<span style="background:#FDEBD0;color:#B9770E;border:1px solid #F5CBA7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">集荷依頼</span>`
                         : `<span style="background:#E8F4F3;color:#0AA294;border:1px solid #D1EAE7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">配達</span>`;
-                    const statusText = d.done ? (isSend ? '発送済' : '受取済') : (isSend ? '未発送' : '未着');
+                    const statusText = d.done ? (isSend ? '集荷済' : '受取済') : (isSend ? '未集荷' : '未着');
                     const statusHtml = `<span style="font-size:12px;${d.done ? 'color:#0AA294;' : 'color:#B5651D;font-weight:600;'}">${statusText}</span>`;
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${kindHtml}</td><td>${statusHtml}</td><td>${esc(d.time)}</td><td style="font-weight:bold;">${esc(d.party)}</td><td>${esc(d.item)}</td><td>${esc(d.qty)}</td><td>${esc(d.carrier)}</td><td>${esc(d.dept || '-')}</td><td>${esc(d.person)}</td><td style="white-space:pre-wrap;font-size:12px;line-height:1.4;color:#666;">${esc(d.note)}</td>`;
+                    tr.innerHTML = `<td>${kindHtml}</td><td>${statusHtml}</td><td>${esc(d.time)}</td><td style="font-weight:bold;">${esc(d.party)}</td><td>${esc(d.item)}</td><td>${esc(d.qty)}</td><td>${esc(d.carrier)}</td><td>${esc(d.dept || '-')}</td><td>${esc(d.person)}</td><td style="white-space:pre-wrap;font-size:12px;line-height:1.4;color:#666;">${esc(d.note)}</td><td style="text-align:center;">${d.lift ? '<span style="background:#EBF5FB;color:#2471A3;border:1px solid #AED6F1;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;">✓ 使用</span>' : '<span style="color:#ccc;">-</span>'}</td>`;
                     noticesDlvBody.appendChild(tr);
                 });
             }

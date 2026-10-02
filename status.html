@@ -9,6 +9,228 @@
     <meta name="apple-mobile-web-app-title" content="緑高ポータル">
     <title>勤務・出張・来客状況 | 教職員用ポータルサイト</title>
     <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        /* ==========================================
+           勤務・出張タイムライン
+           ========================================== */
+        .tl-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tl-header-actions .btn-cancel { cursor: pointer; white-space: nowrap; padding: 6px 12px; font-size: 13px; }
+
+        .tl-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .tl-table {
+            border-collapse: collapse;
+            width: max-content;
+            min-width: 100%;
+            font-size: 13px;
+        }
+        .tl-table th, .tl-table td { border: 1px solid var(--border-color); padding: 0; }
+
+        .tl-th-name, .tl-name-cell {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            width: 150px;
+            min-width: 150px;
+            background: var(--bg-sidebar);
+            box-sizing: border-box;
+        }
+        .tl-th-name { padding: 8px 10px; font-weight: 700; text-align: left; }
+        .tl-name-cell {
+            padding: 4px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #F7FDFB;
+            min-height: 36px;
+        }
+        .tl-name-cell .tl-name-text { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        tr:hover .tl-name-cell { background: #D6EFEA; }
+
+        .tl-badge-extra, .tl-badge-unlisted {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .tl-badge-extra { background: #E8F4F3; color: var(--accent-color); border: 1px solid var(--border-color); }
+        .tl-badge-unlisted { background: #FFF3E0; color: #B5651D; border: 1px solid #F0D9B5; }
+
+        .tl-row-remove {
+            background: transparent;
+            border: none;
+            color: #d9534f;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 2px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .tl-row-remove:hover { color: #a83b32; }
+
+        .tl-th-track { padding: 6px 0; }
+        .tl-hours { display: flex; width: 960px; position: relative; }
+        .tl-hour-cell {
+            width: 80px;
+            flex: 0 0 80px;
+            padding-left: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            border-left: 1px solid var(--border-color);
+            box-sizing: border-box;
+        }
+        .tl-hour-cell:first-child { border-left: none; }
+        .tl-hour-end-label {
+            position: absolute;
+            right: 0;
+            top: 0;
+            transform: translateX(50%);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .tl-track-cell { padding: 0; vertical-align: middle; }
+        .tl-track {
+            position: relative;
+            width: 960px;
+            height: 36px;
+            cursor: pointer;
+            background-image: repeating-linear-gradient(to right, var(--border-color) 0, var(--border-color) 1px, transparent 1px, transparent 80px);
+        }
+        .tl-tick-half {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            border-left: 1px dashed #cfcfcf;
+            pointer-events: none;
+        }
+
+        .tl-th-note, .tl-note-cell {
+            width: 220px;
+            min-width: 220px;
+            box-sizing: border-box;
+        }
+        .tl-th-note { padding: 8px 10px; font-weight: 700; text-align: left; }
+        .tl-note-cell {
+            padding: 6px 10px;
+            font-size: 12px;
+            color: #666;
+            white-space: pre-wrap;
+            line-height: 1.4;
+            vertical-align: middle;
+        }
+
+        .tl-bar {
+            position: absolute;
+            height: 15px;
+            border-radius: 3px;
+            font-size: 9px;
+            line-height: 1.3;
+            color: #fff;
+            padding: 1px 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+            box-sizing: border-box;
+        }
+        .tl-bar-att { top: 2px; background: var(--accent-color); }
+        .tl-bar-att.tl-bar-full { background: #BFE6E1; color: #075048; }
+        .tl-bar-trip { top: 19px; background: var(--accent-warm); }
+        .tl-bar-trip.tl-bar-full { background: #F5D9C9; color: #8a3d1f; }
+        .tl-bar-trip.tl-bar-point { min-width: auto; }
+        .tl-bar:hover { filter: brightness(0.92); }
+
+        .tl-now-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #d9534f;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .tl-empty-msg { text-align: center; color: #aaa; padding: 28px; font-size: 14px; }
+
+        /* 追加/勤怠・出張の選択ポップオーバー */
+        .tl-popover {
+            position: fixed;
+            z-index: 2000;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .tl-popover.hidden { display: none; }
+        .tl-popover button {
+            background: transparent;
+            border: none;
+            text-align: left;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-main);
+            white-space: nowrap;
+            font-family: inherit;
+        }
+        .tl-popover button:hover { background: var(--hover-bg); }
+
+        /* 教員設定モーダル */
+        #teacher-settings-modal .modal-content { max-width: 420px; width: 100%; }
+        #extra-teacher-modal .modal-content { max-width: 360px; width: 100%; }
+        .ts-list { max-height: 340px; overflow-y: auto; margin-bottom: 12px; }
+        .ts-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            background: #fff;
+        }
+        .ts-handle { color: #bbb; font-size: 16px; cursor: grab; user-select: none; }
+        .ts-name { flex: 1; font-size: 14px; }
+        .ts-del {
+            background: transparent;
+            border: none;
+            color: #d9534f;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 2px;
+        }
+        .ts-del:hover { color: #a83b32; }
+        .ts-add-row { display: flex; gap: 8px; }
+        .ts-add-row input { flex: 1; }
+
+        .modal-actions.modal-actions-split { justify-content: space-between; }
+        .btn-delete-modal {
+            background: transparent;
+            color: #d9534f;
+            border: 1px solid #f0c6c2;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-delete-modal:hover { background: #fce4e4; }
+    </style>
 </head>
 <body>
     <div class="layout-wrapper">
@@ -32,11 +254,38 @@
             </div>
 
             <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header"><h2 class="section-title" id="att-section-title">本日の出勤状況</h2><button id="add-att-btn" class="add-button">＋ 追加</button></div>
-                <div style="overflow-x: auto;"><table class="active-table">
-                    <thead><tr><th>名前</th><th>種類</th><th>出勤予定</th><th>退勤予定</th><th>備考</th><th>操作</th></tr></thead>
-                    <tbody id="attendance-body"></tbody>
-                </table></div>
+                <div class="column-header">
+                    <h2 class="section-title" id="tl-section-title">本日の勤務・出張タイムライン</h2>
+                    <div class="tl-header-actions">
+                        <button id="tl-add-att-btn" class="btn-cancel">＋ 勤怠</button>
+                        <button id="tl-add-trip-btn" class="btn-cancel">＋ 出張</button>
+                        <button id="tl-add-extra-btn" class="btn-cancel">＋ 教員を追加（この日のみ）</button>
+                        <button id="tl-settings-btn" class="btn-cancel">⚙ 教員設定</button>
+                    </div>
+                </div>
+                <div class="tl-wrap" id="tl-wrap">
+                    <table class="tl-table" id="tl-table">
+                        <thead>
+                            <tr>
+                                <th class="tl-th-name">教員名</th>
+                                <th class="tl-th-track">
+                                    <div class="tl-hours">
+                                        <div class="tl-hour-cell">7</div><div class="tl-hour-cell">8</div><div class="tl-hour-cell">9</div>
+                                        <div class="tl-hour-cell">10</div><div class="tl-hour-cell">11</div><div class="tl-hour-cell">12</div>
+                                        <div class="tl-hour-cell">13</div><div class="tl-hour-cell">14</div><div class="tl-hour-cell">15</div>
+                                        <div class="tl-hour-cell">16</div><div class="tl-hour-cell">17</div><div class="tl-hour-cell">18</div>
+                                        <span class="tl-hour-end-label">19</span>
+                                    </div>
+                                </th>
+                                <th class="tl-th-note">備考</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tl-tbody">
+                            <tr><td colspan="3" class="tl-empty-msg">読み込み中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted);">行の空いている場所をクリックすると、その教員・その時刻で勤怠または出張を追加できます。既存のバーをクリックすると編集できます。</div>
             </section>
 
             <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
@@ -46,20 +295,13 @@
                     <tbody id="visitor-body"></tbody>
                 </table></div>
             </section>
-
-            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
-                <div class="column-header"><h2 class="section-title" id="trip-section-title">本日の出張状況</h2><button id="add-trip-btn" class="add-button">＋ 追加</button></div>
-                <div style="overflow-x: auto;"><table class="active-table">
-                    <thead><tr><th>名前</th><th>区分</th><th>内容</th><th>場所</th><th>出発時間</th><th>備考</th><th>操作</th></tr></thead>
-                    <tbody id="trip-body"></tbody>
-                </table></div>
-            </section>
         </main>
     </div>
 
+    <!-- 勤怠 追加/編集モーダル -->
     <div id="att-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 class="modal-title" id="att-modal-title">出勤状況を追加</h3>
+            <h3 class="modal-title" id="att-modal-title">勤怠を追加</h3>
             <div class="form-group"><label>対象日</label><input type="date" id="att-date" class="modal-input"></div>
             <div class="form-group"><label>名前</label><input type="text" id="att-name" class="modal-input" placeholder="例：山田太郎"></div>
             <div class="form-group"><label>種類</label>
@@ -74,10 +316,14 @@
                 <div class="form-group" style="flex: 1;"><label>退勤予定時間</label><input type="time" id="att-end" class="modal-input"></div>
             </div>
             <div class="form-group"><label>備考</label><textarea id="att-note" class="modal-input" rows="3" style="resize: vertical;" placeholder="改行して入力できます"></textarea></div>
-            <div class="modal-actions"><button id="att-cancel" class="btn-cancel">キャンセル</button><button id="att-submit" class="btn-submit">追加</button></div>
+            <div class="modal-actions modal-actions-split">
+                <button id="att-delete" class="btn-delete-modal" style="display:none;">削除</button>
+                <div style="display:flex; gap:8px;"><button id="att-cancel" class="btn-cancel">キャンセル</button><button id="att-submit" class="btn-submit">追加</button></div>
+            </div>
         </div>
     </div>
 
+    <!-- 来客 追加/編集モーダル -->
     <div id="vis-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="modal-title" id="vis-modal-title">来客状況を追加</h3>
@@ -102,9 +348,10 @@
         </div>
     </div>
 
+    <!-- 出張 追加/編集モーダル -->
     <div id="trip-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 class="modal-title" id="trip-modal-title">出張状況を追加</h3>
+            <h3 class="modal-title" id="trip-modal-title">出張を追加</h3>
             <div class="form-group"><label>対象日</label><input type="date" id="trip-date" class="modal-input"></div>
             <div class="form-group"><label>名前</label><input type="text" id="trip-name" class="modal-input"></div>
             <div class="form-group"><label>区分</label>
@@ -119,7 +366,34 @@
             <div class="form-group"><label>場所</label><input type="text" id="trip-loc" class="modal-input"></div>
             <div class="form-group"><label>出発時間</label><input type="time" id="trip-time" class="modal-input"></div>
             <div class="form-group"><label>備考</label><textarea id="trip-note" class="modal-input" rows="3" style="resize: vertical;"></textarea></div>
-            <div class="modal-actions"><button id="trip-cancel" class="btn-cancel">キャンセル</button><button id="trip-submit" class="btn-submit">追加</button></div>
+            <div class="modal-actions modal-actions-split">
+                <button id="trip-delete" class="btn-delete-modal" style="display:none;">削除</button>
+                <div style="display:flex; gap:8px;"><button id="trip-cancel" class="btn-cancel">キャンセル</button><button id="trip-submit" class="btn-submit">追加</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 教員設定モーダル（固定教員リストの管理） -->
+    <div id="teacher-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">教員設定（固定リスト）</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">タイムラインに常に表示する教員の一覧です。ドラッグで並び替え、×で削除できます。変更は即時保存されます。</p>
+            <div class="ts-list" id="ts-list"></div>
+            <div class="ts-add-row">
+                <input type="text" id="ts-new-name" class="modal-input" placeholder="教員名を入力">
+                <button id="ts-add-btn" class="btn-submit" style="width:auto; white-space:nowrap;">追加</button>
+            </div>
+            <div class="modal-actions"><button id="ts-close" class="btn-cancel">閉じる</button></div>
+        </div>
+    </div>
+
+    <!-- 教員を追加（この日のみ）モーダル -->
+    <div id="extra-teacher-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title">教員を追加（この日のみ）</h3>
+            <div class="form-group"><label>教員名</label><input type="text" id="extra-teacher-name" class="modal-input" placeholder="例：山田太郎"></div>
+            <p style="font-size:12px; color:var(--text-muted);">この日のタイムラインにのみ表示されます。常に表示したい場合は「⚙ 教員設定」から固定リストに追加してください。</p>
+            <div class="modal-actions"><button id="extra-teacher-cancel" class="btn-cancel">キャンセル</button><button id="extra-teacher-submit" class="btn-submit">追加</button></div>
         </div>
     </div>
 
@@ -132,5 +406,661 @@
     <script src="./static/js/ui_common.js"></script>
     <script src="./static/js/portal_features.js"></script>
     <script src="./static/js/portal_editor.js"></script>
+
+    <script>
+    // ==================================================
+    // 教員別 勤務・出張タイムライン（status.html 専用）
+    // Firestore collections:
+    //   attendances         : { date, name, type, start, end, note }  (既存)
+    //   trips               : { date, name, kubun, purpose, loc, time, note }  (既存)
+    //   settings/fixed_teachers : { names: string[] }  固定教員リスト（並び順）
+    //   daily_extra_teachers    : { date, name, order, createdAt }  その日だけ追加する教員
+    // ==================================================
+    (function() {
+        const tlTbody = document.getElementById('tl-tbody');
+        if (!tlTbody) return;
+
+        const DEFAULT_FIXED_TEACHERS = [
+            '平田　幸夫', '森　郁乃', '田口　尚紀', '山口　昭代', '荒古　さとみ',
+            '坂川　信介', '黒沼　真里', '植田　空大', '米澤　泰佑', '川畑　美恵子',
+            '水野　あおい', '竹之下　通子', '小林　裕彰', '岡田　恵莉', '榊原　崇民',
+            '井関　祐太', '吉永　幸子', '高橋　綾', '堺　千宙', '高野　里香',
+            '中沢　明日香', '安藤　勝己', '勝　綾子', '大澤　むつき', 'James Elmegreen',
+            '本田　耕平', '石井　匡', '比嘉　俊也', '板垣　有紀'
+        ];
+
+        const DAY_START = 7 * 60;   // 420
+        const DAY_END   = 19 * 60;  // 1140
+        const DAY_SPAN  = DAY_END - DAY_START; // 720
+        const TRACK_PX  = 960;      // 80px × 12時間
+        const PX_PER_MIN = TRACK_PX / DAY_SPAN;
+        const MIN_BAR_PX = 24;
+
+        let fixedTeachers = [];   // string[]
+        let extraTeachers = [];  // [{id, name, order}]
+        let attendances = [];
+        let trips = [];
+        let currentViewDate = new Date();
+        let editingAttId = null, editingTripId = null;
+        let tlLoadSeq = 0;
+
+        function escHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // ja-JP ロケールは元号年を返す場合があるため UTC+9 オフセットで直接計算
+        function tlDateStr(dateObj) {
+            const jst = new Date(dateObj.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().slice(0, 10);
+        }
+        const TL_TODAY = tlDateStr(new Date());
+
+        function timeToMin(t) {
+            if (!t || t === '-') return null;
+            const parts = t.split(':');
+            if (parts.length < 2) return null;
+            const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+            if (isNaN(h) || isNaN(m)) return null;
+            return h * 60 + m;
+        }
+        function clampMin(m) { return Math.min(DAY_END, Math.max(DAY_START, m)); }
+        function minToPx(m) { return (clampMin(m) - DAY_START) * PX_PER_MIN; }
+        function minutesToTimeStr(m) {
+            const h = Math.floor(m / 60), mm = m % 60;
+            return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+        }
+
+        // ── 日付別キャッシュ（notices.html 等と同じ localStorage キーを共有）──
+        function tlGetCacheForDate(cacheKey, dateStr) {
+            try {
+                const c = getSC(cacheKey);
+                if (!c || !c[dateStr + '_ok']) return null;
+                return c[dateStr] || [];
+            } catch(e) { return null; }
+        }
+        function tlSetCacheForDate(cacheKey, dateStr, data) {
+            try {
+                const c = getSC(cacheKey) || {};
+                c[dateStr] = data;
+                c[dateStr + '_ok'] = true;
+                const parts = Object.keys(c).filter(k => !k.endsWith('_ok')).sort().reverse();
+                if (parts.length > 14) parts.slice(14).forEach(d => { delete c[d]; delete c[d + '_ok']; });
+                setSC(cacheKey, c);
+            } catch(e) {}
+        }
+        function clearTlCaches() { clearSC('sc_att_cache'); clearSC('sc_trip_cache'); }
+
+        // ==================================================
+        // 固定教員リストの初期化
+        // ==================================================
+        async function ensureFixedTeachersSeeded() {
+            const ref = db.collection('settings').doc('fixed_teachers');
+            const doc = await ref.get();
+            if (!doc.exists) {
+                await ref.set({ names: DEFAULT_FIXED_TEACHERS });
+                return DEFAULT_FIXED_TEACHERS.slice();
+            }
+            return (doc.data().names || []).slice();
+        }
+
+        async function persistFixedTeachers() {
+            await db.collection('settings').doc('fixed_teachers').set({ names: fixedTeachers });
+            await updateCacheVersion();
+        }
+
+        // ==================================================
+        // データ読み込み
+        // ==================================================
+        function updateDateLabel(dateStr) {
+            const [, m, d] = dateStr.split('-');
+            const isToday = dateStr === TL_TODAY;
+            const label = isToday ? `本日（${parseInt(m)}/${parseInt(d)}）` : `${parseInt(m)}/${parseInt(d)}`;
+            const el = document.getElementById('tl-section-title');
+            if (el) el.textContent = `${label}の勤務・出張タイムライン`;
+        }
+
+        async function tlLoadDay(dateStr) {
+            const seq = ++tlLoadSeq;
+            const dateInput = document.getElementById('status-view-date');
+            if (dateInput) dateInput.value = dateStr;
+            updateDateLabel(dateStr);
+
+            await ensureCacheVersionChecked();
+            if (seq !== tlLoadSeq) return;
+
+            const cachedAtt  = tlGetCacheForDate('sc_att_cache', dateStr);
+            const cachedTrip = tlGetCacheForDate('sc_trip_cache', dateStr);
+
+            try {
+                const tasks = [];
+                if (cachedAtt !== null) { attendances = cachedAtt; }
+                else tasks.push(db.collection('attendances').where('date', '==', dateStr).get().then(snap => {
+                    const arr = []; snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+                    attendances = arr; tlSetCacheForDate('sc_att_cache', dateStr, arr);
+                }));
+
+                if (cachedTrip !== null) { trips = cachedTrip; }
+                else tasks.push(db.collection('trips').where('date', '==', dateStr).get().then(snap => {
+                    const arr = []; snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+                    trips = arr; tlSetCacheForDate('sc_trip_cache', dateStr, arr);
+                }));
+
+                tasks.push(db.collection('daily_extra_teachers').where('date', '==', dateStr).get().then(snap => {
+                    const arr = []; snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+                    arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                    extraTeachers = arr;
+                }));
+
+                await Promise.all(tasks);
+            } catch(e) {
+                console.error('tlLoadDay error:', e);
+                if (seq !== tlLoadSeq) return;
+                tlTbody.innerHTML = `<tr><td colspan="3" class="tl-empty-msg" style="color:#c0392b;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
+                return;
+            }
+            if (seq !== tlLoadSeq) return;
+            tlRender(dateStr);
+        }
+
+        // ==================================================
+        // 行の構築（固定 → この日だけ追加 → 未登録だが記録がある教員）
+        // ==================================================
+        function tlBuildRows() {
+            const rows = [];
+            const seen = new Set();
+            fixedTeachers.forEach(name => { rows.push({ name, source: 'fixed' }); seen.add(name); });
+            extraTeachers.forEach(e => {
+                if (!seen.has(e.name)) { rows.push({ name: e.name, source: 'extra', extraId: e.id }); seen.add(e.name); }
+            });
+            const implicitNames = [];
+            attendances.forEach(a => { if (a.name && !seen.has(a.name)) { seen.add(a.name); implicitNames.push(a.name); } });
+            trips.forEach(t => { if (t.name && !seen.has(t.name)) { seen.add(t.name); implicitNames.push(t.name); } });
+            implicitNames.forEach(name => rows.push({ name, source: 'implicit' }));
+            return rows;
+        }
+
+        // ==================================================
+        // バーのレイアウト計算
+        // ==================================================
+        function attBarLayout(a) {
+            let s = timeToMin(a.start), e = timeToMin(a.end);
+            if (s === null && e === null) return { left: 0, width: TRACK_PX, isFull: true };
+            if (s === null) s = DAY_START;
+            if (e === null) e = DAY_END;
+            if (e <= s) e = s;
+            const left = minToPx(s);
+            const width = Math.max(minToPx(e) - left, MIN_BAR_PX);
+            return { left, width, isFull: false };
+        }
+        function attLabel(a) {
+            const s = (a.start && a.start !== '-') ? a.start : '';
+            const e = (a.end && a.end !== '-') ? a.end : '';
+            let timePart = '';
+            if (s && e) timePart = ` ${s}〜${e}`;
+            else if (s) timePart = ` ${s}〜`;
+            else if (e) timePart = ` 〜${e}`;
+            return `${a.type || ''}${timePart}`;
+        }
+
+        function tripLayout(t) {
+            const time = timeToMin(t.time);
+            const kubun = t.kubun || '';
+            if (time === null) return { left: 0, width: TRACK_PX, isFull: true, pointOnly: false };
+            if (kubun === '直行') return { left: 0, width: Math.max(minToPx(time), MIN_BAR_PX), isFull: false, pointOnly: false };
+            if (kubun === '直帰') { const left = minToPx(time); return { left, width: Math.max(TRACK_PX - left, MIN_BAR_PX), isFull: false, pointOnly: false }; }
+            if (kubun === '直行直帰') return { left: 0, width: TRACK_PX, isFull: true, pointOnly: false };
+            return { left: minToPx(time), width: null, isFull: false, pointOnly: true };
+        }
+        function tripLabel(t) {
+            const kubunPart = t.kubun ? `(${t.kubun})` : '';
+            const timePart = (t.time && t.time !== '-') ? ` ${t.time}` : '';
+            return `出張${kubunPart}${timePart}`;
+        }
+
+        // ==================================================
+        // 描画
+        // ==================================================
+        function tlRender(dateStr) {
+            const rows = tlBuildRows();
+            tlTbody.innerHTML = '';
+
+            if (rows.length === 0) {
+                tlTbody.innerHTML = `<tr><td colspan="3" class="tl-empty-msg">教員が登録されていません。「⚙ 教員設定」から固定教員を登録してください。</td></tr>`;
+                return;
+            }
+
+            const isToday = dateStr === TL_TODAY;
+            let nowMinutes = null;
+            if (isToday) {
+                const now = new Date();
+                const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+                nowMinutes = jstNow.getUTCHours() * 60 + jstNow.getUTCMinutes();
+            }
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+
+                const nameTd = document.createElement('td');
+                nameTd.className = 'tl-name-cell';
+                let badge = '';
+                if (row.source === 'extra') badge = '<span class="tl-badge-extra">追加</span>';
+                else if (row.source === 'implicit') badge = '<span class="tl-badge-unlisted">未登録</span>';
+                const removeBtn = row.source === 'extra'
+                    ? `<button type="button" class="tl-row-remove" data-extra-id="${row.extraId}" title="この行を今日だけ外す">×</button>`
+                    : '';
+                nameTd.innerHTML = `<span class="tl-name-text" title="${escHtml(row.name)}">${escHtml(row.name)}</span>${badge}${removeBtn}`;
+
+                const trackTd = document.createElement('td');
+                trackTd.className = 'tl-track-cell';
+                const track = document.createElement('div');
+                track.className = 'tl-track';
+                track.appendChild(buildHalfHourTicks());
+
+                if (nowMinutes !== null && nowMinutes >= DAY_START && nowMinutes <= DAY_END) {
+                    const nowLine = document.createElement('div');
+                    nowLine.className = 'tl-now-line';
+                    nowLine.style.left = minToPx(nowMinutes) + 'px';
+                    track.appendChild(nowLine);
+                }
+
+                const rowAttendances = attendances.filter(a => a.name === row.name);
+
+                rowAttendances.forEach(a => {
+                    const { left, width, isFull } = attBarLayout(a);
+                    const div = document.createElement('div');
+                    div.className = 'tl-bar tl-bar-att' + (isFull ? ' tl-bar-full' : '');
+                    div.style.left = left + 'px';
+                    div.style.width = width + 'px';
+                    div.textContent = attLabel(a);
+                    div.title = `${attLabel(a)}${a.note ? '\n' + a.note : ''}`;
+                    div.addEventListener('click', (e) => { e.stopPropagation(); openEditAttModal(a.id); });
+                    track.appendChild(div);
+                });
+
+                trips.filter(t => t.name === row.name).forEach(t => {
+                    const { left, width, isFull, pointOnly } = tripLayout(t);
+                    const div = document.createElement('div');
+                    div.className = 'tl-bar tl-bar-trip' + (isFull ? ' tl-bar-full' : '') + (pointOnly ? ' tl-bar-point' : '');
+                    div.style.left = left + 'px';
+                    if (width !== null) div.style.width = width + 'px';
+                    div.textContent = tripLabel(t);
+                    div.title = `${tripLabel(t)}${t.purpose ? '\n' + t.purpose : ''}${t.loc ? ' @' + t.loc : ''}${t.note ? '\n' + t.note : ''}`;
+                    div.addEventListener('click', (e) => { e.stopPropagation(); openEditTripModal(t.id); });
+                    track.appendChild(div);
+                });
+
+                track.addEventListener('click', (e) => {
+                    if (e.target !== track) return; // バー自身のクリックは個別ハンドラで処理済み
+                    e.stopPropagation();
+                    const rect = track.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    let minutes = DAY_START + x / PX_PER_MIN;
+                    minutes = Math.round(minutes / 15) * 15;
+                    minutes = Math.max(DAY_START, Math.min(DAY_END, minutes));
+                    showAddPopover(e.clientX, e.clientY, row.name, minutes);
+                });
+
+                trackTd.appendChild(track);
+
+                const noteTd = document.createElement('td');
+                noteTd.className = 'tl-note-cell';
+                const noteLines = [];
+                rowAttendances.forEach(a => { if (a.note && a.note.trim()) noteLines.push(a.note.trim()); });
+                trips.filter(t => t.name === row.name).forEach(t => { if (t.note && t.note.trim()) noteLines.push(t.note.trim()); });
+                if (noteLines.length) noteTd.textContent = noteLines.join('\n');
+                else noteTd.innerHTML = '<span style="color:#ccc;">-</span>';
+
+                tr.appendChild(nameTd);
+                tr.appendChild(trackTd);
+                tr.appendChild(noteTd);
+                tlTbody.appendChild(tr);
+            });
+        }
+
+        // 30分刻みの点線メモリ（各時間セルの中央、7:30〜18:30の12本）
+        function buildHalfHourTicks() {
+            const frag = document.createDocumentFragment();
+            for (let m = DAY_START + 30; m < DAY_END; m += 60) {
+                const tick = document.createElement('div');
+                tick.className = 'tl-tick-half';
+                tick.style.left = minToPx(m) + 'px';
+                frag.appendChild(tick);
+            }
+            return frag;
+        }
+
+        // ==================================================
+        // 追加ポップオーバー（勤怠 / 出張 選択）
+        // ==================================================
+        let tlPopoverEl = null;
+        let tlPopoverCtx = null;
+        function ensurePopover() {
+            if (tlPopoverEl) return tlPopoverEl;
+            tlPopoverEl = document.createElement('div');
+            tlPopoverEl.className = 'tl-popover hidden';
+            tlPopoverEl.innerHTML = `<button type="button" data-act="att">＋ 勤怠を追加</button><button type="button" data-act="trip">＋ 出張を追加</button>`;
+            document.body.appendChild(tlPopoverEl);
+            tlPopoverEl.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-act]');
+                if (!btn || !tlPopoverCtx) return;
+                const ctx = tlPopoverCtx;
+                hidePopover();
+                if (btn.dataset.act === 'att') openAddAttModal(ctx.name, ctx.minutes);
+                else openAddTripModal(ctx.name, ctx.minutes);
+            });
+            document.addEventListener('click', (e) => {
+                if (tlPopoverEl && !tlPopoverEl.classList.contains('hidden') && !tlPopoverEl.contains(e.target)) hidePopover();
+            });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hidePopover(); });
+            return tlPopoverEl;
+        }
+        function showAddPopover(x, y, name, minutes) {
+            const el = ensurePopover();
+            tlPopoverCtx = { name, minutes };
+            el.style.left = Math.min(x, window.innerWidth - 180) + 'px';
+            el.style.top = Math.min(y, window.innerHeight - 100) + 'px';
+            el.classList.remove('hidden');
+        }
+        function hidePopover() { if (tlPopoverEl) tlPopoverEl.classList.add('hidden'); tlPopoverCtx = null; }
+
+        // ==================================================
+        // 勤怠モーダル
+        // ==================================================
+        function resetAttModal() {
+            editingAttId = null;
+            document.getElementById('att-modal-title').textContent = '勤怠を追加';
+            document.getElementById('att-submit').textContent = '追加';
+            document.getElementById('att-delete').style.display = 'none';
+        }
+        function openAddAttModal(name, minutes) {
+            resetAttModal();
+            document.getElementById('att-date').value = tlDateStr(currentViewDate);
+            document.getElementById('att-name').value = name || '';
+            document.getElementById('att-type').selectedIndex = 0;
+            document.getElementById('att-other-text').value = '';
+            document.getElementById('att-other-wrap').style.display = 'none';
+            document.getElementById('att-start').value = (minutes != null) ? minutesToTimeStr(minutes) : '';
+            document.getElementById('att-end').value = '';
+            document.getElementById('att-note').value = '';
+            document.getElementById('att-modal').classList.remove('hidden');
+        }
+        window.openEditAttModal = function(id) {
+            const d = attendances.find(a => a.id === id);
+            if (!d) return;
+            editingAttId = id;
+            document.getElementById('att-date').value = d.date || '';
+            document.getElementById('att-name').value = d.name || '';
+            const sel = document.getElementById('att-type');
+            const known = Array.from(sel.options).map(o => o.value);
+            if (known.includes(d.type)) { sel.value = d.type; document.getElementById('att-other-wrap').style.display = 'none'; }
+            else { sel.value = 'その他'; document.getElementById('att-other-text').value = d.type || ''; document.getElementById('att-other-wrap').style.display = ''; }
+            document.getElementById('att-start').value = (d.start === '-') ? '' : (d.start || '');
+            document.getElementById('att-end').value = (d.end === '-') ? '' : (d.end || '');
+            document.getElementById('att-note').value = d.note || '';
+            document.getElementById('att-modal-title').textContent = '勤怠を編集';
+            document.getElementById('att-submit').textContent = '更新';
+            document.getElementById('att-delete').style.display = '';
+            document.getElementById('att-modal').classList.remove('hidden');
+        };
+
+        document.getElementById('att-cancel').addEventListener('click', () => document.getElementById('att-modal').classList.add('hidden'));
+        document.getElementById('att-modal').addEventListener('click', (e) => { if (e.target.id === 'att-modal') e.target.classList.add('hidden'); });
+        document.getElementById('att-type').addEventListener('change', function() {
+            document.getElementById('att-other-wrap').style.display = this.value === 'その他' ? '' : 'none';
+        });
+        document.getElementById('att-submit').addEventListener('click', async () => {
+            const name = document.getElementById('att-name').value.trim();
+            const date = document.getElementById('att-date').value;
+            if (!name || !date) { alert('対象日と名前は必ず入力してください'); return; }
+            const selType = document.getElementById('att-type').value;
+            const type = selType === 'その他' ? (document.getElementById('att-other-text').value.trim() || 'その他') : selType;
+            const data = {
+                date, name, type,
+                start: document.getElementById('att-start').value || '-',
+                end: document.getElementById('att-end').value || '-',
+                note: document.getElementById('att-note').value.trim()
+            };
+            try {
+                if (editingAttId) await db.collection('attendances').doc(editingAttId).update(data);
+                else await db.collection('attendances').add(data);
+                clearTlCaches(); await updateCacheVersion();
+                document.getElementById('att-modal').classList.add('hidden');
+                currentViewDate = new Date(date + 'T00:00:00');
+                await tlLoadDay(date);
+            } catch(e) { alert('保存に失敗しました。\n' + e.message); }
+        });
+        document.getElementById('att-delete').addEventListener('click', async () => {
+            if (!editingAttId) return;
+            if (!confirm('この勤怠情報を削除しますか？')) return;
+            try {
+                await db.collection('attendances').doc(editingAttId).delete();
+                clearTlCaches(); await updateCacheVersion();
+                document.getElementById('att-modal').classList.add('hidden');
+                await tlLoadDay(tlDateStr(currentViewDate));
+            } catch(e) { alert('削除に失敗しました。\n' + e.message); }
+        });
+
+        // ==================================================
+        // 出張モーダル
+        // ==================================================
+        function resetTripModal() {
+            editingTripId = null;
+            document.getElementById('trip-modal-title').textContent = '出張を追加';
+            document.getElementById('trip-submit').textContent = '追加';
+            document.getElementById('trip-delete').style.display = 'none';
+        }
+        function openAddTripModal(name, minutes) {
+            resetTripModal();
+            document.getElementById('trip-date').value = tlDateStr(currentViewDate);
+            document.getElementById('trip-name').value = name || '';
+            document.getElementById('trip-kubun').value = '';
+            document.getElementById('trip-purpose').value = '';
+            document.getElementById('trip-loc').value = '';
+            document.getElementById('trip-time').value = (minutes != null) ? minutesToTimeStr(minutes) : '';
+            document.getElementById('trip-note').value = '';
+            document.getElementById('trip-modal').classList.remove('hidden');
+        }
+        window.openEditTripModal = function(id) {
+            const d = trips.find(t => t.id === id);
+            if (!d) return;
+            editingTripId = id;
+            document.getElementById('trip-date').value = d.date || '';
+            document.getElementById('trip-name').value = d.name || '';
+            document.getElementById('trip-kubun').value = d.kubun || '';
+            document.getElementById('trip-purpose').value = (d.purpose === '-') ? '' : (d.purpose || '');
+            document.getElementById('trip-loc').value = (d.loc === '-') ? '' : (d.loc || '');
+            document.getElementById('trip-time').value = (d.time === '-') ? '' : (d.time || '');
+            document.getElementById('trip-note').value = d.note || '';
+            document.getElementById('trip-modal-title').textContent = '出張を編集';
+            document.getElementById('trip-submit').textContent = '更新';
+            document.getElementById('trip-delete').style.display = '';
+            document.getElementById('trip-modal').classList.remove('hidden');
+        };
+
+        document.getElementById('trip-cancel').addEventListener('click', () => document.getElementById('trip-modal').classList.add('hidden'));
+        document.getElementById('trip-modal').addEventListener('click', (e) => { if (e.target.id === 'trip-modal') e.target.classList.add('hidden'); });
+        document.getElementById('trip-submit').addEventListener('click', async () => {
+            const date = document.getElementById('trip-date').value;
+            const name = document.getElementById('trip-name').value.trim();
+            if (!date || !name) { alert('対象日と名前は必ず入力してください'); return; }
+            const data = {
+                date, name,
+                kubun: document.getElementById('trip-kubun').value || '',
+                purpose: document.getElementById('trip-purpose').value || '-',
+                loc: document.getElementById('trip-loc').value || '-',
+                time: document.getElementById('trip-time').value || '-',
+                note: document.getElementById('trip-note').value.trim()
+            };
+            try {
+                if (editingTripId) await db.collection('trips').doc(editingTripId).update(data);
+                else await db.collection('trips').add(data);
+                clearTlCaches(); await updateCacheVersion();
+                document.getElementById('trip-modal').classList.add('hidden');
+                currentViewDate = new Date(date + 'T00:00:00');
+                await tlLoadDay(date);
+            } catch(e) { alert('保存に失敗しました。\n' + e.message); }
+        });
+        document.getElementById('trip-delete').addEventListener('click', async () => {
+            if (!editingTripId) return;
+            if (!confirm('この出張情報を削除しますか？')) return;
+            try {
+                await db.collection('trips').doc(editingTripId).delete();
+                clearTlCaches(); await updateCacheVersion();
+                document.getElementById('trip-modal').classList.add('hidden');
+                await tlLoadDay(tlDateStr(currentViewDate));
+            } catch(e) { alert('削除に失敗しました。\n' + e.message); }
+        });
+
+        // ヘッダーの手動追加ボタン（行を介さず直接開く。名前は自由入力）
+        document.getElementById('tl-add-att-btn').addEventListener('click', () => openAddAttModal(null, null));
+        document.getElementById('tl-add-trip-btn').addEventListener('click', () => openAddTripModal(null, null));
+
+        // ==================================================
+        // 行の削除（この日だけ追加した教員）
+        // ==================================================
+        tlTbody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.tl-row-remove');
+            if (!btn) return;
+            e.stopPropagation();
+            if (!confirm('この教員をタイムラインから外しますか？\n（登録済みの勤怠・出張データは削除されません）')) return;
+            try {
+                await db.collection('daily_extra_teachers').doc(btn.dataset.extraId).delete();
+                await tlLoadDay(tlDateStr(currentViewDate));
+            } catch(err) { alert('削除に失敗しました。\n' + err.message); }
+        });
+
+        // ==================================================
+        // 「この日のみ」教員追加モーダル
+        // ==================================================
+        const extraModal = document.getElementById('extra-teacher-modal');
+        document.getElementById('tl-add-extra-btn').addEventListener('click', () => {
+            document.getElementById('extra-teacher-name').value = '';
+            extraModal.classList.remove('hidden');
+            setTimeout(() => document.getElementById('extra-teacher-name').focus(), 50);
+        });
+        document.getElementById('extra-teacher-cancel').addEventListener('click', () => extraModal.classList.add('hidden'));
+        extraModal.addEventListener('click', (e) => { if (e.target === extraModal) extraModal.classList.add('hidden'); });
+        document.getElementById('extra-teacher-submit').addEventListener('click', async () => {
+            const name = document.getElementById('extra-teacher-name').value.trim();
+            if (!name) { alert('教員名を入力してください'); return; }
+            if (fixedTeachers.includes(name) || extraTeachers.some(x => x.name === name)) { alert('すでに一覧に存在します'); return; }
+            try {
+                await db.collection('daily_extra_teachers').add({
+                    date: tlDateStr(currentViewDate), name, order: extraTeachers.length,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                extraModal.classList.add('hidden');
+                await tlLoadDay(tlDateStr(currentViewDate));
+            } catch(e) { alert('追加に失敗しました。\n' + e.message); }
+        });
+        document.getElementById('extra-teacher-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('extra-teacher-submit').click();
+        });
+
+        // ==================================================
+        // 教員設定モーダル（固定リストの追加・削除・並び替え）
+        // ==================================================
+        const settingsModal = document.getElementById('teacher-settings-modal');
+        const tsList = document.getElementById('ts-list');
+        let tsDragIdx = null;
+
+        function renderSettingsList() {
+            tsList.innerHTML = '';
+            fixedTeachers.forEach((name, idx) => {
+                const item = document.createElement('div');
+                item.className = 'ts-item';
+                item.draggable = true;
+                item.dataset.idx = idx;
+                item.innerHTML = `<span class="ts-handle">⠿</span><span class="ts-name">${escHtml(name)}</span><button type="button" class="ts-del" data-idx="${idx}">×</button>`;
+                tsList.appendChild(item);
+            });
+        }
+
+        document.getElementById('tl-settings-btn').addEventListener('click', () => {
+            renderSettingsList();
+            settingsModal.classList.remove('hidden');
+        });
+        document.getElementById('ts-close').addEventListener('click', () => settingsModal.classList.add('hidden'));
+        settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.add('hidden'); });
+
+        tsList.addEventListener('click', async (e) => {
+            const delBtn = e.target.closest('.ts-del');
+            if (!delBtn) return;
+            const idx = parseInt(delBtn.dataset.idx, 10);
+            if (!confirm(`「${fixedTeachers[idx]}」を固定リストから削除しますか？`)) return;
+            fixedTeachers.splice(idx, 1);
+            renderSettingsList();
+            try { await persistFixedTeachers(); } catch(e) { alert('保存に失敗しました。\n' + e.message); }
+            tlRender(tlDateStr(currentViewDate));
+        });
+
+        tsList.addEventListener('dragstart', (e) => {
+            const item = e.target.closest('.ts-item');
+            if (!item) return;
+            tsDragIdx = parseInt(item.dataset.idx, 10);
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        tsList.addEventListener('dragover', (e) => { e.preventDefault(); });
+        tsList.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            const item = e.target.closest('.ts-item');
+            if (!item || tsDragIdx === null) return;
+            const dropIdx = parseInt(item.dataset.idx, 10);
+            if (dropIdx === tsDragIdx) return;
+            const arr = fixedTeachers.slice();
+            const [moved] = arr.splice(tsDragIdx, 1);
+            arr.splice(dropIdx, 0, moved);
+            fixedTeachers = arr;
+            tsDragIdx = null;
+            renderSettingsList();
+            try { await persistFixedTeachers(); } catch(e) { alert('保存に失敗しました。\n' + e.message); }
+            tlRender(tlDateStr(currentViewDate));
+        });
+
+        document.getElementById('ts-add-btn').addEventListener('click', async () => {
+            const input = document.getElementById('ts-new-name');
+            const name = input.value.trim();
+            if (!name) { alert('教員名を入力してください'); return; }
+            if (fixedTeachers.includes(name)) { alert('すでに登録されています'); return; }
+            fixedTeachers.push(name);
+            input.value = '';
+            renderSettingsList();
+            try { await persistFixedTeachers(); } catch(e) { alert('保存に失敗しました。\n' + e.message); }
+            tlRender(tlDateStr(currentViewDate));
+        });
+        document.getElementById('ts-new-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('ts-add-btn').click();
+        });
+
+        // ==================================================
+        // 日付ナビゲーション
+        // ==================================================
+        const dateInput = document.getElementById('status-view-date');
+        const prevBtn   = document.getElementById('status-prev-btn');
+        const nextBtn   = document.getElementById('status-next-btn');
+        const todayBtn  = document.getElementById('status-today-btn');
+
+        if (prevBtn) prevBtn.addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() - 1); tlLoadDay(tlDateStr(currentViewDate)); });
+        if (nextBtn) nextBtn.addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() + 1); tlLoadDay(tlDateStr(currentViewDate)); });
+        if (todayBtn) todayBtn.addEventListener('click', () => { currentViewDate = new Date(); tlLoadDay(tlDateStr(currentViewDate)); });
+        if (dateInput) dateInput.addEventListener('change', (e) => {
+            if (e.target.value) { currentViewDate = new Date(e.target.value + 'T00:00:00'); tlLoadDay(tlDateStr(currentViewDate)); }
+        });
+
+        // ==================================================
+        // 初期化（firebase_init.js の DOMContentLoaded で db が生成された後に実行する）
+        // ==================================================
+        document.addEventListener('DOMContentLoaded', async function init() {
+            try {
+                fixedTeachers = await ensureFixedTeachersSeeded();
+            } catch(e) {
+                console.error('fixed_teachers load error:', e);
+                fixedTeachers = DEFAULT_FIXED_TEACHERS.slice();
+            }
+            await tlLoadDay(TL_TODAY);
+        });
+    })();
+    </script>
 </body>
 </html>

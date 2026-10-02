@@ -2266,15 +2266,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
     }
 
-    // ★修正: 勤務・出張・来客システム (日付切り替え＋遅延読み込み版)
+    // ★修正: 来客システム (日付切り替え＋遅延読み込み版)
+    // 出勤・出張はタイムライン化され、status.html 内の専用スクリプトに移設済み。
     // ==========================================
-    const attBody = document.getElementById('attendance-body');
     const visBody = document.getElementById('visitor-body');
-    const tripBody = document.getElementById('trip-body');
 
-    if (attBody || visBody || tripBody) {
-        let attendances = []; let visitors = []; let trips = [];
-        let editingAttId = null, editingVisId = null, editingTripId = null;
+    if (visBody) {
+        let visitors = [];
+        let editingVisId = null;
         let clearVisLoc = null, setVisLoc = null;
         let currentViewDate = new Date();
 
@@ -2295,63 +2294,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const [, m, d] = dateStr.split('-');
             const isToday = dateStr === todayStr;
             const label = isToday ? `本日（${parseInt(m)}/${parseInt(d)}）` : `${parseInt(m)}/${parseInt(d)}`;
-            const attTitle  = document.getElementById('att-section-title');
             const visTitle  = document.getElementById('vis-section-title');
-            const tripTitle = document.getElementById('trip-section-title');
-            if (attTitle)  attTitle.textContent  = `${label}の出勤状況`;
             if (visTitle)  visTitle.textContent  = `${label}の来客状況`;
-            if (tripTitle) tripTitle.textContent = `${label}の出張状況`;
         }
 
         function renderStatusTables() {
-            if (attBody) {
-                attBody.innerHTML = '';
-                if (attendances.length === 0) {
+            visBody.innerHTML = '';
+            if (visitors.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="9" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された来客情報はありません</td>`;
+                visBody.appendChild(tr);
+            } else {
+                visitors.forEach(d => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td colspan="6" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出勤情報はありません</td>`;
-                    attBody.appendChild(tr);
-                } else {
-                    attendances.forEach(d => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td style="font-weight: bold;">${d.name}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.type}</span></td><td>${d.start}</td><td>${d.end}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="att" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
-                        attBody.appendChild(tr);
-                    });
-                }
-            }
-
-            if (visBody) {
-                visBody.innerHTML = '';
-                if (visitors.length === 0) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `<td colspan="9" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された来客情報はありません</td>`;
+                    tr.innerHTML = `<td style="font-weight: bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
                     visBody.appendChild(tr);
-                } else {
-                    visitors.forEach(d => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td style="font-weight: bold;">${d.org}</td><td>${d.count}</td><td>${d.rep}</td><td>${d.purpose}</td><td>${d.host}</td><td><span style="background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${d.loc}</span></td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="vis" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
-                        visBody.appendChild(tr);
-                    });
-                }
-            }
-
-            if (tripBody) {
-                tripBody.innerHTML = '';
-                if (trips.length === 0) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `<td colspan="7" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された出張情報はありません</td>`;
-                    tripBody.appendChild(tr);
-                } else {
-                    trips.forEach(d => {
-                        const tr = document.createElement('tr');
-                        const kubunHtml = d.kubun ? `<span style="background:#E8F4F3; color:#0AA294; border:1px solid #D1EAE7; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600;">${d.kubun}</span>` : `<span style="color:#ccc;">-</span>`;
-                        tr.innerHTML = `<td style="font-weight: bold;">${d.name}</td><td>${kubunHtml}</td><td>${d.purpose}</td><td>${d.loc}</td><td>${d.time}</td><td style="white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666;">${d.note}</td><td><button class="edit-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #0066cc; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; margin-right: 4px;">編集</button><button class="delete-status-btn" data-id="${d.id}" data-type="trip" style="background: transparent; color: #d9534f; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px;">削除</button></td>`;
-                        tripBody.appendChild(tr);
-                    });
-                }
+                });
             }
         }
 
-        const clearStatusCaches = () => { ['sc_att_cache','sc_vis_cache','sc_trip_cache'].forEach(k => clearSC(k)); };
+        const clearStatusCaches = () => { clearSC('sc_vis_cache'); };
 
         // 直近の loadStatusData 呼び出しを追跡し、古いリクエストの結果を無視する
         let _loadSeq = 0;
@@ -2365,38 +2327,25 @@ document.addEventListener('DOMContentLoaded', () => {
             await ensureCacheVersionChecked();
             if (seq !== _loadSeq) return; // より新しいリクエストが出ていたら結果を捨てる
 
-            const cachedAtt  = getCacheForDate('sc_att_cache',  dateStr);
             const cachedVis  = getCacheForDate('sc_vis_cache',  dateStr);
-            const cachedTrip = getCacheForDate('sc_trip_cache', dateStr);
 
-            if (cachedAtt !== null && cachedVis !== null && cachedTrip !== null) {
-                attendances = cachedAtt; visitors = cachedVis; trips = cachedTrip;
+            if (cachedVis !== null) {
+                visitors = cachedVis;
                 renderStatusTables(); return;
             }
             let loadError = false;
             try {
-                const [attSnap, visSnap, tripSnap] = await Promise.all([
-                    db.collection('attendances').where('date', '==', dateStr).get(),
-                    db.collection('visitors').where('date', '==', dateStr).get(),
-                    db.collection('trips').where('date', '==', dateStr).get()
-                ]);
+                const visSnap = await db.collection('visitors').where('date', '==', dateStr).get();
                 if (seq !== _loadSeq) return;
-                attendances = []; attSnap.forEach(doc => attendances.push({ id: doc.id, ...doc.data() }));
                 visitors    = []; visSnap.forEach(doc => visitors.push({ id: doc.id, ...doc.data() }));
-                trips       = []; tripSnap.forEach(doc => trips.push({ id: doc.id, ...doc.data() }));
-                setCacheForDate('sc_att_cache',  dateStr, attendances);
-                setCacheForDate('sc_vis_cache',  dateStr, visitors);
-                setCacheForDate('sc_trip_cache', dateStr, trips);
+                setCacheForDate('sc_vis_cache', dateStr, visitors);
             } catch(e) {
                 console.error('loadStatusData error:', e);
                 loadError = true;
             }
             if (seq !== _loadSeq) return;
             if (loadError) {
-                const errHtml = `<tr><td colspan="9" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
-                if (attBody) attBody.innerHTML = errHtml;
-                if (visBody) visBody.innerHTML = errHtml;
-                if (tripBody) tripBody.innerHTML = errHtml;
+                visBody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
                 return;
             }
             renderStatusTables();
@@ -2426,21 +2375,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('delete-status-btn')) {
+            if (e.target.classList.contains('delete-status-btn') && e.target.getAttribute('data-type') === 'vis') {
                 if(confirm('この項目を完全に削除しますか？')) {
                     const id = e.target.getAttribute('data-id');
-                    const type = e.target.getAttribute('data-type');
-                    if (type === 'att') db.collection('attendances').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(getDateStr(currentViewDate)); });
-                    if (type === 'vis') db.collection('visitors').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(getDateStr(currentViewDate)); });
-                    if (type === 'trip') db.collection('trips').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(getDateStr(currentViewDate)); });
+                    db.collection('visitors').doc(id).delete().then(() => { clearStatusCaches(); updateCacheVersion(); loadStatusData(getDateStr(currentViewDate)); });
                 }
             }
-            if (e.target.classList.contains('edit-status-btn')) {
-                const id = e.target.getAttribute('data-id');
-                const type = e.target.getAttribute('data-type');
-                if (type === 'att') openEditAttModal(id);
-                if (type === 'vis') openEditVisModal(id);
-                if (type === 'trip') openEditTripModal(id);
+            if (e.target.classList.contains('edit-status-btn') && e.target.getAttribute('data-type') === 'vis') {
+                openEditVisModal(e.target.getAttribute('data-id'));
             }
         });
 
@@ -2509,85 +2451,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         })();
 
-        function resetAttModal() {
-            editingAttId = null;
-            const title = document.getElementById('att-modal-title');
-            const submit = document.getElementById('att-submit');
-            if (title) title.textContent = '出勤状況を追加';
-            if (submit) submit.textContent = '追加';
-        }
         function resetVisModal() {
             editingVisId = null;
             const title = document.getElementById('vis-modal-title');
             const submit = document.getElementById('vis-submit');
             if (title) title.textContent = '来客状況を追加';
             if (submit) submit.textContent = '追加';
-        }
-        function resetTripModal() {
-            editingTripId = null;
-            const title = document.getElementById('trip-modal-title');
-            const submit = document.getElementById('trip-submit');
-            if (title) title.textContent = '出張状況を追加';
-            if (submit) submit.textContent = '追加';
-        }
-
-        setupModal('add-att-btn', 'att-modal', 'att-cancel', 'att-submit', 'att-date',
-            () => {
-                resetAttModal();
-                ['name','start','end','note'].forEach(id => document.getElementById(`att-${id}`).value = '');
-                document.getElementById('att-type').selectedIndex = 0;
-                document.getElementById('att-other-text').value = '';
-                document.getElementById('att-other-wrap').style.display = 'none';
-            },
-            () => {
-                const name = document.getElementById('att-name').value.trim(); const date = document.getElementById('att-date').value;
-                if(!name || !date) { alert('対象日と名前は必ず入力してください'); return false; }
-                const selectedType = document.getElementById('att-type').value;
-                const type = selectedType === 'その他'
-                    ? (document.getElementById('att-other-text').value.trim() || 'その他')
-                    : selectedType;
-                const data = { date, name, type, start: document.getElementById('att-start').value || '-', end: document.getElementById('att-end').value || '-', note: document.getElementById('att-note').value.trim() };
-                const attPromise = editingAttId
-                    ? db.collection('attendances').doc(editingAttId).update(data)
-                    : db.collection('attendances').add(data);
-                attPromise.then(() => { clearStatusCaches(); updateCacheVersion(); currentViewDate = new Date(date + 'T00:00:00'); loadStatusData(date); });
-                resetAttModal();
-                return true;
-            }
-        );
-        const attCancelBtn = document.getElementById('att-cancel');
-        if (attCancelBtn) attCancelBtn.addEventListener('click', resetAttModal);
-        const attTypeEl = document.getElementById('att-type');
-        if (attTypeEl) attTypeEl.addEventListener('change', function() {
-            document.getElementById('att-other-wrap').style.display = this.value === 'その他' ? '' : 'none';
-        });
-
-        function openEditAttModal(id) {
-            const d = attendances.find(a => a.id === id);
-            if (!d) return;
-            const modal = document.getElementById('att-modal');
-            if (!modal) return;
-            editingAttId = id;
-            document.getElementById('att-date').value = d.date || '';
-            document.getElementById('att-name').value = d.name || '';
-            const attTypeEl2 = document.getElementById('att-type');
-            const knownTypes = Array.from(attTypeEl2.options).map(o => o.value);
-            if (knownTypes.includes(d.type)) {
-                attTypeEl2.value = d.type;
-                document.getElementById('att-other-wrap').style.display = 'none';
-            } else {
-                attTypeEl2.value = 'その他';
-                document.getElementById('att-other-text').value = d.type || '';
-                document.getElementById('att-other-wrap').style.display = '';
-            }
-            document.getElementById('att-start').value = (d.start === '-') ? '' : (d.start || '');
-            document.getElementById('att-end').value = (d.end === '-') ? '' : (d.end || '');
-            document.getElementById('att-note').value = d.note || '';
-            const title = document.getElementById('att-modal-title');
-            const submit = document.getElementById('att-submit');
-            if (title) title.textContent = '出勤状況を編集';
-            if (submit) submit.textContent = '更新';
-            modal.classList.remove('hidden');
         }
 
         setupModal('add-vis-btn', 'vis-modal', 'vis-cancel', 'vis-submit', 'vis-date',
@@ -2630,46 +2499,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = document.getElementById('vis-modal-title');
             const submit = document.getElementById('vis-submit');
             if (title) title.textContent = '来客状況を編集';
-            if (submit) submit.textContent = '更新';
-            modal.classList.remove('hidden');
-        }
-
-        setupModal('add-trip-btn', 'trip-modal', 'trip-cancel', 'trip-submit', 'trip-date',
-            () => {
-                resetTripModal();
-                ['name','kubun','purpose','loc','time','note'].forEach(id => document.getElementById(`trip-${id}`).value = '');
-            },
-            () => {
-                const date = document.getElementById('trip-date').value; const name = document.getElementById('trip-name').value.trim();
-                if(!date || !name) { alert('対象日と名前は必ず入力してください'); return false; }
-                const data = { date, name, kubun: document.getElementById('trip-kubun').value||'', purpose: document.getElementById('trip-purpose').value||'-', loc: document.getElementById('trip-loc').value||'-', time: document.getElementById('trip-time').value||'-', note: document.getElementById('trip-note').value.trim() };
-                const tripPromise = editingTripId
-                    ? db.collection('trips').doc(editingTripId).update(data)
-                    : db.collection('trips').add(data);
-                tripPromise.then(() => { clearStatusCaches(); updateCacheVersion(); currentViewDate = new Date(date + 'T00:00:00'); loadStatusData(date); });
-                resetTripModal();
-                return true;
-            }
-        );
-        const tripCancelBtn = document.getElementById('trip-cancel');
-        if (tripCancelBtn) tripCancelBtn.addEventListener('click', resetTripModal);
-
-        function openEditTripModal(id) {
-            const d = trips.find(t => t.id === id);
-            if (!d) return;
-            const modal = document.getElementById('trip-modal');
-            if (!modal) return;
-            editingTripId = id;
-            document.getElementById('trip-date').value = d.date || '';
-            document.getElementById('trip-name').value = d.name || '';
-            document.getElementById('trip-kubun').value = d.kubun || '';
-            document.getElementById('trip-purpose').value = (d.purpose === '-') ? '' : (d.purpose || '');
-            document.getElementById('trip-loc').value = (d.loc === '-') ? '' : (d.loc || '');
-            document.getElementById('trip-time').value = (d.time === '-') ? '' : (d.time || '');
-            document.getElementById('trip-note').value = d.note || '';
-            const title = document.getElementById('trip-modal-title');
-            const submit = document.getElementById('trip-submit');
-            if (title) title.textContent = '出張状況を編集';
             if (submit) submit.textContent = '更新';
             modal.classList.remove('hidden');
         }
@@ -3090,11 +2919,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const noticesAttBody  = document.getElementById('notices-att-body');
         const noticesVisBody  = document.getElementById('notices-vis-body');
         const noticesTripBody = document.getElementById('notices-trip-body');
+        const noticesDlvBody  = document.getElementById('notices-dlv-body');
 
         const showStatusOnThisPage = isAllMode || currentCategory === '全教職員';
         if (!showStatusOnThisPage && noticesStatusArea) noticesStatusArea.style.display = 'none';
 
-        if (showStatusOnThisPage && (noticesAttBody || noticesVisBody || noticesTripBody)) {
+        if (showStatusOnThisPage && (noticesAttBody || noticesVisBody || noticesTripBody || noticesDlvBody)) {
             let _noticesStatusSeq = 0;
 
             function updateNoticesStatusTitles(dateStr) {
@@ -3108,6 +2938,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (attT)  attT.textContent  = `${label}の出勤状況`;
                 if (visT)  visT.textContent  = `${label}の来客状況`;
                 if (tripT) tripT.textContent = `${label}の出張状況`;
+                const dlvT  = document.getElementById('notices-dlv-section-title');
+                if (dlvT)  dlvT.textContent  = `${label}の配送物予定`;
+            }
+
+            // 配送物予定（deliveries.html で登録）を読み取り専用で表示。発送→配達、各々時刻順
+            function renderNoticesDeliveries(dlvs) {
+                if (!noticesDlvBody) return;
+                if (dlvs.length === 0) {
+                    noticesDlvBody.innerHTML = `<tr><td colspan="10"style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された配送物予定はありません</td></tr>`;
+                    return;
+                }
+                const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const timeKey = (d) => (d.time && d.time !== '-') ? d.time : '99:99';
+                const sorted = dlvs.slice().sort((a, b) => {
+                    if (a.kind !== b.kind) return a.kind === 'send' ? -1 : 1;
+                    return timeKey(a).localeCompare(timeKey(b));
+                });
+                noticesDlvBody.innerHTML = '';
+                sorted.forEach(d => {
+                    const isSend = d.kind === 'send';
+                    const kindHtml = isSend
+                        ? `<span style="background:#FDEBD0;color:#B9770E;border:1px solid #F5CBA7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">発送</span>`
+                        : `<span style="background:#E8F4F3;color:#0AA294;border:1px solid #D1EAE7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">配達</span>`;
+                    const statusText = d.done ? (isSend ? '発送済' : '受取済') : (isSend ? '未発送' : '未着');
+                    const statusHtml = `<span style="font-size:12px;${d.done ? 'color:#0AA294;' : 'color:#B5651D;font-weight:600;'}">${statusText}</span>`;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${kindHtml}</td><td>${statusHtml}</td><td>${esc(d.time)}</td><td style="font-weight:bold;">${esc(d.party)}</td><td>${esc(d.item)}</td><td>${esc(d.qty)}</td><td>${esc(d.carrier)}</td><td>${esc(d.dept || '-')}</td><td>${esc(d.person)}</td><td style="white-space:pre-wrap;font-size:12px;line-height:1.4;color:#666;">${esc(d.note)}</td>`;
+                    noticesDlvBody.appendChild(tr);
+                });
             }
 
             function renderNoticesStatusTables(atts, viss, trips) {
@@ -3159,26 +3018,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cachedAtt  = getCacheForDate('sc_att_cache',  dateStr);
                 const cachedVis  = getCacheForDate('sc_vis_cache',  dateStr);
                 const cachedTrip = getCacheForDate('sc_trip_cache', dateStr);
+                const cachedDlv  = getCacheForDate('sc_dlv_cache',  dateStr);
 
-                if (cachedAtt !== null && cachedVis !== null && cachedTrip !== null) {
+                if (cachedAtt !== null && cachedVis !== null && cachedTrip !== null && cachedDlv !== null) {
                     renderNoticesStatusTables(cachedAtt, cachedVis, cachedTrip);
+                    renderNoticesDeliveries(cachedDlv);
                     return;
                 }
                 try {
-                    const [attSnap, visSnap, tripSnap] = await Promise.all([
+                    const [attSnap, visSnap, tripSnap, dlvSnap] = await Promise.all([
                         db.collection('attendances').where('date', '==', dateStr).get(),
                         db.collection('visitors').where('date', '==', dateStr).get(),
-                        db.collection('trips').where('date', '==', dateStr).get()
+                        db.collection('trips').where('date', '==', dateStr).get(),
+                        db.collection('deliveries').where('date', '==', dateStr).get()
                     ]);
                     if (seq !== _noticesStatusSeq) return;
                     const atts = []; attSnap.forEach(doc => atts.push({ id: doc.id, ...doc.data() }));
                     const viss = []; visSnap.forEach(doc => viss.push({ id: doc.id, ...doc.data() }));
                     const trips = []; tripSnap.forEach(doc => trips.push({ id: doc.id, ...doc.data() }));
+                    const dlvs = []; dlvSnap.forEach(doc => dlvs.push({ id: doc.id, ...doc.data() }));
                     setCacheForDate('sc_att_cache',  dateStr, atts);
                     setCacheForDate('sc_vis_cache',  dateStr, viss);
                     setCacheForDate('sc_trip_cache', dateStr, trips);
+                    setCacheForDate('sc_dlv_cache',  dateStr, dlvs);
                     if (seq !== _noticesStatusSeq) return;
                     renderNoticesStatusTables(atts, viss, trips);
+                    renderNoticesDeliveries(dlvs);
                 } catch(e) {
                     console.error('loadNoticesStatusData error:', e);
                     if (seq !== _noticesStatusSeq) return;
@@ -3186,6 +3051,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (noticesAttBody)  noticesAttBody.innerHTML  = errHtml;
                     if (noticesVisBody)  noticesVisBody.innerHTML  = errHtml;
                     if (noticesTripBody) noticesTripBody.innerHTML = errHtml;
+                    if (noticesDlvBody)  noticesDlvBody.innerHTML  = errHtml;
                 }
             }
 

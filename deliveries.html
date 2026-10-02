@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="apple-touch-icon" href="./static/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="緑高ポータル">
+    <title>配送物予定 | 教職員用ポータルサイト</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        .dlv-status-btn {
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            font-family: inherit;
+        }
+        .dlv-status-pending { background: #FFF3E0; color: #B5651D; border: 1px solid #F0D9B5; }
+        .dlv-status-done    { background: #E8F4F3; color: #0AA294; border: 1px solid #D1EAE7; }
+        .dlv-status-btn:hover { filter: brightness(0.95); }
+        tr.dlv-row-done td { color: #aaa; }
+        .dlv-carrier { background: #F7F7F5; border: 1px solid #E6E4DF; padding: 2px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+        .dlv-note { white-space: pre-wrap; font-size: 12px; line-height: 1.4; color: #666; }
+        .dlv-action-btn { background: transparent; border: none; font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; }
+        .dlv-edit-btn { color: #0066cc; margin-right: 4px; }
+        .dlv-delete-btn { color: #d9534f; }
+        .modal-actions.modal-actions-split { justify-content: space-between; }
+        .btn-delete-modal {
+            background: transparent;
+            color: #d9534f;
+            border: 1px solid #f0c6c2;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-delete-modal:hover { background: #fce4e4; }
+    </style>
+</head>
+<body>
+    <div class="layout-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="./static/ロゴ緑.png" alt="学校ロゴ" style="width: 40px; height: 40px; object-fit: contain; margin-right: 12px;">
+                <div class="header-text">
+                    <span class="school-name">緑ヶ丘女子高等学校</span>
+                    <h1 style="margin: 0; font-size: 18px;">教職員ポータル</h1>
+                </div>
+            </div>
+            <div class="sidebar-section"><h2 class="sidebar-title">ショートカット</h2><ul class="app-list"></ul></div>
+        </aside>
+
+        <main class="main-content">
+            <div class="date-controller">
+                <button id="dlv-prev-btn" class="date-btn">◀ 前の日</button>
+                <input type="date" id="dlv-view-date" class="modal-input" style="width: auto; margin: 0; font-weight: bold; font-size: 16px;">
+                <button id="dlv-next-btn" class="date-btn">次の日 ▶</button>
+                <button id="dlv-today-btn" class="date-btn" style="background-color: #fce4e4; color: #d9534f; border-color: #f5c6c6;">今日に戻る</button>
+            </div>
+
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
+                <div class="column-header"><h2 class="section-title" id="dlv-send-section-title">本日の発送物</h2><button id="add-send-btn" class="add-button">＋ 追加</button></div>
+                <div style="overflow-x: auto;"><table class="active-table">
+                    <thead><tr><th>状況</th><th>集荷時間</th><th>宛先</th><th>内容</th><th>個数</th><th>配送業者</th><th>分掌</th><th>依頼者</th><th>備考</th><th>操作</th></tr></thead>
+                    <tbody id="dlv-send-body"><tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">読み込み中...</td></tr></tbody>
+                </table></div>
+            </section>
+
+            <section class="column-section" style="margin-top: 0; margin-bottom: 40px;">
+                <div class="column-header"><h2 class="section-title" id="dlv-recv-section-title">本日の配達物</h2><button id="add-recv-btn" class="add-button">＋ 追加</button></div>
+                <div style="overflow-x: auto;"><table class="active-table">
+                    <thead><tr><th>状況</th><th>到着時間</th><th>差出人</th><th>内容</th><th>個数</th><th>配送業者</th><th>分掌</th><th>受取者</th><th>備考</th><th>操作</th></tr></thead>
+                    <tbody id="dlv-recv-body"><tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">読み込み中...</td></tr></tbody>
+                </table></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 発送物・配達物 追加/編集モーダル（kind で項目名を切り替え） -->
+    <div id="dlv-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="modal-title" id="dlv-modal-title">発送物を追加</h3>
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;"><label>対象日</label><input type="date" id="dlv-date" class="modal-input"></div>
+                <div class="form-group" style="flex: 1;"><label id="dlv-time-label">集荷時間</label><input type="time" id="dlv-time" class="modal-input"></div>
+            </div>
+            <div class="form-group"><label id="dlv-party-label">宛先</label><input type="text" id="dlv-party" class="modal-input" placeholder="例：〇〇株式会社"></div>
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 2;"><label>内容</label><input type="text" id="dlv-item" class="modal-input" placeholder="例：入試願書"></div>
+                <div class="form-group" style="flex: 1;"><label>個数</label><input type="text" id="dlv-qty" class="modal-input" placeholder="例：2箱"></div>
+            </div>
+            <div class="form-group"><label>配送業者</label>
+                <select id="dlv-carrier" class="modal-input" style="background-color: #fff; cursor: pointer;">
+                    <option value="">---</option>
+                    <option value="ヤマト運輸">ヤマト運輸</option>
+                    <option value="佐川急便">佐川急便</option>
+                    <option value="日本郵便">日本郵便</option>
+                    <option value="その他">その他</option>
+                </select>
+            </div>
+            <div class="form-group" id="dlv-carrier-other-wrap" style="display:none;"><label>配送業者（その他）</label><input type="text" id="dlv-carrier-other" class="modal-input" placeholder="例：西濃運輸（空欄なら「その他」で登録）"></div>
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 1;"><label>分掌</label>
+                    <input type="text" id="dlv-dept" class="modal-input" list="dlv-dept-options" placeholder="選択または入力">
+                    <datalist id="dlv-dept-options">
+                        <option value="教務部"></option><option value="進路指導部"></option><option value="生徒指導部"></option>
+                        <option value="入試対策部"></option><option value="総務部"></option><option value="生徒会"></option><option value="事務室"></option>
+                    </datalist>
+                </div>
+                <div class="form-group" style="flex: 1;"><label id="dlv-person-label">依頼者</label><input type="text" id="dlv-person" class="modal-input" placeholder="例：山田太郎"></div>
+            </div>
+            <div class="form-group"><label>状況</label>
+                <select id="dlv-done" class="modal-input" style="background-color: #fff; cursor: pointer;">
+                    <option value="0" id="dlv-done-opt-0">未発送</option>
+                    <option value="1" id="dlv-done-opt-1">発送済</option>
+                </select>
+            </div>
+            <div class="form-group"><label>備考</label><textarea id="dlv-note" class="modal-input" rows="3" style="resize: vertical;" placeholder="改行して入力できます"></textarea></div>
+            <div class="modal-actions modal-actions-split">
+                <button id="dlv-delete" class="btn-delete-modal" style="display:none;">削除</button>
+                <div style="display:flex; gap:8px;"><button id="dlv-cancel" class="btn-cancel">キャンセル</button><button id="dlv-submit" class="btn-submit">追加</button></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <script src="./static/js/firebase_init.js"></script>
+    <script src="./static/js/ui_common.js"></script>
+    <script src="./static/js/portal_features.js"></script>
+    <script src="./static/js/portal_editor.js"></script>
+
+    <script>
+    // ==================================================
+    // 配送物予定（deliveries.html 専用）
+    // Firestore collection:
+    //   deliveries : { date, kind: 'send'|'receive', party, item, qty, carrier, dept, person, time, done, note }
+    //     send    … party=宛先 / dept=分掌 / person=依頼者 / time=集荷時間 / done=発送済
+    //     receive … party=差出人 / dept=分掌 / person=受取者 / time=到着時間 / done=受取済
+    //     carrier … ヤマト運輸 / 佐川急便 / 日本郵便 / その他（自由記述）
+    // ==================================================
+    (function() {
+        const sendBody = document.getElementById('dlv-send-body');
+        const recvBody = document.getElementById('dlv-recv-body');
+        if (!sendBody || !recvBody) return;
+
+        const KIND_META = {
+            send:    { name: '発送物', party: '宛先',   person: '依頼者', time: '集荷時間', pending: '未発送', done: '発送済' },
+            receive: { name: '配達物', party: '差出人', person: '受取者', time: '到着時間', pending: '未着',   done: '受取済' }
+        };
+        const CARRIERS = ['ヤマト運輸', '佐川急便', '日本郵便'];
+
+        let deliveries = [];
+        let currentViewDate = new Date();
+        let editingId = null, editingKind = 'send';
+        let dlvLoadSeq = 0;
+
+        function escHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function dash(v) { return (v && v !== '-') ? escHtml(v) : '<span style="color:#ccc;">-</span>'; }
+
+        // ja-JP ロケールは元号年を返す場合があるため UTC+9 オフセットで直接計算
+        function dlvDateStr(dateObj) {
+            const jst = new Date(dateObj.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().slice(0, 10);
+        }
+        const DLV_TODAY = dlvDateStr(new Date());
+
+        // ── 日付別キャッシュ（notices.html と同じ localStorage キーを共有）──
+        function dlvGetCacheForDate(dateStr) {
+            try {
+                const c = getSC('sc_dlv_cache');
+                if (!c || !c[dateStr + '_ok']) return null;
+                return c[dateStr] || [];
+            } catch(e) { return null; }
+        }
+        function dlvSetCacheForDate(dateStr, data) {
+            try {
+                const c = getSC('sc_dlv_cache') || {};
+                c[dateStr] = data;
+                c[dateStr + '_ok'] = true;
+                const parts = Object.keys(c).filter(k => !k.endsWith('_ok')).sort().reverse();
+                if (parts.length > 14) parts.slice(14).forEach(d => { delete c[d]; delete c[d + '_ok']; });
+                setSC('sc_dlv_cache', c);
+            } catch(e) {}
+        }
+
+        // ==================================================
+        // 読み込み・描画
+        // ==================================================
+        function updateSectionTitles(dateStr) {
+            const [, m, d] = dateStr.split('-');
+            const label = dateStr === DLV_TODAY ? `本日（${parseInt(m)}/${parseInt(d)}）` : `${parseInt(m)}/${parseInt(d)}`;
+            document.getElementById('dlv-send-section-title').textContent = `${label}の発送物`;
+            document.getElementById('dlv-recv-section-title').textContent = `${label}の配達物`;
+        }
+
+        async function dlvLoadDay(dateStr) {
+            const seq = ++dlvLoadSeq;
+            document.getElementById('dlv-view-date').value = dateStr;
+            updateSectionTitles(dateStr);
+
+            await ensureCacheVersionChecked();
+            if (seq !== dlvLoadSeq) return;
+
+            const cached = dlvGetCacheForDate(dateStr);
+            if (cached !== null) { deliveries = cached; dlvRender(); return; }
+            try {
+                const snap = await db.collection('deliveries').where('date', '==', dateStr).get();
+                if (seq !== dlvLoadSeq) return;
+                const arr = []; snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+                deliveries = arr;
+                dlvSetCacheForDate(dateStr, arr);
+            } catch(e) {
+                console.error('dlvLoadDay error:', e);
+                if (seq !== dlvLoadSeq) return;
+                const errHtml = `<tr><td colspan="10" style="text-align:center;color:#c0392b;padding:20px;font-size:13px;">⚠ データの読み込みに失敗しました。ページを再読み込みしてください。</td></tr>`;
+                sendBody.innerHTML = errHtml; recvBody.innerHTML = errHtml;
+                return;
+            }
+            dlvRender();
+        }
+
+        // 時刻順（未入力は末尾）
+        function sortByTime(arr) {
+            return arr.slice().sort((a, b) => {
+                const ta = (a.time && a.time !== '-') ? a.time : '99:99';
+                const tb = (b.time && b.time !== '-') ? b.time : '99:99';
+                return ta.localeCompare(tb);
+            });
+        }
+
+        function renderBody(tbody, kind) {
+            const meta = KIND_META[kind];
+            const rows = sortByTime(deliveries.filter(d => d.kind === kind));
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#aaa;padding:20px;font-size:14px;">登録された${meta.name}はありません</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = rows.map(d => `
+                <tr class="${d.done ? 'dlv-row-done' : ''}">
+                    <td><button type="button" class="dlv-status-btn ${d.done ? 'dlv-status-done' : 'dlv-status-pending'}" data-act="toggle" data-id="${d.id}" title="クリックで切り替え">${d.done ? meta.done : meta.pending}</button></td>
+                    <td>${dash(d.time)}</td>
+                    <td style="font-weight: bold;">${dash(d.party)}</td>
+                    <td>${dash(d.item)}</td>
+                    <td>${dash(d.qty)}</td>
+                    <td>${(d.carrier && d.carrier !== '-') ? `<span class="dlv-carrier">${escHtml(d.carrier)}</span>` : dash('')}</td>
+                    <td>${dash(d.dept)}</td>
+                    <td>${dash(d.person)}</td>
+                    <td class="dlv-note">${escHtml(d.note)}</td>
+                    <td style="white-space: nowrap;"><button type="button" class="dlv-action-btn dlv-edit-btn" data-act="edit" data-id="${d.id}">編集</button><button type="button" class="dlv-action-btn dlv-delete-btn" data-act="delete" data-id="${d.id}">削除</button></td>
+                </tr>`).join('');
+        }
+
+        function dlvRender() {
+            renderBody(sendBody, 'send');
+            renderBody(recvBody, 'receive');
+        }
+
+        async function afterWrite(dateStr) {
+            clearSC('sc_dlv_cache'); await updateCacheVersion();
+            await dlvLoadDay(dateStr);
+        }
+
+        // ==================================================
+        // 一覧の操作（状況切替・編集・削除）
+        // ==================================================
+        async function onTableClick(e) {
+            const btn = e.target.closest('button[data-act]');
+            if (!btn) return;
+            const d = deliveries.find(x => x.id === btn.dataset.id);
+            if (!d) return;
+            const act = btn.dataset.act;
+            try {
+                if (act === 'toggle') {
+                    await db.collection('deliveries').doc(d.id).update({ done: !d.done });
+                    await afterWrite(dlvDateStr(currentViewDate));
+                } else if (act === 'edit') {
+                    openModal(d.kind, d);
+                } else if (act === 'delete') {
+                    if (!confirm('この項目を削除しますか？')) return;
+                    await db.collection('deliveries').doc(d.id).delete();
+                    await afterWrite(dlvDateStr(currentViewDate));
+                }
+            } catch(err) { alert('更新に失敗しました。\n' + err.message); }
+        }
+        sendBody.addEventListener('click', onTableClick);
+        recvBody.addEventListener('click', onTableClick);
+
+        // ==================================================
+        // 追加/編集モーダル
+        // ==================================================
+        const modal = document.getElementById('dlv-modal');
+        const FIELDS = ['party', 'item', 'qty', 'dept', 'person', 'time'];
+        const carrierSel = document.getElementById('dlv-carrier');
+        const carrierOtherWrap = document.getElementById('dlv-carrier-other-wrap');
+        const carrierOther = document.getElementById('dlv-carrier-other');
+
+        // 保存値 → セレクト＋自由記述（一覧にない業者名は「その他」として扱う）
+        function setCarrier(v) {
+            v = (v && v !== '-') ? v : '';
+            if (!v || CARRIERS.includes(v)) { carrierSel.value = v; carrierOther.value = ''; }
+            else { carrierSel.value = 'その他'; carrierOther.value = v === 'その他' ? '' : v; }
+            carrierOtherWrap.style.display = carrierSel.value === 'その他' ? '' : 'none';
+        }
+        function getCarrier() {
+            if (carrierSel.value === 'その他') return carrierOther.value.trim() || 'その他';
+            return carrierSel.value || '-';
+        }
+        carrierSel.addEventListener('change', () => {
+            carrierOtherWrap.style.display = carrierSel.value === 'その他' ? '' : 'none';
+        });
+
+        function openModal(kind, d) {
+            const meta = KIND_META[kind];
+            editingKind = kind;
+            editingId = d ? d.id : null;
+            document.getElementById('dlv-modal-title').textContent = `${meta.name}を${d ? '編集' : '追加'}`;
+            document.getElementById('dlv-party-label').textContent = meta.party;
+            document.getElementById('dlv-person-label').textContent = meta.person;
+            document.getElementById('dlv-time-label').textContent = meta.time;
+            document.getElementById('dlv-done-opt-0').textContent = meta.pending;
+            document.getElementById('dlv-done-opt-1').textContent = meta.done;
+            document.getElementById('dlv-submit').textContent = d ? '更新' : '追加';
+            document.getElementById('dlv-delete').style.display = d ? '' : 'none';
+
+            document.getElementById('dlv-date').value = d ? (d.date || '') : dlvDateStr(currentViewDate);
+            FIELDS.forEach(f => {
+                const v = d ? d[f] : '';
+                document.getElementById(`dlv-${f}`).value = (v && v !== '-') ? v : '';
+            });
+            setCarrier(d ? d.carrier : '');
+            document.getElementById('dlv-done').value = (d && d.done) ? '1' : '0';
+            document.getElementById('dlv-note').value = d ? (d.note || '') : '';
+            modal.classList.remove('hidden');
+        }
+
+        document.getElementById('add-send-btn').addEventListener('click', () => openModal('send', null));
+        document.getElementById('add-recv-btn').addEventListener('click', () => openModal('receive', null));
+        document.getElementById('dlv-cancel').addEventListener('click', () => modal.classList.add('hidden'));
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+
+        document.getElementById('dlv-submit').addEventListener('click', async () => {
+            const date = document.getElementById('dlv-date').value;
+            const party = document.getElementById('dlv-party').value.trim();
+            const item = document.getElementById('dlv-item').value.trim();
+            if (!date || (!party && !item)) {
+                alert(`対象日と、${KIND_META[editingKind].party}または内容のいずれかを入力してください`); return;
+            }
+            const data = { date, kind: editingKind, done: document.getElementById('dlv-done').value === '1', note: document.getElementById('dlv-note').value.trim() };
+            FIELDS.forEach(f => { data[f] = document.getElementById(`dlv-${f}`).value.trim() || '-'; });
+            data.carrier = getCarrier();
+            try {
+                if (editingId) await db.collection('deliveries').doc(editingId).update(data);
+                else await db.collection('deliveries').add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                modal.classList.add('hidden');
+                currentViewDate = new Date(date + 'T00:00:00');
+                await afterWrite(date);
+            } catch(e) { alert('保存に失敗しました。\n' + e.message); }
+        });
+
+        document.getElementById('dlv-delete').addEventListener('click', async () => {
+            if (!editingId) return;
+            if (!confirm('この項目を削除しますか？')) return;
+            try {
+                await db.collection('deliveries').doc(editingId).delete();
+                modal.classList.add('hidden');
+                await afterWrite(dlvDateStr(currentViewDate));
+            } catch(e) { alert('削除に失敗しました。\n' + e.message); }
+        });
+
+        // ==================================================
+        // 日付ナビゲーション
+        // ==================================================
+        document.getElementById('dlv-prev-btn').addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() - 1); dlvLoadDay(dlvDateStr(currentViewDate)); });
+        document.getElementById('dlv-next-btn').addEventListener('click', () => { currentViewDate.setDate(currentViewDate.getDate() + 1); dlvLoadDay(dlvDateStr(currentViewDate)); });
+        document.getElementById('dlv-today-btn').addEventListener('click', () => { currentViewDate = new Date(); dlvLoadDay(dlvDateStr(currentViewDate)); });
+        document.getElementById('dlv-view-date').addEventListener('change', (e) => {
+            if (e.target.value) { currentViewDate = new Date(e.target.value + 'T00:00:00'); dlvLoadDay(dlvDateStr(currentViewDate)); }
+        });
+
+        // 初期化（firebase_init.js の DOMContentLoaded で db が生成された後に実行する）
+        document.addEventListener('DOMContentLoaded', () => dlvLoadDay(DLV_TODAY));
+    })();
+    </script>
+</body>
+</html>
